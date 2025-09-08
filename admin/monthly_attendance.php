@@ -16,9 +16,16 @@ $months = [
     '10' => 'অক্টোবর', '11' => 'নভেম্বর', '12' => 'ডিসেম্বর'
 ];
 
+// স্কুল তথ্য লোড করুন
+$school_info = $pdo->query("SELECT * FROM school_info WHERE id = 1")->fetch();
+
 // ক্লাস এবং সেকশন লোড করুন
 $classes = $pdo->query("SELECT * FROM classes WHERE status='active' ORDER BY numeric_value ASC")->fetchAll();
 $sections = [];
+
+// ছুটির দিনগুলো লোড করুন
+$holidays = $pdo->query("SELECT * FROM holidays WHERE status='active'")->fetchAll();
+$holiday_dates = array_column($holidays, 'date');
 
 // ফর্ম সাবমিট হলে
 if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
@@ -35,6 +42,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
     // মাসের দিন সংখ্যা এবং প্রথম দিন নির্ধারণ করুন
     $days_in_month = cal_days_in_month(CAL_GREGORIAN, $month, $year);
     $first_day = date('N', strtotime("$year-$month-01")); // 1 (সোমবার) থেকে 7 (রবিবার)
+    
+    // নির্বাচিত ক্লাস ও শাখার নাম পান
+    $class_name = $pdo->prepare("SELECT name FROM classes WHERE id = ?");
+    $class_name->execute([$class_id]);
+    $class = $class_name->fetch();
+    
+    $section_name = $pdo->prepare("SELECT name FROM sections WHERE id = ?");
+    $section_name->execute([$section_id]);
+    $section = $section_name->fetch();
     
     // শিক্ষার্থীদের লোড করুন
     $students_stmt = $pdo->prepare("
@@ -104,7 +120,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
             border-radius: 10px 10px 0 0 !important;
         }
         .attendance-table {
-            font-size: 0.85rem;
+            font-size: 0.75rem;
         }
         .attendance-table th {
             background-color: #f8f9fc;
@@ -112,45 +128,97 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
             font-weight: 600;
             text-align: center;
             vertical-align: middle;
+            padding: 5px 3px;
         }
         .attendance-table td {
             text-align: center;
             vertical-align: middle;
+            padding: 4px 2px;
         }
         .day-off {
             background-color: #f8f9fa;
         }
         .present {
             color: #28a745;
-            font-weight: bold;
         }
         .absent {
             color: #dc3545;
-            font-weight: bold;
         }
         .late {
             color: #ffc107;
-            font-weight: bold;
         }
-        .half-day {
-            color: #17a2b8;
-            font-weight: bold;
+        .holiday {
+            background-color: #fff3cd;
+            color: #856404;
         }
         .summary-card {
             background: linear-gradient(45deg, #f8f9fc, #e3e6f0);
             border-left: 4px solid #4e73df;
         }
+        .school-header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #4e73df;
+        }
+        .school-name {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4e73df;
+            margin-bottom: 5px;
+        }
+        .school-details {
+            font-size: 14px;
+            color: #6c757d;
+        }
+        .report-title {
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            margin: 15px 0;
+            color: #4e73df;
+        }
+        .criteria-info {
+            font-size: 14px;
+            text-align: center;
+            margin-bottom: 15px;
+            color: #6c757d;
+        }
+        .daily-total {
+            font-weight: bold;
+            background-color: #e9ecef;
+        }
         @media print {
             .no-print {
                 display: none;
             }
+            body {
+                font-size: 12px;
+            }
+            .attendance-table {
+                font-size: 10px;
+            }
+            .school-header {
+                margin-bottom: 10px;
+                padding-bottom: 5px;
+            }
+            .school-name {
+                font-size: 18px;
+            }
+            .report-title {
+                font-size: 16px;
+                margin: 10px 0;
+            }
+            .container-fluid {
+                padding: 0 5px;
+            }
+            .card {
+                border: none;
+                box-shadow: none;
+            }
             .card-header {
                 background-color: #4e73df !important;
                 color: white !important;
-                print-color-adjust: exact;
-                print-color-adjust: exact;
-                print-color-adjust: exact;
-                print-color-adjust: exact;
                 -webkit-print-color-adjust: exact;
             }
             .summary-card {
@@ -181,7 +249,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
                     </div>
                     <div class="col-sm-6">
                         <ol class="breadcrumb float-sm-right">
-                            <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>admin/dashboard.php">হোম</a></li>
+                            <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>dashboard.php">হোম</a></li>
                             <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>admin/reports.php">রিপোর্ট</a></li>
                             <li class="breadcrumb-item active">মাসিক হাজিরা রিপোর্ট</li>
                         </ol>
@@ -286,14 +354,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
                                         <h4>
                                             <?php 
                                             if(isset($class_id) && isset($section_id)) {
-                                                $class_name = $pdo->prepare("SELECT name FROM classes WHERE id = ?");
-                                                $class_name->execute([$class_id]);
-                                                $class = $class_name->fetch();
-                                                
-                                                $section_name = $pdo->prepare("SELECT name FROM sections WHERE id = ?");
-                                                $section_name->execute([$section_id]);
-                                                $section = $section_name->fetch();
-                                                
                                                 echo $class['name'] . ' - ' . $section['name'] . ' শাখার ' . $months[$month] . ', ' . $year . ' এর উপস্থিতি রিপোর্ট';
                                             }
                                             ?>
@@ -303,28 +363,64 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
                                         </button>
                                     </div>
                                     
+                                    <!-- Print Header -->
+                                    <div class="school-header no-print">
+                                        <div class="school-name"><?php echo $school_info['name']; ?></div>
+                                        <div class="school-details">
+                                            <?php echo $school_info['address']; ?> | 
+                                            ফোন: <?php echo $school_info['phone']; ?> | 
+                                            ইমেইল: <?php echo $school_info['email']; ?>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="report-title">
+                                        মাসিক হাজিরা রিপোর্ট
+                                    </div>
+                                    
+                                    <div class="criteria-info">
+                                        ক্লাস: <?php echo $class['name']; ?> | 
+                                        শাখা: <?php echo $section['name']; ?> | 
+                                        মাস: <?php echo $months[$month] . ', ' . $year; ?>
+                                    </div>
+                                    
                                     <?php if(!empty($students)): ?>
                                         <div class="table-responsive">
                                             <table class="table table-bordered table-striped attendance-table">
                                                 <thead>
                                                     <tr>
-                                                        <th rowspan="2" style="width: 50px;">রোল</th>
-                                                        <th rowspan="2" style="min-width: 150px;">শিক্ষার্থীর নাম</th>
+                                                        <th rowspan="2" style="width: 30px;">রোল</th>
+                                                        <th rowspan="2" style="min-width: 120px;">শিক্ষার্থীর নাম</th>
                                                         <?php for($day = 1; $day <= $days_in_month; $day++): 
                                                             $date = sprintf("%04d-%02d-%02d", $year, $month, $day);
                                                             $day_of_week = date('N', strtotime($date));
                                                             $is_weekend = ($day_of_week >= 6); // শনি (6) ও রবি (7)
+                                                            $is_holiday = in_array($date, $holiday_dates);
                                                         ?>
-                                                            <th class="<?php echo $is_weekend ? 'day-off' : ''; ?>">
+                                                            <th class="<?php echo ($is_weekend || $is_holiday) ? 'day-off' : ''; ?>">
                                                                 <?php 
                                                                 $bangla_days = ['', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহস্পতি', 'শুক্র', 'শনি', 'রবি'];
-                                                                echo $day . '<br><small>' . $bangla_days[$day_of_week] . '</small>'; 
+                                                                echo $day; 
                                                                 ?>
                                                             </th>
                                                         <?php endfor; ?>
-                                                        <th rowspan="2" style="width: 70px;">মোট উপ.</th>
-                                                        <th rowspan="2" style="width: 70px;">মোট অনু.</th>
-                                                        <th rowspan="2" style="width: 70px;">%</th>
+                                                        <th rowspan="2" style="width: 40px;">মোট উপ.</th>
+                                                        <th rowspan="2" style="width: 40px;">মোট অনু.</th>
+                                                        <th rowspan="2" style="width: 40px;">%</th>
+                                                    </tr>
+                                                    <tr>
+                                                        <?php for($day = 1; $day <= $days_in_month; $day++): 
+                                                            $date = sprintf("%04d-%02d-%02d", $year, $month, $day);
+                                                            $day_of_week = date('N', strtotime($date));
+                                                            $is_weekend = ($day_of_week >= 6);
+                                                            $is_holiday = in_array($date, $holiday_dates);
+                                                        ?>
+                                                            <th class="<?php echo ($is_weekend || $is_holiday) ? 'day-off' : ''; ?>">
+                                                                <?php 
+                                                                $bangla_days = ['', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহস্পতি', 'শুক্র', 'শনি', 'রবি'];
+                                                                echo $bangla_days[$day_of_week]; 
+                                                                ?>
+                                                            </th>
+                                                        <?php endfor; ?>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -332,6 +428,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
                                                     $total_present_all = 0;
                                                     $total_absent_all = 0;
                                                     $total_students = count($students);
+                                                    $daily_totals = array_fill(1, $days_in_month, ['present' => 0, 'absent' => 0]);
                                                     ?>
                                                     
                                                     <?php foreach($students as $student): 
@@ -347,24 +444,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
                                                                 $date = sprintf("%04d-%02d-%02d", $year, $month, $day);
                                                                 $day_of_week = date('N', strtotime($date));
                                                                 $is_weekend = ($day_of_week >= 6);
+                                                                $is_holiday = in_array($date, $holiday_dates);
                                                                 
                                                                 $status = isset($attendance_data[$student_id][$date]) ? $attendance_data[$student_id][$date] : '';
                                                                 
-                                                                if($is_weekend) {
+                                                                if($is_weekend || $is_holiday) {
                                                                     echo '<td class="day-off">ছুটি</td>';
                                                                 } else {
                                                                     if($status == 'present') {
-                                                                        echo '<td class="present">উ</td>';
+                                                                        echo '<td class="present"><i class="fas fa-check-circle"></i></td>';
                                                                         $total_present++;
+                                                                        $daily_totals[$day]['present']++;
                                                                     } elseif($status == 'absent') {
-                                                                        echo '<td class="absent">অ</td>';
+                                                                        echo '<td class="absent"><i class="fas fa-times-circle"></i></td>';
                                                                         $total_absent++;
+                                                                        $daily_totals[$day]['absent']++;
                                                                     } elseif($status == 'late') {
-                                                                        echo '<td class="late">দে</td>';
+                                                                        echo '<td class="late"><i class="fas fa-clock"></i></td>';
                                                                         $total_present++; // দেরীতে আসলেও উপস্থিত ধরা হয়
-                                                                    } elseif($status == 'half_day') {
-                                                                        echo '<td class="half-day">অর্ধ</td>';
-                                                                        $total_present++; // অর্ধদিবসও উপস্থিত ধরা হয়
+                                                                        $daily_totals[$day]['present']++;
                                                                     } else {
                                                                         echo '<td>-</td>';
                                                                     }
@@ -372,10 +470,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
                                                             endfor; ?>
                                                             
                                                             <?php 
-                                                            $total_days = $days_in_month - count(array_filter(range(1, $days_in_month), function($day) use ($year, $month) {
+                                                            $total_days = $days_in_month - count(array_filter(range(1, $days_in_month), function($day) use ($year, $month, $holiday_dates) {
                                                                 $date = sprintf("%04d-%02d-%02d", $year, $month, $day);
                                                                 $day_of_week = date('N', strtotime($date));
-                                                                return $day_of_week >= 6; // weekends
+                                                                $is_weekend = ($day_of_week >= 6);
+                                                                $is_holiday = in_array($date, $holiday_dates);
+                                                                return $is_weekend || $is_holiday;
                                                             }));
                                                             
                                                             $attendance_percentage = $total_days > 0 ? round(($total_present / $total_days) * 100, 2) : 0;
@@ -389,34 +489,27 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
                                                             <td><?php echo $attendance_percentage; ?>%</td>
                                                         </tr>
                                                     <?php endforeach; ?>
-                                                </tbody>
-                                                <tfoot>
-                                                    <tr>
-                                                        <td colspan="2" class="text-right"><strong>সর্বমোট:</strong></td>
+                                                    
+                                                    <!-- Daily Total Row -->
+                                                    <tr class="daily-total">
+                                                        <td colspan="2">দৈনিক মোট</td>
                                                         <?php for($day = 1; $day <= $days_in_month; $day++): 
                                                             $date = sprintf("%04d-%02d-%02d", $year, $month, $day);
                                                             $day_of_week = date('N', strtotime($date));
                                                             $is_weekend = ($day_of_week >= 6);
+                                                            $is_holiday = in_array($date, $holiday_dates);
                                                         ?>
-                                                            <td class="<?php echo $is_weekend ? 'day-off' : ''; ?>">
-                                                                <?php 
-                                                                if(!$is_weekend) {
-                                                                    $day_present = 0;
-                                                                    foreach($students as $student) {
-                                                                        $student_id = $student['id'];
-                                                                        $status = isset($attendance_data[$student_id][$date]) ? $attendance_data[$student_id][$date] : '';
-                                                                        if(in_array($status, ['present', 'late', 'half_day'])) {
-                                                                            $day_present++;
-                                                                        }
-                                                                    }
-                                                                    echo $day_present;
-                                                                } else {
-                                 echo '-';
-                                 } ?>
-                                                            </td>
+                                                            <?php if($is_weekend || $is_holiday): ?>
+                                                                <td class="day-off">-</td>
+                                                            <?php else: ?>
+                                                                <td>
+                                                                    <span class="present"><?php echo $daily_totals[$day]['present']; ?></span> /
+                                                                    <span class="absent"><?php echo $daily_totals[$day]['absent']; ?></span>
+                                                                </td>
+                                                            <?php endif; ?>
                                                         <?php endfor; ?>
-                                                        <td class="present"><strong><?php echo $total_present_all; ?></strong></td>
-                                                        <td class="absent"><strong><?php echo $total_absent_all; ?></strong></td>
+                                                        <td class="present"><?php echo $total_present_all; ?></td>
+                                                        <td class="absent"><?php echo $total_absent_all; ?></td>
                                                         <td>
                                                             <?php 
                                                             $total_possible_days = $total_days * $total_students;
@@ -425,7 +518,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
                                                             ?>
                                                         </td>
                                                     </tr>
-                                                </tfoot>
+                                                </tbody>
                                             </table>
                                         </div>
                                         
@@ -481,10 +574,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
                                             <div class="alert alert-info">
                                                 <h5><i class="icon fas fa-info"></i> চিহ্নিতকরণ</h5>
                                                 <p>
-                                                    <span class="present">উ</span> = উপস্থিত, 
-                                                    <span class="absent">অ</span> = অনুপস্থিত, 
-                                                    <span class="late">দে</span> = দেরীতে উপস্থিত, 
-                                                    <span class="half-day">অর্ধ</span> = অর্ধদিবস উপস্থিত
+                                                    <span class="present"><i class="fas fa-check-circle"></i></span> = উপস্থিত, 
+                                                    <span class="absent"><i class="fas fa-times-circle"></i></span> = অনুপস্থিত, 
+                                                    <span class="late"><i class="fas fa-clock"></i></span> = দেরীতে উপস্থিত
                                                 </p>
                                             </div>
                                         </div>
