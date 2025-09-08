@@ -65,7 +65,7 @@
                 <li class="nav-item">
                     <a href="<?php echo BASE_URL; ?>admin/reports.php" class="nav-link">
                         <i class="nav-icon fas fa-chart-bar"></i>
-                        <p>রিপোর্ট</p>
+                        <p>রিপোর্ট <i class="right fas fa-angle-left"></i></p>
                     </a>
                     <ul class="nav nav-treeview">
                         <li class="nav-item">
