@@ -61,10 +61,65 @@ if (isset($_GET['delete_id'])) {
             font-family: 'SolaimanLipi', 'Source Sans Pro', sans-serif;
         }
         .teacher-img {
-            width: 60px;
-            height: 80px;
+            width: 50px;
+            height: 50px;
             object-fit: cover;
-            border-radius: 10%;
+            border-radius: 50%;
+            border: 2px solid #dee2e6;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .card-header {
+            background: linear-gradient(45deg, #4e73df, #224abe);
+            color: white;
+        }
+        .card-header .card-title {
+            font-weight: 600;
+        }
+        .btn-primary {
+            background: linear-gradient(45deg, #4e73df, #224abe);
+            border: none;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .btn-primary:hover {
+            background: linear-gradient(45deg, #224abe, #4e73df);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        .table th {
+            background-color: #f8f9fc;
+            color: #4e73df;
+            font-weight: 600;
+            border-top: 1px solid #e3e6f0;
+        }
+        .badge {
+            font-size: 0.85em;
+            padding: 0.4em 0.6em;
+        }
+        .action-buttons .btn {
+            margin-right: 5px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .action-buttons .btn:last-child {
+            margin-right: 0;
+        }
+        #teachersTable_wrapper {
+            padding: 0;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        .dataTables_filter input {
+            border-radius: 4px;
+            border: 1px solid #d1d3e2;
+            padding: 0.375rem 0.75rem;
+        }
+        .pagination .page-link {
+            color: #4e73df;
+        }
+        .pagination .page-item.active .page-link {
+            background-color: #4e73df;
+            border-color: #4e73df;
         }
     </style>
 </head>
@@ -85,7 +140,7 @@ if (isset($_GET['delete_id'])) {
             <div class="container-fluid">
                 <div class="row mb-2">
                     <div class="col-sm-6">
-                        <h1 class="m-0">শিক্ষক ব্যবস্থাপনা</h1>
+                        <h1 class="m-0 text-dark">শিক্ষক ব্যবস্থাপনা</h1>
                     </div>
                     <div class="col-sm-6">
                         <ol class="breadcrumb float-sm-right">
@@ -119,7 +174,7 @@ if (isset($_GET['delete_id'])) {
 
                 <div class="row">
                     <div class="col-12">
-                        <div class="card">
+                        <div class="card shadow">
                             <div class="card-header">
                                 <h3 class="card-title">শিক্ষকদের তালিকা</h3>
                                 <div class="card-tools">
@@ -130,45 +185,52 @@ if (isset($_GET['delete_id'])) {
                             </div>
                             <!-- /.card-header -->
                             <div class="card-body">
-                                <table id="teachersTable" class="table table-bordered table-striped">
+                                <table id="teachersTable" class="table table-bordered table-hover">
                                     <thead>
                                         <tr>
+                                            <th width="30">#</th>
                                             <th>ছবি</th>
                                             <th>নাম</th>
+                                            <th>ইউজারনেম</th>
                                             <th>ইমেইল</th>
                                             <th>মোবাইল</th>
-                                            <th>ক্লাস সংখ্যা</th>
-                                            <th>স্ট্যাটাস</th>
-                                            <th>নিবন্ধন তারিখ</th>
-                                            <th>অ্যাকশন</th>
+                                            <th width="120">ক্লাস সংখ্যা</th>
+                                            <th width="100">স্ট্যাটাস</th>
+                                            <th width="120">নিবন্ধন তারিখ</th>
+                                            <th width="150" class="text-center">অ্যাকশন</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         <?php if(count($teachers) > 0): ?>
+                                            <?php $sl = 1; ?>
                                             <?php foreach($teachers as $teacher): ?>
                                                 <tr>
+                                                    <td class="text-center"><?php echo $sl++; ?></td>
                                                     <td class="text-center">
                                                         <?php if(!empty($teacher['photo'])): ?>
                                                             <img src="../uploads/teachers/<?php echo $teacher['photo']; ?>" class="teacher-img" alt="শিক্ষকের ছবি">
                                                         <?php else: ?>
-                                                            <img src="https://via.placeholder.com/40" class="teacher-img" alt="ছবি নেই">
+                                                            <div class="teacher-img bg-light d-flex align-items-center justify-content-center">
+                                                                <i class="fas fa-user text-muted"></i>
+                                                            </div>
                                                         <?php endif; ?>
                                                     </td>
                                                     <td><?php echo $teacher['full_name']; ?></td>
+                                                    <td><?php echo $teacher['username']; ?></td>
                                                     <td><?php echo $teacher['email']; ?></td>
                                                     <td><?php echo $teacher['phone']; ?></td>
                                                     <td class="text-center">
-                                                        <span class="badge bg-info"><?php echo $teacher['total_classes']; ?></span>
+                                                        <span class="badge bg-info p-2"><?php echo $teacher['total_classes']; ?> ক্লাস</span>
                                                     </td>
                                                     <td>
                                                         <?php if($teacher['status'] == 1): ?>
-                                                            <span class="badge badge-success">সক্রিয়</span>
+                                                            <span class="badge badge-success p-2">সক্রিয়</span>
                                                         <?php else: ?>
-                                                            <span class="badge badge-danger">নিষ্ক্রিয়</span>
+                                                            <span class="badge badge-danger p-2">নিষ্ক্রিয়</span>
                                                         <?php endif; ?>
                                                     </td>
                                                     <td><?php echo date('d/m/Y', strtotime($teacher['created_at'])); ?></td>
-                                                    <td>
+                                                    <td class="action-buttons text-center">
                                                         <a href="teacher_details.php?id=<?php echo $teacher['id']; ?>" class="btn btn-info btn-sm" title="বিস্তারিত">
                                                             <i class="fas fa-eye"></i>
                                                         </a>
@@ -183,7 +245,13 @@ if (isset($_GET['delete_id'])) {
                                             <?php endforeach; ?>
                                         <?php else: ?>
                                             <tr>
-                                                <td colspan="8" class="text-center">কোন শিক্ষক পাওয়া যায়নি</td>
+                                                <td colspan="10" class="text-center py-4">
+                                                    <i class="fas fa-exclamation-circle text-muted fa-2x mb-2"></i>
+                                                    <p class="text-muted">কোন শিক্ষক পাওয়া যায়নি</p>
+                                                    <a href="add_teacher.php" class="btn btn-primary mt-2">
+                                                        <i class="fas fa-plus"></i> নতুন শিক্ষক যোগ করুন
+                                                    </a>
+                                                </td>
                                             </tr>
                                         <?php endif; ?>
                                     </tbody>
@@ -243,7 +311,11 @@ if (isset($_GET['delete_id'])) {
                     "next": "পরবর্তী",
                     "previous": "পূর্ববর্তী"
                 }
-            }
+            },
+            "columnDefs": [
+                { "orderable": false, "targets": [0, 1, 9] }
+            ],
+            "order": [[2, 'asc']]
         });
 
         // শিক্ষক মুছার কনফার্মেশন
