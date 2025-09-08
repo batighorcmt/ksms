@@ -35,6 +35,17 @@ $sections = $pdo->query("SELECT * FROM sections WHERE status='active'")->fetchAl
 $guardians = $pdo->query("SELECT * FROM users WHERE role='guardian' AND status=1")->fetchAll();
 $relations = $pdo->query("SELECT * FROM guardian_relations")->fetchAll();
 
+// AJAX রিকোয়েস্ট হ্যান্ডলিং - ক্লাস আইডি অনুযায়ী শাখা লোড করার জন্য
+if (isset($_GET['class_id'])) {
+    $class_id = intval($_GET['class_id']);
+    $stmt = $pdo->prepare("SELECT * FROM sections WHERE class_id = ? AND status='active'");
+    $stmt->execute([$class_id]);
+    $sections = $stmt->fetchAll();
+    
+    echo json_encode($sections);
+    exit;
+}
+
 // শিক্ষার্থী আপডেট করুন
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_student'])) {
     $first_name = $_POST['first_name'];
@@ -60,6 +71,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_student'])) {
     // যদি অন্যান্য সম্পর্ক নির্বাচন করা হয়
     if ($guardian_relation == 'other' && !empty($other_relation)) {
         $guardian_relation = $other_relation;
+    }
+    
+    // অভিভাবক নাম ভ্যালিডেশন
+    if ($guardian_relation == 'পিতা' || $guardian_relation == 'মাতা') {
+        $guardian_name_field = ($guardian_relation == 'পিতা') ? 'father_name' : 'mother_name';
+        $guardian_name = $$guardian_name_field;
+    } else {
+        $guardian_name = $_POST['guardian_name'] ?? '';
+        if (empty($guardian_name)) {
+            $_SESSION['error'] = "অভিভাবকের নাম বাধ্যতামূলক!";
+            redirect('edit_student.php?id=' . $student_id);
+        }
     }
     
     // লোগো আপলোড হ্যান্ডলিং
@@ -123,7 +146,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_student'])) {
     <!-- Theme style -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
     <!-- Bengali Font -->
-    <link href="https://fonts.maateen.me/solaiman-lipi/font.css" rel="stylesheet">  
+    <link href="https://fonts.maateen.me/solaiman-lipi/font.css" rel="stylesheet">
     
     <style>
         body, .main-sidebar, .nav-link {
@@ -136,7 +159,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_student'])) {
             border-radius: 5px;
             border: 1px solid #ddd;
         }
-        .other-relation {
+        .other-relation, .guardian-name-field {
             display: none;
         }
     </style>
@@ -252,6 +275,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_student'])) {
                                                     <div class="form-group">
                                                         <label for="other_relation">অন্যান্য সম্পর্ক উল্লেখ করুন</label>
                                                         <input type="text" class="form-control" id="other_relation" name="other_relation" value="<?php echo (!in_array($student['guardian_relation'], array_column($relations, 'name'))) ? $student['guardian_relation'] : ''; ?>">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- অভিভাবক নাম ফিল্ড (পিতা/মাতা ছাড়া অন্য সম্পর্কের জন্য) -->
+                                            <div class="row guardian-name-field" id="guardian_name_field">
+                                                <div class="col-md-12">
+                                                    <div class="form-group">
+                                                        <label for="guardian_name">অভিভাবকের নাম *</label>
+                                                        <input type="text" class="form-control" id="guardian_name" name="guardian_name" value="">
                                                     </div>
                                                 </div>
                                             </div>
@@ -373,7 +406,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_student'])) {
                                                         <label for="section_id">শাখা *</label>
                                                         <select class="form-control" id="section_id" name="section_id" required>
                                                             <option value="">নির্বাচন করুন</option>
-                                                            <?php foreach($sections as $section): ?>
+                                                            <?php 
+                                                            // নির্বাচিত ক্লাসের শাখাগুলো লোড করুন
+                                                            $class_sections = $pdo->prepare("SELECT * FROM sections WHERE class_id = ? AND status='active'");
+                                                            $class_sections->execute([$student['class_id']]);
+                                                            $sections = $class_sections->fetchAll();
+                                                            
+                                                            foreach($sections as $section): ?>
                                                                 <option value="<?php echo $section['id']; ?>" <?php echo ($student['section_id'] == $section['id']) ? 'selected' : ''; ?>>
                                                                     <?php echo $section['name']; ?>
                                                                 </option>
@@ -449,7 +488,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_student'])) {
 <!-- Bootstrap 4 -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
 <!-- AdminLTE App -->
-<script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>  
+<script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
 
 <script>
     $(document).ready(function() {
@@ -477,11 +516,53 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_student'])) {
             } else {
                 $('#other_relation_field').hide();
             }
+            
+            // অভিভাবক নাম ফিল্ড দেখান/লুকান
+            if ($(this).val() === 'পিতা' || $(this).val() === 'মাতা') {
+                $('#guardian_name_field').hide();
+                $('#guardian_name').removeAttr('required');
+            } else if ($(this).val() !== '' && $(this).val() !== 'other') {
+                $('#guardian_name_field').show();
+                $('#guardian_name').attr('required', 'required');
+            } else {
+                $('#guardian_name_field').hide();
+                $('#guardian_name').removeAttr('required');
+            }
         });
+        
+        // পৃষ্ঠা লোড হওয়ার সময় সম্পর্ক ফিল্ড চেক করুন
+        if ($('#guardian_relation').val() !== 'পিতা' && $('#guardian_relation').val() !== 'মাতa' && $('#guardian_relation').val() !== '' && $('#guardian_relation').val() !== 'other') {
+            $('#guardian_name_field').show();
+            $('#guardian_name').attr('required', 'required');
+        }
 
         // ঠিকানা অনুলিপি করুন
         $('#copyAddress').click(function() {
             $('#permanent_address').val($('#present_address').val());
+        });
+        
+        // ক্লাস পরিবর্তন হলে শাখা লোড করুন
+        $('#class_id').change(function() {
+            var class_id = $(this).val();
+            if (class_id) {
+                $.ajax({
+                    url: 'edit_student.php',
+                    type: 'GET',
+                    data: {class_id: class_id},
+                    success: function(data) {
+                        var sections = JSON.parse(data);
+                        $('#section_id').empty();
+                        $('#section_id').append('<option value="">নির্বাচন করুন</option>');
+                        
+                        $.each(sections, function(key, value) {
+                            $('#section_id').append('<option value="'+ value.id +'">'+ value.name +'</option>');
+                        });
+                    }
+                });
+            } else {
+                $('#section_id').empty();
+                $('#section_id').append('<option value="">নির্বাচন করুন</option>');
+            }
         });
     });
 </script>
