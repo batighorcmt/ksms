@@ -3,7 +3,7 @@ require_once '../config.php';
 
 // Authentication check
 if (!isAuthenticated() || !hasRole(['super_admin'])) {
-    redirect('login.php');
+    redirect('../login.php');
 }
 
 // শিক্ষকদের ডেটা লোড করুন
@@ -61,10 +61,10 @@ if (isset($_GET['delete_id'])) {
             font-family: 'SolaimanLipi', 'Source Sans Pro', sans-serif;
         }
         .teacher-img {
-            width: 40px;
-            height: 40px;
+            width: 60px;
+            height: 80px;
             object-fit: cover;
-            border-radius: 50%;
+            border-radius: 10%;
         }
     </style>
 </head>
@@ -89,7 +89,7 @@ if (isset($_GET['delete_id'])) {
                     </div>
                     <div class="col-sm-6">
                         <ol class="breadcrumb float-sm-right">
-                            <li class="breadcrumb-item"><a href="<?php echo ADMIN_URL; ?>dashboard.php">হোম</a></li>
+                            <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>dashboard.php">হোম</a></li>
                             <li class="breadcrumb-item active">শিক্ষক ব্যবস্থাপনা</li>
                         </ol>
                     </div>
