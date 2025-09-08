@@ -163,27 +163,32 @@ if ($selected_class) {
             font-weight: 600;
             text-align: center;
             vertical-align: middle;
+            padding: 10px 5px;
         }
         .attendance-table td {
             text-align: center;
             vertical-align: middle;
+            padding: 8px 5px;
         }
         .radio-cell {
-            padding: 5px;
-            width: 33%;
+            width: 80px;
+            text-align: center;
         }
         .radio-label {
             display: block;
-            padding: 8px 5px;
-            border-radius: 4px;
+            width: 40px;
+            height: 40px;
+            line-height: 40px;
+            border-radius: 50%;
             cursor: pointer;
             transition: all 0.3s;
-            margin: 0;
+            margin: 0 auto;
+            font-size: 18px;
         }
         .radio-present .radio-label {
             background-color: #e8f5e9;
             color: #2e7d32;
-            border: 1px solid #2e7d32;
+            border: 2px solid #2e7d32;
         }
         .radio-present input[type="radio"]:checked + .radio-label {
             background-color: #2e7d32;
@@ -192,7 +197,7 @@ if ($selected_class) {
         .radio-absent .radio-label {
             background-color: #ffebee;
             color: #c62828;
-            border: 1px solid #c62828;
+            border: 2px solid #c62828;
         }
         .radio-absent input[type="radio"]:checked + .radio-label {
             background-color: #c62828;
@@ -201,7 +206,7 @@ if ($selected_class) {
         .radio-late .radio-label {
             background-color: #fff8e1;
             color: #f57f17;
-            border: 1px solid #f57f17;
+            border: 2px solid #f57f17;
         }
         .radio-late input[type="radio"]:checked + .radio-label {
             background-color: #f57f17;
@@ -214,19 +219,20 @@ if ($selected_class) {
             position: sticky;
             bottom: 0;
             background: white;
-            padding: 8px 15px;
+            padding: 5px 10px;
             border-top: 1px solid #eee;
             box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
             z-index: 100;
         }
         .btn-sm-compact {
-            padding: 0.25rem 0.5rem;
-            font-size: 0.875rem;
-            line-height: 1.5;
+            padding: 0.2rem 0.4rem;
+            font-size: 0.8rem;
+            line-height: 1.2;
             border-radius: 0.2rem;
         }
-        .status-icon {
-            margin-right: 5px;
+        .student-name {
+            text-align: left;
+            padding-left: 15px !important;
         }
     </style>
 </head>
@@ -360,12 +366,12 @@ if ($selected_class) {
                                             <table class="table table-bordered table-striped attendance-table">
                                                 <thead>
                                                     <tr>
-                                                        <th width="50">রোল</th>
+                                                        <th width="60">রোল</th>
                                                         <th>শিক্ষার্থীর নাম</th>
-                                                        <th class="radio-cell">উপস্থিত</th>
-                                                        <th class="radio-cell">অনুপস্থিত</th>
-                                                        <th class="radio-cell">দেরী</th>
-                                                        <th width="250">মন্তব্য</th>
+                                                        <th class="radio-cell"><i class="fas fa-check-circle text-success"></i></th>
+                                                        <th class="radio-cell"><i class="fas fa-times-circle text-danger"></i></th>
+                                                        <th class="radio-cell"><i class="fas fa-clock text-warning"></i></th>
+                                                        <th width="200">মন্তব্য</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -387,13 +393,13 @@ if ($selected_class) {
                                                     ?>
                                                         <tr>
                                                             <td><?php echo $student['roll_number']; ?></td>
-                                                            <td><?php echo $student['first_name'] . ' ' . $student['last_name']; ?></td>
+                                                            <td class="student-name"><?php echo $student['first_name'] . ' ' . $student['last_name']; ?></td>
                                                             
                                                             <!-- Present Radio -->
                                                             <td class="radio-present">
                                                                 <input type="radio" name="attendance[<?php echo $student_id; ?>][status]" id="present_<?php echo $student_id; ?>" value="present" <?php echo ($current_status == 'present') ? 'checked' : ''; ?>>
                                                                 <label for="present_<?php echo $student_id; ?>" class="radio-label">
-                                                                    <i class="fas fa-check-circle status-icon"></i> উপস্থিত
+                                                                    <i class="fas fa-check-circle"></i>
                                                                 </label>
                                                             </td>
                                                             
@@ -401,7 +407,7 @@ if ($selected_class) {
                                                             <td class="radio-absent">
                                                                 <input type="radio" name="attendance[<?php echo $student_id; ?>][status]" id="absent_<?php echo $student_id; ?>" value="absent" <?php echo ($current_status == 'absent') ? 'checked' : ''; ?>>
                                                                 <label for="absent_<?php echo $student_id; ?>" class="radio-label">
-                                                                    <i class="fas fa-times-circle status-icon"></i> অনুপস্থিত
+                                                                    <i class="fas fa-times-circle"></i>
                                                                 </label>
                                                             </td>
                                                             
@@ -409,12 +415,12 @@ if ($selected_class) {
                                                             <td class="radio-late">
                                                                 <input type="radio" name="attendance[<?php echo $student_id; ?>][status]" id="late_<?php echo $student_id; ?>" value="late" <?php echo ($current_status == 'late') ? 'checked' : ''; ?>>
                                                                 <label for="late_<?php echo $student_id; ?>" class="radio-label">
-                                                                    <i class="fas fa-clock status-icon"></i> দেরী
+                                                                    <i class="fas fa-clock"></i>
                                                                 </label>
                                                             </td>
                                                             
                                                             <td>
-                                                                <input type="text" class="form-control form-control-sm" name="attendance[<?php echo $student_id; ?>][remarks]" value="<?php echo $current_remarks; ?>" placeholder="মন্তব্য (ঐচ্ছিক)">
+                                                                <input type="text" class="form-control form-control-sm" name="attendance[<?php echo $student_id; ?>][remarks]" value="<?php echo $current_remarks; ?>" placeholder="মন্তব্য">
                                                             </td>
                                                         </tr>
                                                     <?php endforeach; ?>
