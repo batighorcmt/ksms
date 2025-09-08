@@ -3,7 +3,7 @@ require_once '../config.php';
 
 // Authentication check
 if (!isAuthenticated() || !hasRole(['super_admin', 'teacher', 'guardian'])) {
-    redirect('login.php');
+    redirect('index.php');
 }
 
 // শিক্ষার্থী আইডি পান
@@ -28,13 +28,13 @@ $student = $stmt->fetch();
 
 if (!$student) {
     $_SESSION['error'] = "শিক্ষার্থী পাওয়া যায়নি!";
-    admin_redirect('students.php');
+    redirect('students.php');
 }
 
 // রোল-ভিত্তিক এক্সেস চেক
 if ($_SESSION['role'] === 'guardian' && $student['guardian_id'] != $_SESSION['user_id']) {
     $_SESSION['error'] = "আপনি এই শিক্ষার্থীর তথ্য দেখার অনুমতি রাখেন না!";
-    admin_redirect('dashboard.php');
+    redirect('dashboard.php');
 }
 
 // উপস্থিতি ডেটা লোড করুন
@@ -139,8 +139,8 @@ $fee_payments_data = $fee_payments->fetchAll();
                     </div>
                     <div class="col-sm-6">
                         <ol class="breadcrumb float-sm-right">
-                            <li class="breadcrumb-item"><a href="<?php echo ADMIN_URL; ?>dashboard.php">হোম</a></li>
-                            <li class="breadcrumb-item"><a href="<?php echo ADMIN_URL; ?>students.php">শিক্ষার্থী ব্যবস্থাপনা</a></li>
+                            <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>dashboard.php">হোম</a></li>
+                            <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>students.php">শিক্ষার্থী ব্যবস্থাপনা</a></li>
                             <li class="breadcrumb-item active">শিক্ষার্থীর বিস্তারিত তথ্য</li>
                         </ol>
                     </div>
