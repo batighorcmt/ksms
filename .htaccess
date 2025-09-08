@@ -1,0 +1,11 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Handle 404 errors
+    ErrorDocument 404 /404.php
+
+    # If the requested file or directory does not exist, then rewrite to 404.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ 404.php [L]
+</IfModule>
