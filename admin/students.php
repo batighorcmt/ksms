@@ -115,10 +115,10 @@ if (isset($_GET['delete'])) {
             font-size: 22px;
         }
         .student-photo {
-            width: 40px;
-            height: 40px;
+            width: 60px;
+            height: 80px;
             object-fit: cover;
-            border-radius: 50%;
+            border-radius: 10%;
         }
         .action-buttons .btn {
             margin-right: 5px;
@@ -188,7 +188,7 @@ if (isset($_GET['delete'])) {
                             </div>
                             <!-- /.card-header -->
                             <div class="card-body">
-                                <table id="studentsTable" class="table table-bordered table-striped">
+                                <table id="studentsTable" class="table table-bordered table-striped table-hover table-responsive">
                                     <thead>
                                         <tr>
                                             <th>ছবি</th>
