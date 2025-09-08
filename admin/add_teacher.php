@@ -147,8 +147,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_teacher'])) {
             $pdo->commit();
             
             $_SESSION['success'] = "শিক্ষক সফলভাবে যোগ করা হয়েছে!";
-            redirect("teacher_details.php?id=" . $teacher_id);
-            
+            header("Location: teacher_details.php?id=" . $teacher_id);
+            exit();
+
         } catch (Exception $e) {
             $pdo->rollBack();
             $_SESSION['error'] = "শিক্ষক যোগ করতে সমস্যা হয়েছে: " . $e->getMessage();
