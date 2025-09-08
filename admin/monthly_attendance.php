@@ -27,6 +27,9 @@ $sections = [];
 $holidays = $pdo->query("SELECT * FROM holidays WHERE status='active'")->fetchAll();
 $holiday_dates = array_column($holidays, 'date');
 
+// সাপ্তাহিক ছুটির দিনগুলো লোড করুন
+$weekly_holidays = $pdo->query("SELECT day_number FROM weekly_holidays WHERE status='active'")->fetchAll(PDO::FETCH_COLUMN);
+
 // ফর্ম সাবমিট হলে
 if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
     $class_id = intval($_GET['class_id']);
@@ -85,6 +88,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
         }
     }
 }
+
+// প্রিন্ট ভিউ এর জন্য
+$is_print_view = isset($_GET['print']) && $_GET['print'] == 'true';
 ?>
 
 <!DOCTYPE html>
@@ -190,10 +196,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
         }
         @media print {
             .no-print {
-                display: none;
+                display: none !important;
             }
             body {
                 font-size: 12px;
+                margin: 0;
+                padding: 10px;
             }
             .attendance-table {
                 font-size: 10px;
@@ -215,32 +223,52 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
             .card {
                 border: none;
                 box-shadow: none;
+                margin-bottom: 10px;
             }
             .card-header {
                 background-color: #4e73df !important;
                 color: white !important;
                 -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
             }
             .summary-card {
                 background: #f8f9fc !important;
                 -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .content-wrapper {
+                margin-left: 0 !important;
+            }
+            .main-sidebar, .navbar {
+                display: none !important;
+            }
+        }
+        .print-only {
+            display: none;
+        }
+        @media print {
+            .print-only {
+                display: block;
             }
         }
     </style>
 </head>
-<body class="hold-transition sidebar-mini">
+<body class="hold-transition sidebar-mini <?php echo $is_print_view ? 'sidebar-collapse' : ''; ?>">
 <div class="wrapper">
 
+    <?php if (!$is_print_view): ?>
     <!-- Navbar -->
     <?php include 'inc/header.php'; ?>
     <!-- /.navbar -->
 
     <!-- Main Sidebar Container -->
     <?php include 'inc/sidebar.php'; ?>
+    <?php endif; ?>
 
     <!-- Content Wrapper. Contains page content -->
     <div class="content-wrapper">
         <!-- Content Header (Page header) -->
+        <?php if (!$is_print_view): ?>
         <div class="content-header">
             <div class="container-fluid">
                 <div class="row mb-2">
@@ -257,12 +285,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
                 </div>
             </div>
         </div>
+        <?php endif; ?>
 
         <!-- Main content -->
         <section class="content">
             <div class="container-fluid">
                 <!-- Notification Alerts -->
-                <?php if(isset($_SESSION['success'])): ?>
+                <?php if(!$is_print_view && isset($_SESSION['success'])): ?>
                     <div class="alert alert-success alert-dismissible">
                         <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
                         <h5><i class="icon fas fa-check"></i> সফল!</h5>
@@ -270,7 +299,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
                     </div>
                 <?php endif; ?>
 
-                <?php if(isset($_SESSION['error'])): ?>
+                <?php if(!$is_print_view && isset($_SESSION['error'])): ?>
                     <div class="alert alert-danger alert-dismissible">
                         <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
                         <h5><i class="icon fas fa-ban"></i> ত্রুটি!</h5>
@@ -281,10 +310,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
                 <div class="row">
                     <div class="col-md-12">
                         <div class="card report-card">
+                            <?php if (!$is_print_view): ?>
                             <div class="card-header">
                                 <h3 class="card-title">রিপোর্ট জেনারেট করুন</h3>
                             </div>
+                            <?php endif; ?>
                             <div class="card-body">
+                                <?php if (!$is_print_view): ?>
                                 <form method="GET" action="">
                                     <div class="row">
                                         <div class="col-md-3">
@@ -346,8 +378,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
                                         </div>
                                     </div>
                                 </form>
+                                <?php endif; ?>
 
                                 <?php if(isset($students) && isset($attendance_data)): ?>
+                                    <?php if (!$is_print_view): ?>
                                     <hr>
                                     
                                     <div class="d-flex justify-content-between align-items-center mb-3 no-print">
@@ -358,13 +392,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
                                             }
                                             ?>
                                         </h4>
-                                        <button onclick="window.print()" class="btn btn-success">
-                                            <i class="fas fa-print"></i> প্রিন্ট করুন
-                                        </button>
+                                        <div>
+                                            <a href="?<?php echo http_build_query(array_merge($_GET, ['print' => 'true'])); ?>" target="_blank" class="btn btn-success mr-2">
+                                                <i class="fas fa-print"></i> প্রিন্ট ভিউ
+                                            </a>
+                                            <button onclick="window.print()" class="btn btn-info">
+                                                <i class="fas fa-file-pdf"></i> প্রিন্ট করুন
+                                            </button>
+                                        </div>
                                     </div>
+                                    <?php endif; ?>
                                     
                                     <!-- Print Header -->
-                                    <div class="school-header no-print">
+                                    <div class="school-header <?php echo !$is_print_view ? 'no-print' : ''; ?>">
                                         <div class="school-name"><?php echo $school_info['name']; ?></div>
                                         <div class="school-details">
                                             <?php echo $school_info['address']; ?> | 
@@ -395,8 +435,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
                                                             $day_of_week = date('N', strtotime($date));
                                                             $is_weekend = ($day_of_week >= 6); // শনি (6) ও রবি (7)
                                                             $is_holiday = in_array($date, $holiday_dates);
+                                                            $is_weekly_holiday = in_array($day_of_week, $weekly_holidays);
+                                                            $is_day_off = $is_weekend || $is_holiday || $is_weekly_holiday;
                                                         ?>
-                                                            <th class="<?php echo ($is_weekend || $is_holiday) ? 'day-off' : ''; ?>">
+                                                            <th class="<?php echo $is_day_off ? 'day-off' : ''; ?>">
                                                                 <?php 
                                                                 $bangla_days = ['', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহস্পতি', 'শুক্র', 'শনি', 'রবি'];
                                                                 echo $day; 
@@ -413,8 +455,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
                                                             $day_of_week = date('N', strtotime($date));
                                                             $is_weekend = ($day_of_week >= 6);
                                                             $is_holiday = in_array($date, $holiday_dates);
+                                                            $is_weekly_holiday = in_array($day_of_week, $weekly_holidays);
+                                                            $is_day_off = $is_weekend || $is_holiday || $is_weekly_holiday;
                                                         ?>
-                                                            <th class="<?php echo ($is_weekend || $is_holiday) ? 'day-off' : ''; ?>">
+                                                            <th class="<?php echo $is_day_off ? 'day-off' : ''; ?>">
                                                                 <?php 
                                                                 $bangla_days = ['', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহস্পতি', 'শুক্র', 'শনি', 'রবি'];
                                                                 echo $bangla_days[$day_of_week]; 
@@ -445,10 +489,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
                                                                 $day_of_week = date('N', strtotime($date));
                                                                 $is_weekend = ($day_of_week >= 6);
                                                                 $is_holiday = in_array($date, $holiday_dates);
+                                                                $is_weekly_holiday = in_array($day_of_week, $weekly_holidays);
+                                                                $is_day_off = $is_weekend || $is_holiday || $is_weekly_holiday;
                                                                 
                                                                 $status = isset($attendance_data[$student_id][$date]) ? $attendance_data[$student_id][$date] : '';
                                                                 
-                                                                if($is_weekend || $is_holiday) {
+                                                                if($is_day_off) {
                                                                     echo '<td class="day-off">ছুটি</td>';
                                                                 } else {
                                                                     if($status == 'present') {
@@ -470,12 +516,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
                                                             endfor; ?>
                                                             
                                                             <?php 
-                                                            $total_days = $days_in_month - count(array_filter(range(1, $days_in_month), function($day) use ($year, $month, $holiday_dates) {
+                                                            $total_days = $days_in_month - count(array_filter(range(1, $days_in_month), function($day) use ($year, $month, $holiday_dates, $weekly_holidays) {
                                                                 $date = sprintf("%04d-%02d-%02d", $year, $month, $day);
                                                                 $day_of_week = date('N', strtotime($date));
                                                                 $is_weekend = ($day_of_week >= 6);
                                                                 $is_holiday = in_array($date, $holiday_dates);
-                                                                return $is_weekend || $is_holiday;
+                                                                $is_weekly_holiday = in_array($day_of_week, $weekly_holidays);
+                                                                return $is_weekend || $is_holiday || $is_weekly_holiday;
                                                             }));
                                                             
                                                             $attendance_percentage = $total_days > 0 ? round(($total_present / $total_days) * 100, 2) : 0;
@@ -498,8 +545,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
                                                             $day_of_week = date('N', strtotime($date));
                                                             $is_weekend = ($day_of_week >= 6);
                                                             $is_holiday = in_array($date, $holiday_dates);
+                                                            $is_weekly_holiday = in_array($day_of_week, $weekly_holidays);
+                                                            $is_day_off = $is_weekend || $is_holiday || $is_weekly_holiday;
                                                         ?>
-                                                            <?php if($is_weekend || $is_holiday): ?>
+                                                            <?php if($is_day_off): ?>
                                                                 <td class="day-off">-</td>
                                                             <?php else: ?>
                                                                 <td>
@@ -576,7 +625,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
                                                 <p>
                                                     <span class="present"><i class="fas fa-check-circle"></i></span> = উপস্থিত, 
                                                     <span class="absent"><i class="fas fa-times-circle"></i></span> = অনুপস্থিত, 
-                                                    <span class="late"><i class="fas fa-clock"></i></span> = দেরীতে উপস্থিত
+                                                    <span class="late"><i class="fas fa-clock"></i></span> = দেরীতে উপস্থিত,
+                                                    <span class="day-off">ছুটি</span> = সাপ্তাহিক বা সাধারণ ছুটি
                                                 </p>
                                             </div>
                                         </div>
@@ -597,8 +647,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
     </div>
     <!-- /.content-wrapper -->
 
+    <?php if (!$is_print_view): ?>
     <!-- Main Footer -->
     <?php include 'inc/footer.php'; ?>
+    <?php endif; ?>
 </div>
 <!-- ./wrapper -->
 
@@ -628,6 +680,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
                 $('#section_id').html('<option value="">নির্বাচন করুন</option>');
             }
         });
+        
+        // Auto-submit form when in print view
+        <?php if ($is_print_view): ?>
+        window.print();
+        <?php endif; ?>
     });
 </script>
 </body>
