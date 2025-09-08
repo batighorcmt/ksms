@@ -18,6 +18,7 @@ $selected_section = '';
 $selected_date = $current_date;
 $attendance_data = [];
 $students = [];
+$is_existing_record = false;
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
@@ -29,19 +30,28 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
     $check_stmt = $pdo->prepare("SELECT COUNT(*) as count FROM attendance WHERE class_id = ? AND section_id = ? AND date = ?");
     $check_stmt->execute([$class_id, $section_id, $date]);
     $result = $check_stmt->fetch();
+    $is_existing_record = ($result['count'] > 0);
     
-    if ($result['count'] > 0) {
-        $_SESSION['error'] = "এই তারিখে ইতিমধ্যেই উপস্থিতি রেকর্ড করা হয়েছে!";
-    } else {
-        try {
-            $pdo->beginTransaction();
+    try {
+        $pdo->beginTransaction();
+        
+        if ($is_existing_record) {
+            // Update existing attendance records
+            foreach ($_POST['attendance'] as $student_id => $data) {
+                $status = $data['status'] ?? 'absent';
+                $remarks = $data['remarks'] ?? '';
+                
+                $update_stmt = $pdo->prepare("
+                    UPDATE attendance 
+                    SET status = ?, remarks = ?, updated_at = CURRENT_TIMESTAMP 
+                    WHERE student_id = ? AND class_id = ? AND section_id = ? AND date = ?
+                ");
+                $update_stmt->execute([$status, $remarks, $student_id, $class_id, $section_id, $date]);
+            }
             
-            // Get students for the selected class and section
-            $student_stmt = $pdo->prepare("SELECT id FROM students WHERE class_id = ? AND section_id = ? AND status='active'");
-            $student_stmt->execute([$class_id, $section_id]);
-            $student_ids = $student_stmt->fetchAll(PDO::FETCH_COLUMN);
-            
-            // Insert attendance records
+            $_SESSION['success'] = "উপস্থিতি সফলভাবে আপডেট করা হয়েছে!";
+        } else {
+            // Insert new attendance records
             $attendance_stmt = $pdo->prepare("
                 INSERT INTO attendance (student_id, class_id, section_id, date, status, remarks, recorded_by)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -49,20 +59,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
             
             $recorded_by = $_SESSION['user_id'];
             
-            foreach ($student_ids as $student_id) {
-                $status = $_POST['attendance'][$student_id]['status'] ?? 'absent';
-                $remarks = $_POST['attendance'][$student_id]['remarks'] ?? '';
+            foreach ($_POST['attendance'] as $student_id => $data) {
+                $status = $data['status'] ?? 'absent';
+                $remarks = $data['remarks'] ?? '';
                 
                 $attendance_stmt->execute([$student_id, $class_id, $section_id, $date, $status, $remarks, $recorded_by]);
             }
             
-            $pdo->commit();
             $_SESSION['success'] = "উপস্থিতি সফলভাবে রেকর্ড করা হয়েছে!";
-            
-        } catch (Exception $e) {
-            $pdo->rollBack();
-            $_SESSION['error'] = "উপস্থিতি রেকর্ড করতে সমস্যা হয়েছে: " . $e->getMessage();
         }
+        
+        $pdo->commit();
+        
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        $_SESSION['error'] = "উপস্থিতি রেকর্ড করতে সমস্যা হয়েছে: " . $e->getMessage();
     }
     
     // Set selected values for form
@@ -76,6 +87,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['view_attendance'])) {
     $selected_class = intval($_GET['class_id']);
     $selected_section = intval($_GET['section_id']);
     $selected_date = $_GET['date'];
+    
+    // Check if attendance already exists for this date, class, and section
+    $check_stmt = $pdo->prepare("SELECT COUNT(*) as count FROM attendance WHERE class_id = ? AND section_id = ? AND date = ?");
+    $check_stmt->execute([$selected_class, $selected_section, $selected_date]);
+    $result = $check_stmt->fetch();
+    $is_existing_record = ($result['count'] > 0);
     
     // Get attendance data for the selected date, class, and section
     $attendance_stmt = $pdo->prepare("
@@ -142,12 +159,44 @@ if ($selected_class) {
         }
         .attendance-status {
             display: flex;
-            gap: 10px;
+            gap: 5px;
             flex-wrap: wrap;
         }
-        .attendance-status label {
-            margin-bottom: 0;
+        .attendance-btn {
+            padding: 5px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
             cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.85rem;
+        }
+        .attendance-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .attendance-btn.active {
+            border-width: 2px;
+            font-weight: bold;
+        }
+        .btn-present {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            border-color: #2e7d32;
+        }
+        .btn-absent {
+            background-color: #ffebee;
+            color: #c62828;
+            border-color: #c62828;
+        }
+        .btn-late {
+            background-color: #fff8e1;
+            color: #f57f17;
+            border-color: #f57f17;
+        }
+        .btn-half-day {
+            background-color: #e1f5fe;
+            color: #0277bd;
+            border-color: #0277bd;
         }
         .attendance-table th {
             background-color: #f8f9fc;
@@ -174,6 +223,15 @@ if ($selected_class) {
         .half_day {
             background-color: #17a2b8;
             color: white;
+        }
+        .sticky-submit {
+            position: sticky;
+            bottom: 0;
+            background: white;
+            padding: 15px;
+            border-top: 1px solid #eee;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            z-index: 100;
         }
     </style>
 </head>
@@ -280,67 +338,28 @@ if ($selected_class) {
                                 <?php if(!empty($students) || !empty($attendance_data)): ?>
                                     <hr>
                                     
-                                    <?php if(empty($attendance_data)): ?>
-                                        <!-- Mark Attendance Form -->
-                                        <form method="POST" action="">
-                                            <input type="hidden" name="class_id" value="<?php echo $selected_class; ?>">
-                                            <input type="hidden" name="section_id" value="<?php echo $selected_section; ?>">
-                                            <input type="hidden" name="date" value="<?php echo $selected_date; ?>">
-                                            
-                                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                                <h4>উপস্থিতি রেকর্ড করুন</h4>
-                                                <button type="submit" name="mark_attendance" class="btn btn-success">
-                                                    <i class="fas fa-save"></i> উপস্থিতি সাবমিট করুন
-                                                </button>
-                                            </div>
-                                            
-                                            <div class="table-responsive">
-                                                <table class="table table-bordered table-striped attendance-table">
-                                                    <thead>
-                                                        <tr>
-                                                            <th width="50">রোল</th>
-                                                            <th>শিক্ষার্থীর নাম</th>
-                                                            <th width="250">উপস্থিতি অবস্থা</th>
-                                                            <th width="300">মন্তব্য</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        <?php foreach($students as $student): ?>
-                                                            <tr>
-                                                                <td><?php echo $student['roll_number']; ?></td>
-                                                                <td><?php echo $student['first_name'] . ' ' . $student['last_name']; ?></td>
-                                                                <td>
-                                                                    <div class="attendance-status">
-                                                                        <div class="form-check form-check-inline">
-                                                                            <input class="form-check-input" type="radio" name="attendance[<?php echo $student['id']; ?>][status]" id="present_<?php echo $student['id']; ?>" value="present" checked>
-                                                                            <label class="form-check-label" for="present_<?php echo $student['id']; ?>">উপস্থিত</label>
-                                                                        </div>
-                                                                        <div class="form-check form-check-inline">
-                                                                            <input class="form-check-input" type="radio" name="attendance[<?php echo $student['id']; ?>][status]" id="absent_<?php echo $student['id']; ?>" value="absent">
-                                                                            <label class="form-check-label" for="absent_<?php echo $student['id']; ?>">অনুপস্থিত</label>
-                                                                        </div>
-                                                                        <div class="form-check form-check-inline">
-                                                                            <input class="form-check-input" type="radio" name="attendance[<?php echo $student['id']; ?>][status]" id="late_<?php echo $student['id']; ?>" value="late">
-                                                                            <label class="form-check-label" for="late_<?php echo $student['id']; ?>">দেরী</label>
-                                                                        </div>
-                                                                        <div class="form-check form-check-inline">
-                                                                            <input class="form-check-input" type="radio" name="attendance[<?php echo $student['id']; ?>][status]" id="half_day_<?php echo $student['id']; ?>" value="half_day">
-                                                                            <label class="form-check-label" for="half_day_<?php echo $student['id']; ?>">অর্ধদিবস</label>
-                                                                        </div>
-                                                                    </div>
-                                                                </td>
-                                                                <td>
-                                                                    <input type="text" class="form-control form-control-sm" name="attendance[<?php echo $student['id']; ?>][remarks]" placeholder="মন্তব্য (ঐচ্ছিক)">
-                                                                </td>
-                                                            </tr>
-                                                        <?php endforeach; ?>
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </form>
-                                    <?php else: ?>
-                                        <!-- View Attendance Data -->
-                                        <h4>উপস্থিতি বিবরণ (<?php echo date('d/m/Y', strtotime($selected_date)); ?>)</h4>
+                                    <?php if($is_existing_record): ?>
+                                        <div class="alert alert-info">
+                                            <i class="fas fa-info-circle"></i> এই তারিখের উপস্থিতি ইতিমধ্যে রেকর্ড করা হয়েছে। আপনি এখন এটি আপডেট করতে পারেন।
+                                        </div>
+                                    <?php endif; ?>
+                                    
+                                    <!-- Mark/Update Attendance Form -->
+                                    <form method="POST" action="" id="attendanceForm">
+                                        <input type="hidden" name="class_id" value="<?php echo $selected_class; ?>">
+                                        <input type="hidden" name="section_id" value="<?php echo $selected_section; ?>">
+                                        <input type="hidden" name="date" value="<?php echo $selected_date; ?>">
+                                        
+                                        <!-- Top Submit Button -->
+                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                            <h4>
+                                                <?php echo $is_existing_record ? 'উপস্থিতি আপডেট করুন' : 'উপস্থিতি রেকর্ড করুন'; ?>
+                                                <small class="text-muted">(<?php echo date('d/m/Y', strtotime($selected_date)); ?>)</small>
+                                            </h4>
+                                            <button type="submit" name="mark_attendance" class="btn btn-success btn-lg">
+                                                <i class="fas fa-save"></i> <?php echo $is_existing_record ? 'আপডেট করুন' : 'সংরক্ষণ করুন'; ?>
+                                            </button>
+                                        </div>
                                         
                                         <div class="table-responsive">
                                             <table class="table table-bordered table-striped attendance-table">
@@ -348,57 +367,67 @@ if ($selected_class) {
                                                     <tr>
                                                         <th width="50">রোল</th>
                                                         <th>শিক্ষার্থীর নাম</th>
-                                                        <th width="150">উপস্থিতি অবস্থা</th>
-                                                        <th>মন্তব্য</th>
-                                                        <th width="120">রেকর্ড করার সময়</th>
+                                                        <th width="300">উপস্থিতি অবস্থা</th>
+                                                        <th width="250">মন্তব্য</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    <?php foreach($attendance_data as $record): ?>
-                                                        <tr>
-                                                            <td><?php echo $record['roll_number']; ?></td>
-                                                            <td><?php echo $record['first_name'] . ' ' . $record['last_name']; ?></td>
-                                                            <td>
-                                                                <?php 
-                                                                $status_class = '';
-                                                                $status_text = '';
-                                                                switch($record['status']) {
-                                                                    case 'present':
-                                                                        $status_class = 'present';
-                                                                        $status_text = 'উপস্থিত';
-                                                                        break;
-                                                                    case 'absent':
-                                                                        $status_class = 'absent';
-                                                                        $status_text = 'অনুপস্থিত';
-                                                                        break;
-                                                                    case 'late':
-                                                                        $status_class = 'late';
-                                                                        $status_text = 'দেরী';
-                                                                        break;
-                                                                    case 'half_day':
-                                                                        $status_class = 'half_day';
-                                                                        $status_text = 'অর্ধদিবস';
-                                                                        break;
+                                                    <?php foreach($students as $student): 
+                                                        $student_id = $student['id'];
+                                                        $current_status = 'present'; // Default status
+                                                        $current_remarks = '';
+                                                        
+                                                        // Find existing attendance record for this student
+                                                        if ($is_existing_record) {
+                                                            foreach ($attendance_data as $record) {
+                                                                if ($record['student_id'] == $student_id) {
+                                                                    $current_status = $record['status'];
+                                                                    $current_remarks = $record['remarks'];
+                                                                    break;
                                                                 }
-                                                                ?>
-                                                                <span class="badge badge-attendance <?php echo $status_class; ?>">
-                                                                    <?php echo $status_text; ?>
-                                                                </span>
+                                                            }
+                                                        }
+                                                    ?>
+                                                        <tr>
+                                                            <td><?php echo $student['roll_number']; ?></td>
+                                                            <td><?php echo $student['first_name'] . ' ' . $student['last_name']; ?></td>
+                                                            <td>
+                                                                <div class="attendance-status">
+                                                                    <input type="hidden" name="attendance[<?php echo $student_id; ?>][status]" id="status_<?php echo $student_id; ?>" value="<?php echo $current_status; ?>">
+                                                                    
+                                                                    <button type="button" class="attendance-btn btn-present <?php echo ($current_status == 'present') ? 'active' : ''; ?>" data-student="<?php echo $student_id; ?>" data-status="present">
+                                                                        <i class="fas fa-check-circle"></i> উপস্থিত
+                                                                    </button>
+                                                                    
+                                                                    <button type="button" class="attendance-btn btn-absent <?php echo ($current_status == 'absent') ? 'active' : ''; ?>" data-student="<?php echo $student_id; ?>" data-status="absent">
+                                                                        <i class="fas fa-times-circle"></i> অনুপস্থিত
+                                                                    </button>
+                                                                    
+                                                                    <button type="button" class="attendance-btn btn-late <?php echo ($current_status == 'late') ? 'active' : ''; ?>" data-student="<?php echo $student_id; ?>" data-status="late">
+                                                                        <i class="fas fa-clock"></i> দেরী
+                                                                    </button>
+                                                                    
+                                                                    <button type="button" class="attendance-btn btn-half-day <?php echo ($current_status == 'half_day') ? 'active' : ''; ?>" data-student="<?php echo $student_id; ?>" data-status="half_day">
+                                                                        <i class="fas fa-hourglass-half"></i> অর্ধদিবস
+                                                                    </button>
+                                                                </div>
                                                             </td>
-                                                            <td><?php echo $record['remarks']; ?></td>
-                                                            <td><?php echo date('H:i', strtotime($record['created_at'])); ?></td>
+                                                            <td>
+                                                                <input type="text" class="form-control form-control-sm" name="attendance[<?php echo $student_id; ?>][remarks]" value="<?php echo $current_remarks; ?>" placeholder="মন্তব্য (ঐচ্ছিক)">
+                                                            </td>
                                                         </tr>
                                                     <?php endforeach; ?>
                                                 </tbody>
                                             </table>
                                         </div>
                                         
-                                        <div class="mt-3">
-                                            <a href="attendance.php" class="btn btn-primary">
-                                                <i class="fas fa-arrow-left"></i> নতুন অনুসন্ধান
-                                            </a>
+                                        <!-- Bottom Submit Button -->
+                                        <div class="sticky-submit text-right mt-4">
+                                            <button type="submit" name="mark_attendance" class="btn btn-success btn-lg">
+                                                <i class="fas fa-save"></i> <?php echo $is_existing_record ? 'আপডেট করুন' : 'সংরক্ষণ করুন'; ?>
+                                            </button>
                                         </div>
-                                    <?php endif; ?>
+                                    </form>
                                 <?php elseif($selected_class && $selected_section): ?>
                                     <div class="alert alert-info text-center">
                                         <i class="fas fa-info-circle"></i> এই ক্লাস এবং শাখায় কোনো শিক্ষার্থী নেই।
@@ -444,6 +473,30 @@ if ($selected_class) {
                 });
             } else {
                 $('#section_id').html('<option value="">নির্বাচন করুন</option>');
+            }
+        });
+        
+        // Handle attendance status button clicks
+        $('.attendance-btn').click(function() {
+            var studentId = $(this).data('student');
+            var status = $(this).data('status');
+            
+            // Remove active class from all buttons for this student
+            $('.attendance-btn[data-student="' + studentId + '"]').removeClass('active');
+            
+            // Add active class to clicked button
+            $(this).addClass('active');
+            
+            // Update the hidden input value
+            $('#status_' + studentId).val(status);
+        });
+        
+        // Prevent form submission on Enter key in remark fields
+        $('#attendanceForm').on('keyup keypress', function(e) {
+            var keyCode = e.keyCode || e.which;
+            if (keyCode === 13) { 
+                e.preventDefault();
+                return false;
             }
         });
     });
