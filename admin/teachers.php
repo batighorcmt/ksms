@@ -185,7 +185,7 @@ if (isset($_GET['delete_id'])) {
                             </div>
                             <!-- /.card-header -->
                             <div class="card-body">
-                                <table id="teachersTable" class="table table-bordered table-hover">
+                                <table id="teachersTable" class="table table-bordered table-hover table-striped table-responsive">
                                     <thead>
                                         <tr>
                                             <th width="30">#</th>
@@ -223,7 +223,7 @@ if (isset($_GET['delete_id'])) {
                                                         <span class="badge bg-info p-2"><?php echo $teacher['total_classes']; ?> ক্লাস</span>
                                                     </td>
                                                     <td>
-                                                        <?php if($teacher['status'] == 1): ?>
+                                                        <?php if($teacher['status'] == 'active'): ?>
                                                             <span class="badge badge-success p-2">সক্রিয়</span>
                                                         <?php else: ?>
                                                             <span class="badge badge-danger p-2">নিষ্ক্রিয়</span>
