@@ -38,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
         if ($is_existing_record) {
             // Update existing attendance records
             foreach ($_POST['attendance'] as $student_id => $data) {
-                $status = $data['status'] ?? 'absent';
+                $status = $data['status'] ?? 'present'; // Default to present
                 $remarks = $data['remarks'] ?? '';
                 
                 $update_stmt = $pdo->prepare("
@@ -60,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
             $recorded_by = $_SESSION['user_id'];
             
             foreach ($_POST['attendance'] as $student_id => $data) {
-                $status = $data['status'] ?? 'absent';
+                $status = $data['status'] ?? 'present'; // Default to present
                 $remarks = $data['remarks'] ?? '';
                 
                 $attendance_stmt->execute([$student_id, $class_id, $section_id, $date, $status, $remarks, $recorded_by]);
@@ -157,81 +157,76 @@ if ($selected_class) {
             font-weight: 600;
             border-radius: 10px 10px 0 0 !important;
         }
-        .attendance-status {
-            display: flex;
-            gap: 5px;
-            flex-wrap: wrap;
-        }
-        .attendance-btn {
-            padding: 5px 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: all 0.3s;
-            font-size: 0.85rem;
-        }
-        .attendance-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        .attendance-btn.active {
-            border-width: 2px;
-            font-weight: bold;
-        }
-        .btn-present {
-            background-color: #e8f5e9;
-            color: #2e7d32;
-            border-color: #2e7d32;
-        }
-        .btn-absent {
-            background-color: #ffebee;
-            color: #c62828;
-            border-color: #c62828;
-        }
-        .btn-late {
-            background-color: #fff8e1;
-            color: #f57f17;
-            border-color: #f57f17;
-        }
-        .btn-half-day {
-            background-color: #e1f5fe;
-            color: #0277bd;
-            border-color: #0277bd;
-        }
         .attendance-table th {
             background-color: #f8f9fc;
             color: #4e73df;
             font-weight: 600;
+            text-align: center;
+            vertical-align: middle;
         }
-        .badge-attendance {
-            font-size: 0.85em;
-            padding: 0.4em 0.8em;
+        .attendance-table td {
+            text-align: center;
+            vertical-align: middle;
+        }
+        .radio-cell {
+            padding: 5px;
+            width: 33%;
+        }
+        .radio-label {
+            display: block;
+            padding: 8px 5px;
             border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 0;
         }
-        .present {
-            background-color: #28a745;
+        .radio-present .radio-label {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #2e7d32;
+        }
+        .radio-present input[type="radio"]:checked + .radio-label {
+            background-color: #2e7d32;
             color: white;
         }
-        .absent {
-            background-color: #dc3545;
+        .radio-absent .radio-label {
+            background-color: #ffebee;
+            color: #c62828;
+            border: 1px solid #c62828;
+        }
+        .radio-absent input[type="radio"]:checked + .radio-label {
+            background-color: #c62828;
             color: white;
         }
-        .late {
-            background-color: #ffc107;
-            color: #212529;
+        .radio-late .radio-label {
+            background-color: #fff8e1;
+            color: #f57f17;
+            border: 1px solid #f57f17;
         }
-        .half_day {
-            background-color: #17a2b8;
+        .radio-late input[type="radio"]:checked + .radio-label {
+            background-color: #f57f17;
             color: white;
+        }
+        input[type="radio"] {
+            display: none;
         }
         .sticky-submit {
             position: sticky;
             bottom: 0;
             background: white;
-            padding: 15px;
+            padding: 8px 15px;
             border-top: 1px solid #eee;
             box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
             z-index: 100;
+        }
+        .btn-sm-compact {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+            line-height: 1.5;
+            border-radius: 0.2rem;
+        }
+        .status-icon {
+            margin-right: 5px;
         }
     </style>
 </head>
@@ -356,7 +351,7 @@ if ($selected_class) {
                                                 <?php echo $is_existing_record ? 'উপস্থিতি আপডেট করুন' : 'উপস্থিতি রেকর্ড করুন'; ?>
                                                 <small class="text-muted">(<?php echo date('d/m/Y', strtotime($selected_date)); ?>)</small>
                                             </h4>
-                                            <button type="submit" name="mark_attendance" class="btn btn-success btn-lg">
+                                            <button type="submit" name="mark_attendance" class="btn btn-success">
                                                 <i class="fas fa-save"></i> <?php echo $is_existing_record ? 'আপডেট করুন' : 'সংরক্ষণ করুন'; ?>
                                             </button>
                                         </div>
@@ -367,7 +362,9 @@ if ($selected_class) {
                                                     <tr>
                                                         <th width="50">রোল</th>
                                                         <th>শিক্ষার্থীর নাম</th>
-                                                        <th width="300">উপস্থিতি অবস্থা</th>
+                                                        <th class="radio-cell">উপস্থিত</th>
+                                                        <th class="radio-cell">অনুপস্থিত</th>
+                                                        <th class="radio-cell">দেরী</th>
                                                         <th width="250">মন্তব্য</th>
                                                     </tr>
                                                 </thead>
@@ -391,27 +388,31 @@ if ($selected_class) {
                                                         <tr>
                                                             <td><?php echo $student['roll_number']; ?></td>
                                                             <td><?php echo $student['first_name'] . ' ' . $student['last_name']; ?></td>
-                                                            <td>
-                                                                <div class="attendance-status">
-                                                                    <input type="hidden" name="attendance[<?php echo $student_id; ?>][status]" id="status_<?php echo $student_id; ?>" value="<?php echo $current_status; ?>">
-                                                                    
-                                                                    <button type="button" class="attendance-btn btn-present <?php echo ($current_status == 'present') ? 'active' : ''; ?>" data-student="<?php echo $student_id; ?>" data-status="present">
-                                                                        <i class="fas fa-check-circle"></i> উপস্থিত
-                                                                    </button>
-                                                                    
-                                                                    <button type="button" class="attendance-btn btn-absent <?php echo ($current_status == 'absent') ? 'active' : ''; ?>" data-student="<?php echo $student_id; ?>" data-status="absent">
-                                                                        <i class="fas fa-times-circle"></i> অনুপস্থিত
-                                                                    </button>
-                                                                    
-                                                                    <button type="button" class="attendance-btn btn-late <?php echo ($current_status == 'late') ? 'active' : ''; ?>" data-student="<?php echo $student_id; ?>" data-status="late">
-                                                                        <i class="fas fa-clock"></i> দেরী
-                                                                    </button>
-                                                                    
-                                                                    <button type="button" class="attendance-btn btn-half-day <?php echo ($current_status == 'half_day') ? 'active' : ''; ?>" data-student="<?php echo $student_id; ?>" data-status="half_day">
-                                                                        <i class="fas fa-hourglass-half"></i> অর্ধদিবস
-                                                                    </button>
-                                                                </div>
+                                                            
+                                                            <!-- Present Radio -->
+                                                            <td class="radio-present">
+                                                                <input type="radio" name="attendance[<?php echo $student_id; ?>][status]" id="present_<?php echo $student_id; ?>" value="present" <?php echo ($current_status == 'present') ? 'checked' : ''; ?>>
+                                                                <label for="present_<?php echo $student_id; ?>" class="radio-label">
+                                                                    <i class="fas fa-check-circle status-icon"></i> উপস্থিত
+                                                                </label>
                                                             </td>
+                                                            
+                                                            <!-- Absent Radio -->
+                                                            <td class="radio-absent">
+                                                                <input type="radio" name="attendance[<?php echo $student_id; ?>][status]" id="absent_<?php echo $student_id; ?>" value="absent" <?php echo ($current_status == 'absent') ? 'checked' : ''; ?>>
+                                                                <label for="absent_<?php echo $student_id; ?>" class="radio-label">
+                                                                    <i class="fas fa-times-circle status-icon"></i> অনুপস্থিত
+                                                                </label>
+                                                            </td>
+                                                            
+                                                            <!-- Late Radio -->
+                                                            <td class="radio-late">
+                                                                <input type="radio" name="attendance[<?php echo $student_id; ?>][status]" id="late_<?php echo $student_id; ?>" value="late" <?php echo ($current_status == 'late') ? 'checked' : ''; ?>>
+                                                                <label for="late_<?php echo $student_id; ?>" class="radio-label">
+                                                                    <i class="fas fa-clock status-icon"></i> দেরী
+                                                                </label>
+                                                            </td>
+                                                            
                                                             <td>
                                                                 <input type="text" class="form-control form-control-sm" name="attendance[<?php echo $student_id; ?>][remarks]" value="<?php echo $current_remarks; ?>" placeholder="মন্তব্য (ঐচ্ছিক)">
                                                             </td>
@@ -422,8 +423,8 @@ if ($selected_class) {
                                         </div>
                                         
                                         <!-- Bottom Submit Button -->
-                                        <div class="sticky-submit text-right mt-4">
-                                            <button type="submit" name="mark_attendance" class="btn btn-success btn-lg">
+                                        <div class="sticky-submit text-right mt-2">
+                                            <button type="submit" name="mark_attendance" class="btn btn-success btn-sm-compact">
                                                 <i class="fas fa-save"></i> <?php echo $is_existing_record ? 'আপডেট করুন' : 'সংরক্ষণ করুন'; ?>
                                             </button>
                                         </div>
@@ -474,21 +475,6 @@ if ($selected_class) {
             } else {
                 $('#section_id').html('<option value="">নির্বাচন করুন</option>');
             }
-        });
-        
-        // Handle attendance status button clicks
-        $('.attendance-btn').click(function() {
-            var studentId = $(this).data('student');
-            var status = $(this).data('status');
-            
-            // Remove active class from all buttons for this student
-            $('.attendance-btn[data-student="' + studentId + '"]').removeClass('active');
-            
-            // Add active class to clicked button
-            $(this).addClass('active');
-            
-            // Update the hidden input value
-            $('#status_' + studentId).val(status);
         });
         
         // Prevent form submission on Enter key in remark fields
