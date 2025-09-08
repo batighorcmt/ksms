@@ -147,6 +147,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
             .card-header {
                 background-color: #4e73df !important;
                 color: white !important;
+                print-color-adjust: exact;
+                print-color-adjust: exact;
+                print-color-adjust: exact;
+                print-color-adjust: exact;
                 -webkit-print-color-adjust: exact;
             }
             .summary-card {
@@ -177,7 +181,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
                     </div>
                     <div class="col-sm-6">
                         <ol class="breadcrumb float-sm-right">
-                            <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>dashboard.php">হোম</a></li>
+                            <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>admin/dashboard.php">হোম</a></li>
                             <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>admin/reports.php">রিপোর্ট</a></li>
                             <li class="breadcrumb-item active">মাসিক হাজিরা রিপোর্ট</li>
                         </ol>
