@@ -24,7 +24,8 @@ $teacher = $stmt->fetch();
 
 if (!$teacher) {
     $_SESSION['error'] = "শিক্ষক পাওয়া যায়নি!";
-    redirect('teachers.php');
+    header('Location: teachers.php');
+    exit();
 }
 
 // ক্লাস এবং বিষয় ডেটা লোড করুন
@@ -194,8 +195,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_teacher'])) {
             $pdo->commit();
             
             $_SESSION['success'] = "শিক্ষকের তথ্য সফলভাবে আপডেট করা হয়েছে!";
-            redirect("teacher_details.php?id=" . $teacher_id);
-            
+            header("Location: teacher_details.php?id=" . $teacher_id);
+            exit();
+
         } catch (Exception $e) {
             $pdo->rollBack();
             $_SESSION['error'] = "শিক্ষকের তথ্য আপডেট করতে সমস্যা হয়েছে: " . $e->getMessage();

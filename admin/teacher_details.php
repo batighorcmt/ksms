@@ -24,7 +24,8 @@ $teacher = $stmt->fetch();
 
 if (!$teacher) {
     $_SESSION['error'] = "শিক্ষক পাওয়া যায়নি!";
-    redirect('teachers.php');
+    header('Location: teachers.php');
+    exit();
 }
 
 // শিক্ষকের ক্লাসগুলো লোড করুন
@@ -185,7 +186,7 @@ $total_subjects = count($teacher_subjects);
                                 <p class="text-muted"><?php echo $teacher['username']; ?></p>
                                 
                                 <div class="mt-3">
-                                    <?php if($teacher['status'] == 1): ?>
+                                    <?php if($teacher['status'] == 'active'): ?>
                                         <span class="badge badge-success badge-custom">সক্রিয়</span>
                                     <?php else: ?>
                                         <span class="badge badge-danger badge-custom">নিষ্ক্রিয়</span>
