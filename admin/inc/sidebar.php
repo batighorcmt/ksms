@@ -94,6 +94,12 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/settings/holiday_management.php" class="nav-link">
+                                <i class="nav-icon fas fa-calendar-day"></i>
+                                <p>ছুটির দিন ব্যবস্থাপনা</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a href="<?php echo BASE_URL; ?>admin/settings.php" class="nav-link">
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>সাধারণ সেটিংস</p>
