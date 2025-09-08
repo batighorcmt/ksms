@@ -3,7 +3,7 @@ require_once '../config.php';
 
 // Authentication check
 if (!isAuthenticated() || !hasRole(['super_admin', 'teacher'])) {
-    redirect('login.php');
+    redirect('../login.php');
 }
 
 // শিক্ষার্থী আইডি পান
@@ -26,7 +26,7 @@ $student = $stmt->fetch();
 
 if (!$student) {
     $_SESSION['error'] = "শিক্ষার্থী পাওয়া যায়নি!";
-    redirect('students.php');
+    redirect(BASE_URL . 'admin/students.php');
 }
 
 // ক্লাস, শাখা এবং সম্পর্ক লোড করুন
@@ -81,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_student'])) {
         $guardian_name = $_POST['guardian_name'] ?? '';
         if (empty($guardian_name)) {
             $_SESSION['error'] = "অভিভাবকের নাম বাধ্যতামূলক!";
-            redirect('edit_student.php?id=' . $student_id);
+            redirect(BASE_URL . 'admin/edit_student.php?id=' . $student_id);
         }
     }
     
@@ -125,7 +125,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_student'])) {
         $class_id, $section_id, $roll_number, $guardian_id, $status, $student_id
     ])) {
         $_SESSION['success'] = "শিক্ষার্থীর তথ্য সফলভাবে আপডেট করা হয়েছে!";
-        redirect('student_details.php?id=' . $student_id);
+        redirect(BASE_URL . 'admin/student_details.php?id=' . $student_id);
     } else {
         $_SESSION['error'] = "শিক্ষার্থীর তথ্য আপডেট করতে সমস্যা occurred!";
     }
