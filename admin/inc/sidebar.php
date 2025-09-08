@@ -67,8 +67,7 @@
                         <i class="nav-icon fas fa-chart-bar"></i>
                         <p>রিপোর্ট</p>
                     </a>
-                </li>
-                <ul class="nav nav-treeview">
+                    <ul class="nav nav-treeview">
                         <li class="nav-item">
                             <a href="<?php echo BASE_URL; ?>admin/monthly_attendance.php" class="nav-link">
                                 <i class="far fa-circle nav-icon"></i>
@@ -77,6 +76,8 @@
                         </li>
 
                     </ul>
+                </li>
+                
                 <li class="nav-item">
                     <a href="#" class="nav-link">
                         <i class="nav-icon fas fa-cog"></i>
