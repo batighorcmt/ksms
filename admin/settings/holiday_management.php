@@ -105,9 +105,6 @@ if (isset($_GET['edit'])) {
 
 // সাপ্তাহিক ছুটির দিনগুলো লোড করুন
 $weekly_holidays = $pdo->query("SELECT * FROM weekly_holidays ORDER BY day_number ASC")->fetchAll();
-
-// Include header
-include '../inc/header.php';
 ?>
 
 <!DOCTYPE html>

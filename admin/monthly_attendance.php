@@ -211,7 +211,7 @@ $is_print_view = isset($_GET['print']) && $_GET['print'] == 'true';
                 padding-bottom: 5px;
             }
             .school-name {
-                font-size: 18px;
+                font-size: 28px !important;
             }
             .report-title {
                 font-size: 16px;
@@ -242,6 +242,11 @@ $is_print_view = isset($_GET['print']) && $_GET['print'] == 'true';
             .main-sidebar, .navbar {
                 display: none !important;
             }
+            .print-summary {
+                display: block !important;
+                margin-top: 20px;
+                page-break-before: always;
+            }
         }
         .print-only {
             display: none;
@@ -250,6 +255,9 @@ $is_print_view = isset($_GET['print']) && $_GET['print'] == 'true';
             .print-only {
                 display: block;
             }
+        }
+        .print-summary {
+            display: none;
         }
     </style>
 </head>
@@ -318,6 +326,7 @@ $is_print_view = isset($_GET['print']) && $_GET['print'] == 'true';
                             <div class="card-body">
                                 <?php if (!$is_print_view): ?>
                                 <form method="GET" action="">
+                                    <input type="hidden" name="generate_report" value="1">
                                     <div class="row">
                                         <div class="col-md-3">
                                             <div class="form-group">
@@ -371,7 +380,7 @@ $is_print_view = isset($_GET['print']) && $_GET['print'] == 'true';
                                         </div>
                                         <div class="col-md-2">
                                             <div class="form-group" style="margin-top: 32px;">
-                                                <button type="submit" name="generate_report" class="btn btn-primary">
+                                                <button type="submit" class="btn btn-primary">
                                                     <i class="fas fa-chart-bar"></i> রিপোর্ট দেখুন
                                                 </button>
                                             </div>
@@ -433,14 +442,13 @@ $is_print_view = isset($_GET['print']) && $_GET['print'] == 'true';
                                                         <?php for($day = 1; $day <= $days_in_month; $day++): 
                                                             $date = sprintf("%04d-%02d-%02d", $year, $month, $day);
                                                             $day_of_week = date('N', strtotime($date));
-                                                            $is_weekend = ($day_of_week >= 6); // শনি (6) ও রবি (7)
                                                             $is_holiday = in_array($date, $holiday_dates);
                                                             $is_weekly_holiday = in_array($day_of_week, $weekly_holidays);
-                                                            $is_day_off = $is_weekend || $is_holiday || $is_weekly_holiday;
+                                                            $is_day_off = $is_holiday || $is_weekly_holiday;
                                                         ?>
                                                             <th class="<?php echo $is_day_off ? 'day-off' : ''; ?>">
                                                                 <?php 
-                                                                $bangla_days = ['', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহস্পতি', 'শুক্র', 'শনি', 'রবি'];
+                                                                $bangla_days = ['', 'রবি', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহস্পতি', 'শুক্র', 'শনি'];
                                                                 echo $day; 
                                                                 ?>
                                                             </th>
@@ -453,14 +461,13 @@ $is_print_view = isset($_GET['print']) && $_GET['print'] == 'true';
                                                         <?php for($day = 1; $day <= $days_in_month; $day++): 
                                                             $date = sprintf("%04d-%02d-%02d", $year, $month, $day);
                                                             $day_of_week = date('N', strtotime($date));
-                                                            $is_weekend = ($day_of_week >= 6);
                                                             $is_holiday = in_array($date, $holiday_dates);
                                                             $is_weekly_holiday = in_array($day_of_week, $weekly_holidays);
-                                                            $is_day_off = $is_weekend || $is_holiday || $is_weekly_holiday;
+                                                            $is_day_off = $is_holiday || $is_weekly_holiday;
                                                         ?>
                                                             <th class="<?php echo $is_day_off ? 'day-off' : ''; ?>">
                                                                 <?php 
-                                                                $bangla_days = ['', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহস্পতি', 'শুক্র', 'শনি', 'রবি'];
+                                                                $bangla_days = ['', 'রবি', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহস্পতি', 'শুক্র', 'শনি'];
                                                                 echo $bangla_days[$day_of_week]; 
                                                                 ?>
                                                             </th>
@@ -487,10 +494,9 @@ $is_print_view = isset($_GET['print']) && $_GET['print'] == 'true';
                                                             <?php for($day = 1; $day <= $days_in_month; $day++): 
                                                                 $date = sprintf("%04d-%02d-%02d", $year, $month, $day);
                                                                 $day_of_week = date('N', strtotime($date));
-                                                                $is_weekend = ($day_of_week >= 6);
                                                                 $is_holiday = in_array($date, $holiday_dates);
                                                                 $is_weekly_holiday = in_array($day_of_week, $weekly_holidays);
-                                                                $is_day_off = $is_weekend || $is_holiday || $is_weekly_holiday;
+                                                                $is_day_off = $is_holiday || $is_weekly_holiday;
                                                                 
                                                                 $status = isset($attendance_data[$student_id][$date]) ? $attendance_data[$student_id][$date] : '';
                                                                 
@@ -519,10 +525,9 @@ $is_print_view = isset($_GET['print']) && $_GET['print'] == 'true';
                                                             $total_days = $days_in_month - count(array_filter(range(1, $days_in_month), function($day) use ($year, $month, $holiday_dates, $weekly_holidays) {
                                                                 $date = sprintf("%04d-%02d-%02d", $year, $month, $day);
                                                                 $day_of_week = date('N', strtotime($date));
-                                                                $is_weekend = ($day_of_week >= 6);
                                                                 $is_holiday = in_array($date, $holiday_dates);
                                                                 $is_weekly_holiday = in_array($day_of_week, $weekly_holidays);
-                                                                return $is_weekend || $is_holiday || $is_weekly_holiday;
+                                                                return $is_holiday || $is_weekly_holiday;
                                                             }));
                                                             
                                                             $attendance_percentage = $total_days > 0 ? round(($total_present / $total_days) * 100, 2) : 0;
@@ -537,40 +542,111 @@ $is_print_view = isset($_GET['print']) && $_GET['print'] == 'true';
                                                         </tr>
                                                     <?php endforeach; ?>
                                                     
-                                                    <!-- Daily Total Row -->
+                                                    <!-- Daily Total Rows -->
                                                     <tr class="daily-total">
-                                                        <td colspan="2">দৈনিক মোট</td>
+                                                        <td colspan="2">মোট উপস্থিতি</td>
                                                         <?php for($day = 1; $day <= $days_in_month; $day++): 
                                                             $date = sprintf("%04d-%02d-%02d", $year, $month, $day);
                                                             $day_of_week = date('N', strtotime($date));
-                                                            $is_weekend = ($day_of_week >= 6);
                                                             $is_holiday = in_array($date, $holiday_dates);
                                                             $is_weekly_holiday = in_array($day_of_week, $weekly_holidays);
-                                                            $is_day_off = $is_weekend || $is_holiday || $is_weekly_holiday;
+                                                            $is_day_off = $is_holiday || $is_weekly_holiday;
                                                         ?>
                                                             <?php if($is_day_off): ?>
                                                                 <td class="day-off">-</td>
                                                             <?php else: ?>
-                                                                <td>
-                                                                    <span class="present"><?php echo $daily_totals[$day]['present']; ?></span> /
-                                                                    <span class="absent"><?php echo $daily_totals[$day]['absent']; ?></span>
-                                                                </td>
+                                                                <td class="present"><?php echo $daily_totals[$day]['present']; ?></td>
                                                             <?php endif; ?>
                                                         <?php endfor; ?>
                                                         <td class="present"><?php echo $total_present_all; ?></td>
+                                                        <td colspan="2"><?php echo round(($total_present_all / ($total_present_all + $total_absent_all)) * 100, 2); ?>%</td>
+                                                    </tr>
+                                                    <tr class="daily-total">
+                                                        <td colspan="2">মোট অনুপস্থিতি</td>
+                                                        <?php for($day = 1; $day <= $days_in_month; $day++): 
+                                                            $date = sprintf("%04d-%02d-%02d", $year, $month, $day);
+                                                            $day_of_week = date('N', strtotime($date));
+                                                            $is_holiday = in_array($date, $holiday_dates);
+                                                            $is_weekly_holiday = in_array($day_of_week, $weekly_holidays);
+                                                            $is_day_off = $is_holiday || $is_weekly_holiday;
+                                                        ?>
+                                                            <?php if($is_day_off): ?>
+                                                                <td class="day-off">-</td>
+                                                            <?php else: ?>
+                                                                <td class="absent"><?php echo $daily_totals[$day]['absent']; ?></td>
+                                                            <?php endif; ?>
+                                                        <?php endfor; ?>
                                                         <td class="absent"><?php echo $total_absent_all; ?></td>
-                                                        <td>
-                                                            <?php 
-                                                            $total_possible_days = $total_days * $total_students;
-                                                            $overall_percentage = $total_possible_days > 0 ? round(($total_present_all / $total_possible_days) * 100, 2) : 0;
-                                                            echo $overall_percentage . '%';
-                                                            ?>
-                                                        </td>
+                                                        <td colspan="2"><?php echo round(($total_absent_all / ($total_present_all + $total_absent_all)) * 100, 2); ?>%</td>
                                                     </tr>
                                                 </tbody>
                                             </table>
                                         </div>
                                         
+                                        <!-- Print Summary Section -->
+                                        <div class="print-summary">
+                                            <div class="row">
+                                                <div class="col-md-12">
+                                                    <div class="card summary-card">
+                                                        <div class="card-body">
+                                                            <h5>উপস্থিতি সংক্ষিপ্তসার</h5>
+                                                            <div class="row">
+                                                                <div class="col-md-3">
+                                                                    <div class="info-box">
+                                                                        <span class="info-box-icon bg-success"><i class="fas fa-user-check"></i></span>
+                                                                        <div class="info-box-content">
+                                                                            <span class="info-box-text">মোট উপস্থিতি</span>
+                                                                            <span class="info-box-number"><?php echo $total_present_all; ?></span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="col-md-3">
+                                                                    <div class="info-box">
+                                                                        <span class="info-box-icon bg-danger"><i class="fas fa-user-times"></i></span>
+                                                                        <div class="info-box-content">
+                                                                            <span class="info-box-text">মোট অনুপস্থিতি</span>
+                                                                            <span class="info-box-number"><?php echo $total_absent_all; ?></span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="col-md-3">
+                                                                    <div class="info-box">
+                                                                        <span class="info-box-icon bg-info"><i class="fas fa-chart-pie"></i></span>
+                                                                        <div class="info-box-content">
+                                                                            <span class="info-box-text">সর্বমোট উপস্থিতির হার</span>
+                                                                            <span class="info-box-number"><?php echo round(($total_present_all / ($total_present_all + $total_absent_all)) * 100, 2); ?>%</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="col-md-3">
+                                                                    <div class="info-box">
+                                                                        <span class="info-box-icon bg-primary"><i class="fas fa-users"></i></span>
+                                                                        <div class="info-box-content">
+                                                                            <span class="info-box-text">মোট শিক্ষার্থী</span>
+                                                                            <span class="info-box-number"><?php echo $total_students; ?></span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="mt-3">
+                                                <div class="alert alert-info">
+                                                    <h5><i class="icon fas fa-info"></i> চিহ্নিতকরণ</h5>
+                                                    <p>
+                                                        <span class="present"><i class="fas fa-check-circle"></i></span> = উপস্থিত, 
+                                                        <span class="absent"><i class="fas fa-times-circle"></i></span> = অনুপস্থিত, 
+                                                        <span class="late"><i class="fas fa-clock"></i></span> = দেরীতে উপস্থিত,
+                                                        <span class="day-off">ছুটি</span> = সাপ্তাহিক বা সাধারণ ছুটি
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <?php if (!$is_print_view): ?>
                                         <div class="row mt-4 no-print">
                                             <div class="col-md-12">
                                                 <div class="card summary-card">
@@ -600,7 +676,7 @@ $is_print_view = isset($_GET['print']) && $_GET['print'] == 'true';
                                                                     <span class="info-box-icon bg-info"><i class="fas fa-chart-pie"></i></span>
                                                                     <div class="info-box-content">
                                                                         <span class="info-box-text">সর্বমোট উপস্থিতির হার</span>
-                                                                        <span class="info-box-number"><?php echo $overall_percentage; ?>%</span>
+                                                                        <span class="info-box-number"><?php echo round(($total_present_all / ($total_present_all + $total_absent_all)) * 100, 2); ?>%</span>
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -630,6 +706,7 @@ $is_print_view = isset($_GET['print']) && $_GET['print'] == 'true';
                                                 </p>
                                             </div>
                                         </div>
+                                        <?php endif; ?>
                                     <?php else: ?>
                                         <div class="alert alert-warning text-center">
                                             <i class="fas fa-exclamation-triangle"></i> এই ক্লাস এবং শাখায় কোনো শিক্ষার্থী নেই।
