@@ -9,7 +9,7 @@ if (!isAuthenticated() || !hasRole(['super_admin', 'teacher'])) {
 // Get today's date for default selection
 $current_date = date('Y-m-d');
 
-// Get classes and sections
+// Get classes
 $classes = $pdo->query("SELECT * FROM classes WHERE status='active' ORDER BY numeric_value ASC")->fetchAll();
 
 // Initialize variables
@@ -23,12 +23,21 @@ $is_existing_record = false;
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
     $class_id = intval($_POST['class_id']);
-    $section_id = intval($_POST['section_id']);
+    $section_id = !empty($_POST['section_id']) ? intval($_POST['section_id']) : null;
     $date = $_POST['date'];
 
     // Check if attendance already exists
-    $check_stmt = $pdo->prepare("SELECT COUNT(*) as count FROM attendance WHERE class_id = ? AND section_id = ? AND date = ?");
-    $check_stmt->execute([$class_id, $section_id, $date]);
+    $check_sql = "SELECT COUNT(*) as count FROM attendance WHERE class_id = ? AND date = ?";
+    $params = [$class_id, $date];
+    if ($section_id) {
+        $check_sql .= " AND section_id = ?";
+        $params[] = $section_id;
+    } else {
+        $check_sql .= " AND (section_id IS NULL OR section_id = 0)";
+    }
+
+    $check_stmt = $pdo->prepare($check_sql);
+    $check_stmt->execute($params);
     $result = $check_stmt->fetch();
     $is_existing_record = ($result['count'] > 0);
 
@@ -40,25 +49,31 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
                 $status = $data['status'] ?? null;
                 $remarks = $data['remarks'] ?? '';
 
-                $update_stmt = $pdo->prepare("
-                    UPDATE attendance 
-                    SET status = ?, remarks = ?, updated_at = CURRENT_TIMESTAMP 
-                    WHERE student_id = ? AND class_id = ? AND section_id = ? AND date = ?
-                ");
-                $update_stmt->execute([$status, $remarks, $student_id, $class_id, $section_id, $date]);
+                $update_sql = "UPDATE attendance SET status = ?, remarks = ?, updated_at = CURRENT_TIMESTAMP 
+                              WHERE student_id = ? AND class_id = ? AND date = ?";
+                $update_params = [$status, $remarks, $student_id, $class_id, $date];
+                
+                if ($section_id) {
+                    $update_sql .= " AND section_id = ?";
+                    $update_params[] = $section_id;
+                } else {
+                    $update_sql .= " AND (section_id IS NULL OR section_id = 0)";
+                }
+                
+                $update_stmt = $pdo->prepare($update_sql);
+                $update_stmt->execute($update_params);
             }
             $_SESSION['success'] = "উপস্থিতি সফলভাবে আপডেট করা হয়েছে!";
         } else {
-            $attendance_stmt = $pdo->prepare("
-                INSERT INTO attendance (student_id, class_id, section_id, date, status, remarks, recorded_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ");
+            $attendance_sql = "INSERT INTO attendance (student_id, class_id, section_id, date, status, remarks, recorded_by)
+                              VALUES (?, ?, ?, ?, ?, ?, ?)";
+            $attendance_stmt = $pdo->prepare($attendance_sql);
             $recorded_by = $_SESSION['user_id'];
 
             foreach ($_POST['attendance'] as $student_id => $data) {
                 $status = $data['status'] ?? null;
                 $remarks = $data['remarks'] ?? '';
-
+                
                 $attendance_stmt->execute([$student_id, $class_id, $section_id, $date, $status, $remarks, $recorded_by]);
             }
             $_SESSION['success'] = "উপস্থিতি সফলভাবে রেকর্ড করা হয়েছে!";
@@ -78,35 +93,62 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
 // Handle view attendance
 if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['view_attendance'])) {
     $selected_class = intval($_GET['class_id']);
-    $selected_section = intval($_GET['section_id']);
+    $selected_section = !empty($_GET['section_id']) ? intval($_GET['section_id']) : null;
     $selected_date = $_GET['date'];
 
-    $check_stmt = $pdo->prepare("SELECT COUNT(*) as count FROM attendance WHERE class_id = ? AND section_id = ? AND date = ?");
-    $check_stmt->execute([$selected_class, $selected_section, $selected_date]);
+    $check_sql = "SELECT COUNT(*) as count FROM attendance WHERE class_id = ? AND date = ?";
+    $params = [$selected_class, $selected_date];
+    if ($selected_section) {
+        $check_sql .= " AND section_id = ?";
+        $params[] = $selected_section;
+    } else {
+        $check_sql .= " AND (section_id IS NULL OR section_id = 0)";
+    }
+    
+    $check_stmt = $pdo->prepare($check_sql);
+    $check_stmt->execute($params);
     $result = $check_stmt->fetch();
     $is_existing_record = ($result['count'] > 0);
 
-    $attendance_stmt = $pdo->prepare("
+    // Attendance records
+    $attendance_sql = "
         SELECT a.*, s.first_name, s.last_name, s.roll_number 
         FROM attendance a 
         JOIN students s ON a.student_id = s.id 
-        WHERE a.class_id = ? AND a.section_id = ? AND a.date = ?
-        ORDER BY s.roll_number ASC
-    ");
-    $attendance_stmt->execute([$selected_class, $selected_section, $selected_date]);
+        WHERE a.class_id = ? AND a.date = ?
+    ";
+    $attendance_params = [$selected_class, $selected_date];
+    if ($selected_section) {
+        $attendance_sql .= " AND a.section_id = ?";
+        $attendance_params[] = $selected_section;
+    } else {
+        $attendance_sql .= " AND (a.section_id IS NULL OR a.section_id = 0)";
+    }
+    $attendance_sql .= " ORDER BY s.roll_number ASC";
+    $attendance_stmt = $pdo->prepare($attendance_sql);
+    $attendance_stmt->execute($attendance_params);
     $attendance_data = $attendance_stmt->fetchAll();
 
-    $student_stmt = $pdo->prepare("
+    // Students
+    $student_sql = "
         SELECT id, first_name, last_name, roll_number 
         FROM students 
-        WHERE class_id = ? AND section_id = ? AND status='active'
-        ORDER BY roll_number ASC
-    ");
-    $student_stmt->execute([$selected_class, $selected_section]);
+        WHERE class_id = ? AND status='active'
+    ";
+    $student_params = [$selected_class];
+    if ($selected_section) {
+        $student_sql .= " AND section_id = ?";
+        $student_params[] = $selected_section;
+    } else {
+        $student_sql .= " AND (section_id IS NULL OR section_id = 0)";
+    }
+    $student_sql .= " ORDER BY roll_number ASC";
+    $student_stmt = $pdo->prepare($student_sql);
+    $student_stmt->execute($student_params);
     $students = $student_stmt->fetchAll();
 }
 
-// Get sections
+// Get sections for dropdown
 $sections = [];
 if ($selected_class) {
     $section_stmt = $pdo->prepare("SELECT * FROM sections WHERE class_id = ? AND status='active'");
@@ -143,16 +185,32 @@ if ($selected_class) {
 <div class="wrapper">
 
 <?php include 'inc/header.php'; ?>
-<?php include 'inc/sidebar.php'; ?>
+<?php include 'inc/sidebar00.php'; ?>
 
 <div class="content-wrapper">
 <section class="content">
 <div class="container-fluid">
 
+<?php if(isset($_SESSION['success'])): ?>
+    <div class="alert alert-success alert-dismissible">
+        <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
+        <h5><i class="icon fas fa-check"></i> সফল!</h5>
+        <?= $_SESSION['success']; unset($_SESSION['success']); ?>
+    </div>
+<?php endif; ?>
+
+<?php if(isset($_SESSION['error'])): ?>
+    <div class="alert alert-danger alert-dismissible">
+        <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
+        <h5><i class="icon fas fa-ban"></i> ত্রুটি!</h5>
+        <?= $_SESSION['error']; unset($_SESSION['error']); ?>
+    </div>
+<?php endif; ?>
+
 <form method="GET">
     <div class="row">
         <div class="col-md-3">
-            <select class="form-control" name="class_id" required>
+            <select class="form-control" name="class_id" required onchange="this.form.submit()">
                 <option value="">ক্লাস</option>
                 <?php foreach($classes as $class): ?>
                     <option value="<?= $class['id'] ?>" <?= ($selected_class==$class['id'])?'selected':'' ?>>
@@ -162,8 +220,8 @@ if ($selected_class) {
             </select>
         </div>
         <div class="col-md-3">
-            <select class="form-control" name="section_id" required>
-                <option value="">শাখা</option>
+            <select class="form-control" name="section_id" onchange="this.form.submit()">
+                <option value="">-- শাখা (ঐচ্ছিক) --</option>
                 <?php foreach($sections as $section): ?>
                     <option value="<?= $section['id'] ?>" <?= ($selected_section==$section['id'])?'selected':'' ?>>
                         <?= $section['name'] ?>
@@ -224,7 +282,7 @@ if ($selected_class) {
 <td><?= $student['first_name'].' '.$student['last_name'] ?></td>
 
 <td>
-<input type="radio" name="attendance[<?= $student_id ?>][status]" id="p<?= $student_id ?>" value="present" <?= ($current_status=='present')?'checked':'' ?>>
+<input type="radio" name="attendance[<?= $student_id ?>][status]" id="p<?= $student_id ?>" value="present" <?= ($current_status=='present')?'checked':'' ?> required>
 <label for="p<?= $student_id ?>" class="radio-label present"><i class="fas fa-check"></i></label>
 </td>
 <td>
@@ -236,7 +294,7 @@ if ($selected_class) {
 <label for="l<?= $student_id ?>" class="radio-label late"><i class="fas fa-clock"></i></label>
 </td>
 <td>
-<input type="text" class="form-control form-control-sm" name="attendance[<?= $student_id ?>][remarks]" value="<?= $current_remarks ?>">
+<input type="text" class="form-control form-control-sm" name="attendance[<?= $student_id ?>][remarks]" value="<?= htmlspecialchars($current_remarks) ?>">
 </td>
 </tr>
 <?php endforeach; ?>
@@ -255,17 +313,43 @@ if ($selected_class) {
 </div>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
 <script>
 $(function(){
     $("#selectAllPresent").click(function(){
-        $("input[value='present']").prop("checked",true).trigger("change");
+        $("input[value='present']").prop("checked", true);
+        $("input[value='present']").next().addClass('present').removeClass('absent late');
+        $("input[value='absent'], input[value='late']").next().removeClass('present absent late');
     });
+    
     $("#selectAllAbsent").click(function(){
-        $("input[value='absent']").prop("checked",true).trigger("change");
+        $("input[value='absent']").prop("checked", true);
+        $("input[value='absent']").next().addClass('absent').removeClass('present late');
+        $("input[value='present'], input[value='late']").next().removeClass('present absent late');
     });
+    
     $("#selectAllLate").click(function(){
-        $("input[value='late']").prop("checked",true).trigger("change");
+        $("input[value='late']").prop("checked", true);
+        $("input[value='late']").next().addClass('late').removeClass('present absent');
+        $("input[value='present'], input[value='absent']").next().removeClass('present absent late');
     });
+    
+    // Update radio button styles on change
+    $("input[type='radio']").change(function(){
+        $(".radio-label").removeClass('present absent late');
+        $("input[type='radio']:checked").each(function(){
+            if($(this).val() === 'present') {
+                $(this).next().addClass('present');
+            } else if($(this).val() === 'absent') {
+                $(this).next().addClass('absent');
+            } else if($(this).val() === 'late') {
+                $(this).next().addClass('late');
+            }
+        });
+    });
+    
+    // Trigger change event on page load to set initial styles
+    $("input[type='radio']:checked").trigger('change');
 });
 </script>
 </body>
