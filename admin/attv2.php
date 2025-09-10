@@ -6,13 +6,13 @@ if (!isAuthenticated() || !hasRole(['super_admin', 'teacher'])) {
     redirect('../login.php');
 }
 
-// Get today's date for default selection
+// Get today's date
 $current_date = date('Y-m-d');
 
-// Get classes and sections
+// Get classes
 $classes = $pdo->query("SELECT * FROM classes WHERE status='active' ORDER BY numeric_value ASC")->fetchAll();
 
-// Initialize variables
+// Variables
 $selected_class = '';
 $selected_section = '';
 $selected_date = $current_date;
@@ -149,8 +149,14 @@ if ($selected_class) {
 <section class="content">
 <div class="container-fluid">
 
-<form method="GET">
-    <div class="row">
+<!-- Filter Card -->
+<div class="card">
+  <div class="card-header bg-primary text-white">
+    <h3 class="card-title">উপস্থিতি অনুসন্ধান</h3>
+  </div>
+  <div class="card-body">
+    <form method="GET">
+      <div class="row">
         <div class="col-md-3">
             <select class="form-control" name="class_id" required>
                 <option value="">ক্লাস</option>
@@ -175,76 +181,82 @@ if ($selected_class) {
             <input type="date" class="form-control" name="date" value="<?= $selected_date ?>" required>
         </div>
         <div class="col-md-3">
-            <button type="submit" name="view_attendance" class="btn btn-primary">দেখুন</button>
+            <button type="submit" name="view_attendance" class="btn btn-primary btn-block">
+              <i class="fas fa-search"></i> দেখুন
+            </button>
         </div>
-    </div>
-</form>
+      </div>
+    </form>
+  </div>
+</div>
 
 <?php if(!empty($students)): ?>
-<hr>
-<form method="POST">
-<input type="hidden" name="class_id" value="<?= $selected_class ?>">
-<input type="hidden" name="section_id" value="<?= $selected_section ?>">
-<input type="hidden" name="date" value="<?= $selected_date ?>">
+<!-- Attendance Card -->
+<div class="card">
+  <div class="card-header bg-success text-white">
+    <h3 class="card-title">উপস্থিতি তালিকা</h3>
+  </div>
+  <div class="card-body">
+    <form method="POST">
+      <input type="hidden" name="class_id" value="<?= $selected_class ?>">
+      <input type="hidden" name="section_id" value="<?= $selected_section ?>">
+      <input type="hidden" name="date" value="<?= $selected_date ?>">
 
-<table class="table table-bordered attendance-table">
-<thead>
-<tr>
-    <th>রোল</th>
-    <th>নাম</th>
-    <th>
-        <i class="fas fa-check-circle text-success header-btn" id="selectAllPresent"></i>
-    </th>
-    <th>
-        <i class="fas fa-times-circle text-danger header-btn" id="selectAllAbsent"></i>
-    </th>
-    <th>
-        <i class="fas fa-clock text-warning header-btn" id="selectAllLate"></i>
-    </th>
-    <th>মন্তব্য</th>
-</tr>
-</thead>
-<tbody>
-<?php foreach($students as $student):
-    $student_id = $student['id'];
-    $current_status = null;
-    $current_remarks = '';
-    if($is_existing_record){
-        foreach($attendance_data as $record){
-            if($record['student_id']==$student_id){
-                $current_status = $record['status'];
-                $current_remarks = $record['remarks'];
-                break;
-            }
-        }
-    }
-?>
-<tr>
-<td><?= $student['roll_number'] ?></td>
-<td><?= $student['first_name'].' '.$student['last_name'] ?></td>
+      <table class="table table-bordered attendance-table">
+      <thead>
+      <tr>
+          <th>রোল</th>
+          <th>নাম</th>
+          <th><i class="fas fa-check-circle text-success header-btn" id="selectAllPresent"></i></th>
+          <th><i class="fas fa-times-circle text-danger header-btn" id="selectAllAbsent"></i></th>
+          <th><i class="fas fa-clock text-warning header-btn" id="selectAllLate"></i></th>
+          <th>মন্তব্য</th>
+      </tr>
+      </thead>
+      <tbody>
+      <?php foreach($students as $student):
+          $student_id = $student['id'];
+          $current_status = null;
+          $current_remarks = '';
+          if($is_existing_record){
+              foreach($attendance_data as $record){
+                  if($record['student_id']==$student_id){
+                      $current_status = $record['status'];
+                      $current_remarks = $record['remarks'];
+                      break;
+                  }
+              }
+          }
+      ?>
+      <tr>
+      <td><?= $student['roll_number'] ?></td>
+      <td><?= $student['first_name'].' '.$student['last_name'] ?></td>
+      <td>
+        <input type="radio" name="attendance[<?= $student_id ?>][status]" id="p<?= $student_id ?>" value="present" <?= ($current_status=='present')?'checked':'' ?>>
+        <label for="p<?= $student_id ?>" class="radio-label present"><i class="fas fa-check"></i></label>
+      </td>
+      <td>
+        <input type="radio" name="attendance[<?= $student_id ?>][status]" id="a<?= $student_id ?>" value="absent" <?= ($current_status=='absent')?'checked':'' ?>>
+        <label for="a<?= $student_id ?>" class="radio-label absent"><i class="fas fa-times"></i></label>
+      </td>
+      <td>
+        <input type="radio" name="attendance[<?= $student_id ?>][status]" id="l<?= $student_id ?>" value="late" <?= ($current_status=='late')?'checked':'' ?>>
+        <label for="l<?= $student_id ?>" class="radio-label late"><i class="fas fa-clock"></i></label>
+      </td>
+      <td>
+        <input type="text" class="form-control form-control-sm" name="attendance[<?= $student_id ?>][remarks]" value="<?= $current_remarks ?>">
+      </td>
+      </tr>
+      <?php endforeach; ?>
+      </tbody>
+      </table>
 
-<td>
-<input type="radio" name="attendance[<?= $student_id ?>][status]" id="p<?= $student_id ?>" value="present" <?= ($current_status=='present')?'checked':'' ?>>
-<label for="p<?= $student_id ?>" class="radio-label present"><i class="fas fa-check"></i></label>
-</td>
-<td>
-<input type="radio" name="attendance[<?= $student_id ?>][status]" id="a<?= $student_id ?>" value="absent" <?= ($current_status=='absent')?'checked':'' ?>>
-<label for="a<?= $student_id ?>" class="radio-label absent"><i class="fas fa-times"></i></label>
-</td>
-<td>
-<input type="radio" name="attendance[<?= $student_id ?>][status]" id="l<?= $student_id ?>" value="late" <?= ($current_status=='late')?'checked':'' ?>>
-<label for="l<?= $student_id ?>" class="radio-label late"><i class="fas fa-clock"></i></label>
-</td>
-<td>
-<input type="text" class="form-control form-control-sm" name="attendance[<?= $student_id ?>][remarks]" value="<?= $current_remarks ?>">
-</td>
-</tr>
-<?php endforeach; ?>
-</tbody>
-</table>
-
-<button type="submit" name="mark_attendance" class="btn btn-success">সংরক্ষণ করুন</button>
-</form>
+      <button type="submit" name="mark_attendance" class="btn btn-success">
+        <i class="fas fa-save"></i> সংরক্ষণ করুন
+      </button>
+    </form>
+  </div>
+</div>
 <?php endif; ?>
 
 </div>
