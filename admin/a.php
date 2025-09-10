@@ -544,42 +544,52 @@ if ($selected_class) {
             }
         });
 
-        // Function to handle "select all" buttons
+        // Function to update header button status
+        function updateHeaderButtons() {
+            var allRadios = $('input[name^="attendance["][type="radio"]');
+            var checkedRadios = $('input[name^="attendance["]:checked');
+            var totalStudents = allRadios.length / 3; // 3 radio buttons per student
+            
+            $('.btn-attendance-header').removeClass('active-present active-absent active-late');
+            
+            if (checkedRadios.length === totalStudents && totalStudents > 0) {
+                var firstStatus = checkedRadios.first().val();
+                var allSame = true;
+                checkedRadios.each(function() {
+                    if ($(this).val() !== firstStatus) {
+                        allSame = false;
+                        return false; // Exit the loop early
+                    }
+                });
+
+                if (allSame) {
+                    $('#select-all-' + firstStatus).addClass('active-' + firstStatus);
+                }
+            }
+        }
+
+        // Handle "select all" buttons
         $('.btn-attendance-header').click(function() {
             var statusToSelect = $(this).data('status');
-            var headerButtons = $('.btn-attendance-header');
             
-            // Remove active class from all header buttons
-            headerButtons.removeClass('active-present active-absent active-late');
-            
-            // Add active class to the clicked button
-            $(this).addClass('active-' + statusToSelect);
-
             // Loop through all radio buttons and select the correct one
-            $('input[type="radio"]').each(function() {
-                var radioStatus = $(this).val();
-                if (radioStatus === statusToSelect) {
+            $('input[name^="attendance["][type="radio"]').each(function() {
+                if ($(this).val() === statusToSelect) {
                     $(this).prop('checked', true);
                 } else {
                     $(this).prop('checked', false);
                 }
             });
+            updateHeaderButtons(); // Update header buttons after a bulk selection
         });
 
-        // Set initial header button state based on existing records
-        <?php if($is_existing_record): ?>
-            // Get the status of the first student to determine initial state
-            var firstStudentStatus = $('input[name^="attendance["]:checked').first().val();
-            if (firstStudentStatus) {
-                $('#select-all-' + firstStudentStatus).addClass('active-' + firstStudentStatus);
-            }
-        <?php endif; ?>
-
-        // Update header button colors when a single radio button is clicked
-        $('input[type="radio"]').on('change', function() {
-            var headerButtons = $('.btn-attendance-header');
-            headerButtons.removeClass('active-present active-absent active-late');
+        // Update header button status whenever a single radio button is clicked
+        $('input[name^="attendance["][type="radio"]').on('change', function() {
+            updateHeaderButtons();
         });
+
+        // Call the function on page load to set initial state
+        updateHeaderButtons();
 
         // Prevent form submission on Enter key in remark fields
         $('#attendanceForm').on('keyup keypress', function(e) {
