@@ -6,13 +6,13 @@ if (!isAuthenticated() || !hasRole(['super_admin', 'teacher'])) {
     redirect('../login.php');
 }
 
-// Get today's date
+// Get today's date for default selection
 $current_date = date('Y-m-d');
 
 // Get classes
 $classes = $pdo->query("SELECT * FROM classes WHERE status='active' ORDER BY numeric_value ASC")->fetchAll();
 
-// Variables
+// Initialize variables
 $selected_class = '';
 $selected_section = '';
 $selected_date = $current_date;
@@ -23,12 +23,19 @@ $is_existing_record = false;
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
     $class_id = intval($_POST['class_id']);
-    $section_id = intval($_POST['section_id']);
+    $section_id = !empty($_POST['section_id']) ? intval($_POST['section_id']) : null;
     $date = $_POST['date'];
 
     // Check if attendance already exists
-    $check_stmt = $pdo->prepare("SELECT COUNT(*) as count FROM attendance WHERE class_id = ? AND section_id = ? AND date = ?");
-    $check_stmt->execute([$class_id, $section_id, $date]);
+    $check_sql = "SELECT COUNT(*) as count FROM attendance WHERE class_id = ? AND date = ?";
+    $params = [$class_id, $date];
+    if ($section_id) {
+        $check_sql .= " AND section_id = ?";
+        $params[] = $section_id;
+    }
+
+    $check_stmt = $pdo->prepare($check_sql);
+    $check_stmt->execute($params);
     $result = $check_stmt->fetch();
     $is_existing_record = ($result['count'] > 0);
 
@@ -43,9 +50,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
                 $update_stmt = $pdo->prepare("
                     UPDATE attendance 
                     SET status = ?, remarks = ?, updated_at = CURRENT_TIMESTAMP 
-                    WHERE student_id = ? AND class_id = ? AND section_id = ? AND date = ?
+                    WHERE student_id = ? AND class_id = ? AND date = ?
                 ");
-                $update_stmt->execute([$status, $remarks, $student_id, $class_id, $section_id, $date]);
+                $update_stmt->execute([$status, $remarks, $student_id, $class_id, $date]);
             }
             $_SESSION['success'] = "উপস্থিতি সফলভাবে আপডেট করা হয়েছে!";
         } else {
@@ -78,35 +85,55 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
 // Handle view attendance
 if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['view_attendance'])) {
     $selected_class = intval($_GET['class_id']);
-    $selected_section = intval($_GET['section_id']);
+    $selected_section = !empty($_GET['section_id']) ? intval($_GET['section_id']) : null;
     $selected_date = $_GET['date'];
 
-    $check_stmt = $pdo->prepare("SELECT COUNT(*) as count FROM attendance WHERE class_id = ? AND section_id = ? AND date = ?");
-    $check_stmt->execute([$selected_class, $selected_section, $selected_date]);
+    $check_sql = "SELECT COUNT(*) as count FROM attendance WHERE class_id = ? AND date = ?";
+    $params = [$selected_class, $selected_date];
+    if ($selected_section) {
+        $check_sql .= " AND section_id = ?";
+        $params[] = $selected_section;
+    }
+    $check_stmt = $pdo->prepare($check_sql);
+    $check_stmt->execute($params);
     $result = $check_stmt->fetch();
     $is_existing_record = ($result['count'] > 0);
 
-    $attendance_stmt = $pdo->prepare("
+    // Attendance records
+    $attendance_sql = "
         SELECT a.*, s.first_name, s.last_name, s.roll_number 
         FROM attendance a 
         JOIN students s ON a.student_id = s.id 
-        WHERE a.class_id = ? AND a.section_id = ? AND a.date = ?
-        ORDER BY s.roll_number ASC
-    ");
-    $attendance_stmt->execute([$selected_class, $selected_section, $selected_date]);
+        WHERE a.class_id = ? AND a.date = ?
+    ";
+    $attendance_params = [$selected_class, $selected_date];
+    if ($selected_section) {
+        $attendance_sql .= " AND a.section_id = ?";
+        $attendance_params[] = $selected_section;
+    }
+    $attendance_sql .= " ORDER BY s.roll_number ASC";
+    $attendance_stmt = $pdo->prepare($attendance_sql);
+    $attendance_stmt->execute($attendance_params);
     $attendance_data = $attendance_stmt->fetchAll();
 
-    $student_stmt = $pdo->prepare("
+    // Students
+    $student_sql = "
         SELECT id, first_name, last_name, roll_number 
         FROM students 
-        WHERE class_id = ? AND section_id = ? AND status='active'
-        ORDER BY roll_number ASC
-    ");
-    $student_stmt->execute([$selected_class, $selected_section]);
+        WHERE class_id = ? AND status='active'
+    ";
+    $student_params = [$selected_class];
+    if ($selected_section) {
+        $student_sql .= " AND section_id = ?";
+        $student_params[] = $selected_section;
+    }
+    $student_sql .= " ORDER BY roll_number ASC";
+    $student_stmt = $pdo->prepare($student_sql);
+    $student_stmt->execute($student_params);
     $students = $student_stmt->fetchAll();
 }
 
-// Get sections
+// Get sections for dropdown
 $sections = [];
 if ($selected_class) {
     $section_stmt = $pdo->prepare("SELECT * FROM sections WHERE class_id = ? AND status='active'");
@@ -143,20 +170,14 @@ if ($selected_class) {
 <div class="wrapper">
 
 <?php include 'inc/header.php'; ?>
-<?php include 'inc/sidebarv.php'; ?>
+<?php include 'inc/sidebar.php'; ?>
 
 <div class="content-wrapper">
 <section class="content">
 <div class="container-fluid">
 
-<!-- Filter Card -->
-<div class="card">
-  <div class="card-header bg-primary text-white">
-    <h3 class="card-title">উপস্থিতি অনুসন্ধান</h3>
-  </div>
-  <div class="card-body">
-    <form method="GET">
-      <div class="row">
+<form method="GET">
+    <div class="row">
         <div class="col-md-3">
             <select class="form-control" name="class_id" required>
                 <option value="">ক্লাস</option>
@@ -168,8 +189,8 @@ if ($selected_class) {
             </select>
         </div>
         <div class="col-md-3">
-            <select class="form-control" name="section_id" required>
-                <option value="">শাখা</option>
+            <select class="form-control" name="section_id">
+                <option value="">-- শাখা (ঐচ্ছিক) --</option>
                 <?php foreach($sections as $section): ?>
                     <option value="<?= $section['id'] ?>" <?= ($selected_section==$section['id'])?'selected':'' ?>>
                         <?= $section['name'] ?>
@@ -181,82 +202,76 @@ if ($selected_class) {
             <input type="date" class="form-control" name="date" value="<?= $selected_date ?>" required>
         </div>
         <div class="col-md-3">
-            <button type="submit" name="view_attendance" class="btn btn-primary btn-block">
-              <i class="fas fa-search"></i> দেখুন
-            </button>
+            <button type="submit" name="view_attendance" class="btn btn-primary">দেখুন</button>
         </div>
-      </div>
-    </form>
-  </div>
-</div>
+    </div>
+</form>
 
 <?php if(!empty($students)): ?>
-<!-- Attendance Card -->
-<div class="card">
-  <div class="card-header bg-success text-white">
-    <h3 class="card-title">উপস্থিতি তালিকা</h3>
-  </div>
-  <div class="card-body">
-    <form method="POST">
-      <input type="hidden" name="class_id" value="<?= $selected_class ?>">
-      <input type="hidden" name="section_id" value="<?= $selected_section ?>">
-      <input type="hidden" name="date" value="<?= $selected_date ?>">
+<hr>
+<form method="POST">
+<input type="hidden" name="class_id" value="<?= $selected_class ?>">
+<input type="hidden" name="section_id" value="<?= $selected_section ?>">
+<input type="hidden" name="date" value="<?= $selected_date ?>">
 
-      <table class="table table-bordered attendance-table">
-      <thead>
-      <tr>
-          <th>রোল</th>
-          <th>নাম</th>
-          <th><i class="fas fa-check-circle text-success header-btn" id="selectAllPresent"></i></th>
-          <th><i class="fas fa-times-circle text-danger header-btn" id="selectAllAbsent"></i></th>
-          <th><i class="fas fa-clock text-warning header-btn" id="selectAllLate"></i></th>
-          <th>মন্তব্য</th>
-      </tr>
-      </thead>
-      <tbody>
-      <?php foreach($students as $student):
-          $student_id = $student['id'];
-          $current_status = null;
-          $current_remarks = '';
-          if($is_existing_record){
-              foreach($attendance_data as $record){
-                  if($record['student_id']==$student_id){
-                      $current_status = $record['status'];
-                      $current_remarks = $record['remarks'];
-                      break;
-                  }
-              }
-          }
-      ?>
-      <tr>
-      <td><?= $student['roll_number'] ?></td>
-      <td><?= $student['first_name'].' '.$student['last_name'] ?></td>
-      <td>
-        <input type="radio" name="attendance[<?= $student_id ?>][status]" id="p<?= $student_id ?>" value="present" <?= ($current_status=='present')?'checked':'' ?>>
-        <label for="p<?= $student_id ?>" class="radio-label present"><i class="fas fa-check"></i></label>
-      </td>
-      <td>
-        <input type="radio" name="attendance[<?= $student_id ?>][status]" id="a<?= $student_id ?>" value="absent" <?= ($current_status=='absent')?'checked':'' ?>>
-        <label for="a<?= $student_id ?>" class="radio-label absent"><i class="fas fa-times"></i></label>
-      </td>
-      <td>
-        <input type="radio" name="attendance[<?= $student_id ?>][status]" id="l<?= $student_id ?>" value="late" <?= ($current_status=='late')?'checked':'' ?>>
-        <label for="l<?= $student_id ?>" class="radio-label late"><i class="fas fa-clock"></i></label>
-      </td>
-      <td>
-        <input type="text" class="form-control form-control-sm" name="attendance[<?= $student_id ?>][remarks]" value="<?= $current_remarks ?>">
-      </td>
-      </tr>
-      <?php endforeach; ?>
-      </tbody>
-      </table>
+<table class="table table-bordered attendance-table">
+<thead>
+<tr>
+    <th>রোল</th>
+    <th>নাম</th>
+    <th>
+        <i class="fas fa-check-circle text-success header-btn" id="selectAllPresent"></i>
+    </th>
+    <th>
+        <i class="fas fa-times-circle text-danger header-btn" id="selectAllAbsent"></i>
+    </th>
+    <th>
+        <i class="fas fa-clock text-warning header-btn" id="selectAllLate"></i>
+    </th>
+    <th>মন্তব্য</th>
+</tr>
+</thead>
+<tbody>
+<?php foreach($students as $student):
+    $student_id = $student['id'];
+    $current_status = null;
+    $current_remarks = '';
+    if($is_existing_record){
+        foreach($attendance_data as $record){
+            if($record['student_id']==$student_id){
+                $current_status = $record['status'];
+                $current_remarks = $record['remarks'];
+                break;
+            }
+        }
+    }
+?>
+<tr>
+<td><?= $student['roll_number'] ?></td>
+<td><?= $student['first_name'].' '.$student['last_name'] ?></td>
 
-      <button type="submit" name="mark_attendance" class="btn btn-success">
-        <i class="fas fa-save"></i> সংরক্ষণ করুন
-      </button>
-    </form>
-  </div>
-</div>
+<td>
+<input type="radio" name="attendance[<?= $student_id ?>][status]" id="p<?= $student_id ?>" value="present" <?= ($current_status=='present')?'checked':'' ?>>
+<label for="p<?= $student_id ?>" class="radio-label present"><i class="fas fa-check"></i></label>
+</td>
+<td>
+<input type="radio" name="attendance[<?= $student_id ?>][status]" id="a<?= $student_id ?>" value="absent" <?= ($current_status=='absent')?'checked':'' ?>>
+<label for="a<?= $student_id ?>" class="radio-label absent"><i class="fas fa-times"></i></label>
+</td>
+<td>
+<input type="radio" name="attendance[<?= $student_id ?>][status]" id="l<?= $student_id ?>" value="late" <?= ($current_status=='late')?'checked':'' ?>>
+<label for="l<?= $student_id ?>" class="radio-label late"><i class="fas fa-clock"></i></label>
+</td>
+<td>
+<input type="text" class="form-control form-control-sm" name="attendance[<?= $student_id ?>][remarks]" value="<?= $current_remarks ?>">
+</td>
+</tr>
+<?php endforeach; ?>
+</tbody>
+</table>
+
+<button type="submit" name="mark_attendance" class="btn btn-success">সংরক্ষণ করুন</button>
+</form>
 <?php endif; ?>
 
 </div>
