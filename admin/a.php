@@ -205,37 +205,28 @@ if ($selected_class) {
             transition: all 0.3s;
             margin: 0 auto;
             font-size: 18px;
-            background-color: #e9ecef;
-            color: #6c757d;
-            border: 2px solid #6c757d;
+            background-color: #e9ecef; /* Light gray background */
+            color: #6c757d;            /* Gray icon color */
+            border: 2px solid #6c757d; /* Gray border */
         }
-        .radio-present .radio-label {
-            border: 2px solid #28a745;
-            color: #28a745;
-        }
+        
+        /* Only change colors when the radio button is checked */
         .radio-present input[type="radio"]:checked + .radio-label {
             background-color: #28a745;
             color: white;
             border-color: #28a745;
-        }
-        .radio-absent .radio-label {
-            border: 2px solid #dc3545;
-            color: #dc3545;
         }
         .radio-absent input[type="radio"]:checked + .radio-label {
             background-color: #dc3545;
             color: white;
             border-color: #dc3545;
         }
-        .radio-late .radio-label {
-            border: 2px solid #ffc107;
-            color: #ffc107;
-        }
         .radio-late input[type="radio"]:checked + .radio-label {
             background-color: #ffc107;
             color: white;
             border-color: #ffc107;
         }
+        
         input[type="radio"] {
             display: none;
         }
@@ -544,26 +535,24 @@ if ($selected_class) {
             }
         });
 
-        // Function to update header button status
+        // Function to update header button status based on all students' attendance
         function updateHeaderButtons() {
-            var allRadios = $('input[name^="attendance["][type="radio"]');
-            var checkedRadios = $('input[name^="attendance["]:checked');
-            var totalStudents = allRadios.length / 3; // 3 radio buttons per student
+            var totalStudents = $('tbody tr').length;
+            var presentCount = $('input[value="present"]:checked').length;
+            var absentCount = $('input[value="absent"]:checked').length;
+            var lateCount = $('input[value="late"]:checked').length;
             
+            // Remove active class from all header buttons
             $('.btn-attendance-header').removeClass('active-present active-absent active-late');
-            
-            if (checkedRadios.length === totalStudents && totalStudents > 0) {
-                var firstStatus = checkedRadios.first().val();
-                var allSame = true;
-                checkedRadios.each(function() {
-                    if ($(this).val() !== firstStatus) {
-                        allSame = false;
-                        return false; // Exit the loop early
-                    }
-                });
 
-                if (allSame) {
-                    $('#select-all-' + firstStatus).addClass('active-' + firstStatus);
+            // If all students have the same status, activate the corresponding header button
+            if (totalStudents > 0) {
+                if (presentCount === totalStudents) {
+                    $('#select-all-present').addClass('active-present');
+                } else if (absentCount === totalStudents) {
+                    $('#select-all-absent').addClass('active-absent');
+                } else if (lateCount === totalStudents) {
+                    $('#select-all-late').addClass('active-late');
                 }
             }
         }
