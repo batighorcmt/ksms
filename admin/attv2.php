@@ -143,7 +143,7 @@ if ($selected_class) {
 <div class="wrapper">
 
 <?php include 'inc/header.php'; ?>
-<?php include 'inc/sidebar.php'; ?>
+<?php include 'inc/sidebarv.php'; ?>
 
 <div class="content-wrapper">
 <section class="content">
