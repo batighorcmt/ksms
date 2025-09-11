@@ -14,36 +14,40 @@ $total_students_query = $pdo->query("SELECT COUNT(*) as total FROM students WHER
 $total_students = $total_students_query->fetch()['total'];
 
 // Fetch attendance stats for the selected date
+// This query now considers students without attendance records as absent
 $attendance_stats = $pdo->prepare("
     SELECT 
+        COUNT(st.id) as total_students,
         SUM(CASE WHEN a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) as present,
-        SUM(CASE WHEN a.status = 'absent' THEN 1 ELSE 0 END) as absent
-    FROM attendance a
-    WHERE a.date = ?
+        SUM(CASE WHEN a.status = 'absent' OR a.status IS NULL THEN 1 ELSE 0 END) as absent
+    FROM students st
+    LEFT JOIN attendance a ON st.id = a.student_id AND a.date = ?
+    WHERE st.status = 'active'
 ");
 $attendance_stats->execute([$selected_date]);
 $stats = $attendance_stats->fetch();
 
 $present_students = $stats['present'] ?? 0;
 $absent_students = $stats['absent'] ?? 0;
-$attendance_percentage = ($present_students + $absent_students) > 0 ? round(($present_students / ($present_students + $absent_students)) * 100, 2) : 0;
+$attendance_percentage = $total_students > 0 ? round(($present_students / $total_students) * 100, 2) : 0;
 
 // Fetch class and section-wise attendance data
+// This query now considers students without attendance records as absent
 $class_attendance = $pdo->prepare("
     SELECT 
         c.name as class_name,
         s.name as section_name,
+        COUNT(st.id) as total_students,
         SUM(CASE WHEN st.gender = 'male' THEN 1 ELSE 0 END) as total_boys,
         SUM(CASE WHEN st.gender = 'female' THEN 1 ELSE 0 END) as total_girls,
         SUM(CASE WHEN st.gender = 'male' AND a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) as present_boys,
         SUM(CASE WHEN st.gender = 'female' AND a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) as present_girls,
-        SUM(CASE WHEN st.gender = 'male' AND a.status = 'absent' THEN 1 ELSE 0 END) as absent_boys,
-        SUM(CASE WHEN st.gender = 'female' AND a.status = 'absent' THEN 1 ELSE 0 END) as absent_girls,
-        COUNT(a.id) as total_attendance,
+        SUM(CASE WHEN st.gender = 'male' AND (a.status = 'absent' OR a.status IS NULL) THEN 1 ELSE 0 END) as absent_boys,
+        SUM(CASE WHEN st.gender = 'female' AND (a.status = 'absent' OR a.status IS NULL) THEN 1 ELSE 0 END) as absent_girls,
         SUM(CASE WHEN a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) as total_present,
-        SUM(CASE WHEN a.status = 'absent' THEN 1 ELSE 0 END) as total_absent,
+        SUM(CASE WHEN a.status = 'absent' OR a.status IS NULL THEN 1 ELSE 0 END) as total_absent,
         CASE 
-            WHEN COUNT(a.id) > 0 THEN ROUND((SUM(CASE WHEN a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) * 100.0 / COUNT(a.id)), 2)
+            WHEN COUNT(st.id) > 0 THEN ROUND((SUM(CASE WHEN a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) * 100.0 / COUNT(st.id)), 2)
             ELSE 0 
         END as attendance_percentage
     FROM classes c
@@ -56,7 +60,7 @@ $class_attendance = $pdo->prepare("
 $class_attendance->execute([$selected_date]);
 $attendance_data = $class_attendance->fetchAll();
 
-// Fetch absent students list
+// Fetch absent students list (including those without attendance records)
 $absent_students_list = $pdo->prepare("
     SELECT 
         st.id,
@@ -66,12 +70,13 @@ $absent_students_list = $pdo->prepare("
         s.name as section_name,
         st.roll_number,
         st.mobile_number,
-        st.present_address as village
+        st.present_address as village,
+        CASE WHEN a.status IS NULL THEN 'রেকর্ড করা হয়নি' ELSE 'অনুপস্থিত' END as status_type
     FROM students st
     JOIN classes c ON st.class_id = c.id
     JOIN sections s ON st.section_id = s.id
-    JOIN attendance a ON st.id = a.student_id
-    WHERE a.date = ? AND a.status = 'absent'
+    LEFT JOIN attendance a ON st.id = a.student_id AND a.date = ?
+    WHERE st.status = 'active' AND (a.status = 'absent' OR a.status IS NULL)
     ORDER BY c.numeric_value, s.name, st.roll_number
 ");
 $absent_students_list->execute([$selected_date]);
@@ -83,9 +88,9 @@ $gender_present_data = $pdo->prepare("
     SELECT 
         st.gender,
         COUNT(*) as count
-    FROM attendance a
-    JOIN students st ON a.student_id = st.id
-    WHERE a.date = ? AND a.status IN ('present', 'late', 'half_day')
+    FROM students st
+    LEFT JOIN attendance a ON st.id = a.student_id AND a.date = ?
+    WHERE st.status = 'active' AND (a.status IN ('present', 'late', 'half_day') OR a.status IS NULL)
     GROUP BY st.gender
 ");
 $gender_present_data->execute([$selected_date]);
@@ -95,10 +100,10 @@ $gender_present = $gender_present_data->fetchAll();
 $class_attendance_chart = $pdo->prepare("
     SELECT 
         c.name as class_name,
-        COUNT(a.id) as total,
+        COUNT(st.id) as total,
         SUM(CASE WHEN a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) as present,
         CASE 
-            WHEN COUNT(a.id) > 0 THEN ROUND((SUM(CASE WHEN a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) * 100.0 / COUNT(a.id)), 2)
+            WHEN COUNT(st.id) > 0 THEN ROUND((SUM(CASE WHEN a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) * 100.0 / COUNT(st.id)), 2)
             ELSE 0 
         END as percentage
     FROM classes c
@@ -207,6 +212,20 @@ if (empty($gender_present)) {
         .not-recorded {
             color: #6c757d;
             font-style: italic;
+        }
+        .status-badge {
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status-absent {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .status-not-recorded {
+            background-color: #e2e3e5;
+            color: #383d41;
         }
     </style>
 </head>
@@ -327,7 +346,7 @@ if (empty($gender_present)) {
                                     <?php 
                                     $recorded_count = $present_students + $absent_students;
                                     $not_recorded = $total_students - $recorded_count;
-                                    echo "আজকের তারিখে " . $recorded_count . " জন শিক্ষার্থীর হাজিরা রেকর্ড করা হয়েছে, " . $not_recorded . " জনের রেকর্ড করা হয়নি";
+                                    echo "আজকের তারিখে " . $recorded_count . " জন শিক্ষার্থীর হাজিরা রেকর্ড করা হয়েছে, " . $not_recorded . " জনের রেকর্ড করা হয়নি (অনুপস্থিত হিসেবে গণ্য)";
                                     ?>
                                 </span>
                             </div>
@@ -362,7 +381,7 @@ if (empty($gender_present)) {
                                                 <th>অনুপস্থিত ছেলে</th>
                                                 <th>অনুপস্থিত মেয়ে</th>
                                                 <th>মোট উপস্থিত</th>
-                                                <th>মোট অনুপस्थিত</th>
+                                                <th>মোট অনুপস্থিত</th>
                                                 <th>উপস্থিতির হার</th>
                                             </tr>
                                         </thead>
@@ -443,8 +462,9 @@ if (empty($gender_present)) {
                                                 <th>ক্রমিক</th>
                                                 <th>নাম</th>
                                                 <th>শ্রেণি</th>
-                                                <th>শাখा</th>
+                                                <th>শাখা</th>
                                                 <th>রোল</th>
+                                                <th>স্থিতি</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -456,6 +476,11 @@ if (empty($gender_present)) {
                                                 <td><?php echo $student['class_name']; ?></td>
                                                 <td><?php echo $student['section_name']; ?></td>
                                                 <td><?php echo $student['roll_number']; ?></td>
+                                                <td>
+                                                    <span class="status-badge <?php echo $student['status_type'] == 'অনুপস্থিত' ? 'status-absent' : 'status-not-recorded'; ?>">
+                                                        <?php echo $student['status_type']; ?>
+                                                    </span>
+                                                </td>
                                             </tr>
                                             <?php endforeach; ?>
                                         </tbody>
