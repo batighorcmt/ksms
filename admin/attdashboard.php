@@ -1,563 +1,525 @@
+<?php
+require_once '../config.php';
+
+// Authentication check
+if (!isAuthenticated() || !hasRole(['super_admin', 'teacher'])) {
+    redirect('../login.php');
+}
+
+// Get selected date (default to today)
+$selected_date = isset($_GET['date']) ? $_GET['date'] : date('Y-m-d');
+
+// Fetch attendance stats for the selected date
+$attendance_stats = $pdo->prepare("
+    SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) as present,
+        SUM(CASE WHEN a.status = 'absent' THEN 1 ELSE 0 END) as absent
+    FROM attendance a
+    WHERE a.date = ?
+");
+$attendance_stats->execute([$selected_date]);
+$stats = $attendance_stats->fetch();
+
+$total_students = $stats['total'] ?? 0;
+$present_students = $stats['present'] ?? 0;
+$absent_students = $stats['absent'] ?? 0;
+$attendance_percentage = $total_students > 0 ? round(($present_students / $total_students) * 100, 2) : 0;
+
+// Fetch class and section-wise attendance data
+$class_attendance = $pdo->prepare("
+    SELECT 
+        c.name as class_name,
+        s.name as section_name,
+        SUM(CASE WHEN st.gender = 'male' THEN 1 ELSE 0 END) as total_boys,
+        SUM(CASE WHEN st.gender = 'female' THEN 1 ELSE 0 END) as total_girls,
+        SUM(CASE WHEN st.gender = 'male' AND a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) as present_boys,
+        SUM(CASE WHEN st.gender = 'female' AND a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) as present_girls,
+        SUM(CASE WHEN st.gender = 'male' AND a.status = 'absent' THEN 1 ELSE 0 END) as absent_boys,
+        SUM(CASE WHEN st.gender = 'female' AND a.status = 'absent' THEN 1 ELSE 0 END) as absent_girls,
+        COUNT(a.id) as total_attendance,
+        SUM(CASE WHEN a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) as total_present,
+        SUM(CASE WHEN a.status = 'absent' THEN 1 ELSE 0 END) as total_absent,
+        CASE 
+            WHEN COUNT(a.id) > 0 THEN ROUND((SUM(CASE WHEN a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) * 100.0 / COUNT(a.id)), 2)
+            ELSE 0 
+        END as attendance_percentage
+    FROM classes c
+    JOIN sections s ON c.id = s.class_id
+    JOIN students st ON s.id = st.section_id AND st.status = 'active'
+    LEFT JOIN attendance a ON st.id = a.student_id AND a.date = ?
+    GROUP BY c.id, s.id
+    ORDER BY c.numeric_value, s.name
+");
+$class_attendance->execute([$selected_date]);
+$attendance_data = $class_attendance->fetchAll();
+
+// Fetch absent students list
+$absent_students_list = $pdo->prepare("
+    SELECT 
+        st.id,
+        st.first_name,
+        st.last_name,
+        c.name as class_name,
+        s.name as section_name,
+        st.roll_number,
+        st.mobile_number,
+        st.present_address as village
+    FROM students st
+    JOIN classes c ON st.class_id = c.id
+    JOIN sections s ON st.section_id = s.id
+    JOIN attendance a ON st.id = a.student_id
+    WHERE a.date = ? AND a.status = 'absent'
+    ORDER BY c.numeric_value, s.name, st.roll_number
+");
+$absent_students_list->execute([$selected_date]);
+$absent_list = $absent_students_list->fetchAll();
+
+// Fetch data for charts
+// Gender distribution for present students
+$gender_present_data = $pdo->prepare("
+    SELECT 
+        st.gender,
+        COUNT(*) as count
+    FROM attendance a
+    JOIN students st ON a.student_id = st.id
+    WHERE a.date = ? AND a.status IN ('present', 'late', 'half_day')
+    GROUP BY st.gender
+");
+$gender_present_data->execute([$selected_date]);
+$gender_present = $gender_present_data->fetchAll();
+
+// Class-wise attendance percentage for chart
+$class_attendance_chart = $pdo->prepare("
+    SELECT 
+        c.name as class_name,
+        COUNT(a.id) as total,
+        SUM(CASE WHEN a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) as present,
+        CASE 
+            WHEN COUNT(a.id) > 0 THEN ROUND((SUM(CASE WHEN a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) * 100.0 / COUNT(a.id)), 2)
+            ELSE 0 
+        END as percentage
+    FROM classes c
+    JOIN sections s ON c.id = s.class_id
+    JOIN students st ON s.id = st.section_id AND st.status = 'active'
+    LEFT JOIN attendance a ON st.id = a.student_id AND a.date = ?
+    GROUP BY c.id
+    ORDER BY c.numeric_value
+");
+$class_attendance_chart->execute([$selected_date]);
+$class_chart_data = $class_attendance_chart->fetchAll();
+
+// Prepare data for charts
+$class_labels = [];
+$class_percentages = [];
+
+foreach ($class_chart_data as $class) {
+    $class_labels[] = $class['class_name'];
+    $class_percentages[] = $class['percentage'];
+}
+
+$gender_labels = [];
+$gender_counts = [];
+$gender_colors = ['#4e73df', '#1cc88a', '#36b9cc']; // Blue, Green, Teal
+
+foreach ($gender_present as $gender) {
+    $gender_labels[] = ucfirst($gender['gender']);
+    $gender_counts[] = $gender['count'];
+}
+
+// If no gender data, add placeholder
+if (empty($gender_present)) {
+    $gender_labels = ['No Data'];
+    $gender_counts = [1];
+    $gender_colors = ['#858796']; // Gray
+}
+?>
+
 <!DOCTYPE html>
 <html lang="bn">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Attendance Dashboard - Kinder Garden</title>
-    <link href="https://fonts.maateen.me/solaiman-lipi/font.css" rel="stylesheet">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>হাজিরা ড্যাশবোর্ড - কিন্ডার গার্ডেন</title>
+
+    <!-- Google Font: Source Sans Pro -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback">
+    <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Theme style -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
+    <!-- Bengali Font -->
+    <link href="https://fonts.maateen.me/solaiman-lipi/font.css" rel="stylesheet">
+    
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'SolaimanLipi', Arial, sans-serif;
+        body, .main-sidebar, .nav-link {
+            font-family: 'SolaimanLipi', 'Source Sans Pro', sans-serif;
         }
-        
-        body {
-            background-color: #f5f7fb;
-            color: #333;
+        .logo-custom {
+            font-weight: bold;
+            font-size: 22px;
         }
-        
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 20px;
+        .info-box {
+            cursor: pointer;
+            transition: transform 0.2s;
         }
-        
-        header {
-            background: linear-gradient(135deg, #4e73df 0%, #224abe 100%);
-            color: white;
-            padding: 15px 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
+        .info-box:hover {
+            transform: translateY(-5px);
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
         }
-        
-        .header-content {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .progress-sm {
+            height: 10px;
         }
-        
-        .logo {
-            display: flex;
-            align-items: center;
+        .small-chart-container {
+            position: relative;
+            height: 100px;
         }
-        
-        .logo i {
-            font-size: 28px;
-            margin-right: 10px;
+        .bg-gradient-primary {
+            background: linear-gradient(87deg, #5e72e4 0, #825ee4 100%) !important;
         }
-        
-        .logo h1 {
-            font-size: 24px;
+        .bg-gradient-success {
+            background: linear-gradient(87deg, #2dce89 0, #2dcecc 100%) !important;
         }
-        
-        .date-filter {
-            display: flex;
-            align-items: center;
-            background: rgba(255, 255, 255, 0.2);
-            padding: 8px 15px;
-            border-radius: 30px;
+        .bg-gradient-info {
+            background: linear-gradient(87deg, #11cdef 0, #1171ef 100%) !important;
         }
-        
-        .date-filter input {
-            background: transparent;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: 5px;
-            padding: 5px 10px;
-            color: white;
-            margin: 0 10px;
+        .bg-gradient-warning {
+            background: linear-gradient(87deg, #fb6340 0, #fbb140 100%) !important;
         }
-        
-        .date-filter button {
-            background: white;
-            color: #4e73df;
-            border: none;
-            padding: 5px 15px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
+        .bg-gradient-danger {
+            background: linear-gradient(87deg, #f5365c 0, #f56036 100%) !important;
         }
-        
-        .dashboard-cards {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-        
-        .card {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-            text-align: center;
-        }
-        
-        .card-icon {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 15px;
-            font-size: 24px;
-        }
-        
-        .card-title {
-            font-size: 16px;
-            color: #6c757d;
-            margin-bottom: 10px;
-        }
-        
-        .card-value {
-            font-size: 28px;
-            font-weight: bold;
-            color: #4e73df;
-        }
-        
-        .card-progress {
-            height: 8px;
-            background: #e9ecef;
-            border-radius: 4px;
-            margin-top: 15px;
-            overflow: hidden;
-        }
-        
-        .progress-bar {
-            height: 100%;
-            border-radius: 4px;
-        }
-        
-        .attendance-summary {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-        
-        .summary-table {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-        }
-        
-        .summary-table h2 {
-            color: #4e73df;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #e3e6f0;
-        }
-        
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        
-        table th, table td {
-            padding: 12px 15px;
-            text-align: center;
-        }
-        
-        table th {
+        .attendance-table th {
             background-color: #f8f9fc;
             color: #4e73df;
             font-weight: 600;
         }
-        
-        table tr {
-            border-bottom: 1px solid #e3e6f0;
-        }
-        
-        table tr:last-child {
-            border-bottom: none;
-        }
-        
         .present {
             color: #28a745;
+            font-weight: bold;
         }
-        
         .absent {
             color: #dc3545;
-        }
-        
-        .chart-container {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-        }
-        
-        .chart-container h2 {
-            color: #4e73df;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #e3e6f0;
-        }
-        
-        .absent-list {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-            margin-bottom: 20px;
-        }
-        
-        .absent-list h2 {
-            color: #4e73df;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #e3e6f0;
-        }
-        
-        .action-buttons {
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-            margin-top: 20px;
-        }
-        
-        .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
             font-weight: bold;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        
-        .btn-primary {
-            background: #4e73df;
-            color: white;
-        }
-        
-        .btn-success {
-            background: #28a745;
-            color: white;
-        }
-        
-        footer {
-            text-align: center;
-            margin-top: 30px;
-            color: #6c757d;
-            padding: 20px;
-            border-top: 1px solid #e3e6f0;
-        }
-        
-        @media (max-width: 1200px) {
-            .dashboard-cards {
-                grid-template-columns: repeat(2, 1fr);
-            }
-            
-            .attendance-summary {
-                grid-template-columns: 1fr;
-            }
-        }
-        
-        @media (max-width: 768px) {
-            .dashboard-cards {
-                grid-template-columns: 1fr;
-            }
-            
-            .header-content {
-                flex-direction: column;
-                gap: 15px;
-            }
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <header>
-            <div class="header-content">
-                <div class="logo">
-                    <i class="fas fa-school"></i>
-                    <h1>কিন্ডার গার্ডেন হাজিরা ড্যাশবোর্ড</h1>
-                </div>
-                <div class="date-filter">
-                    <span>তারিখ:</span>
-                    <input type="date" id="datePicker" value="2023-11-01">
-                    <button onclick="loadData()">প্রদর্শন করুন</button>
-                </div>
-            </div>
-        </header>
-        
-        <div class="dashboard-cards">
-            <div class="card">
-                <div class="card-icon" style="background-color: rgba(78, 115, 223, 0.1); color: #4e73df;">
-                    <i class="fas fa-users"></i>
-                </div>
-                <div class="card-title">মোট শিক্ষার্থী</div>
-                <div class="card-value">৩২০</div>
-                <div class="card-progress">
-                    <div class="progress-bar" style="width: 100%; background-color: #4e73df;"></div>
-                </div>
-            </div>
-            
-            <div class="card">
-                <div class="card-icon" style="background-color: rgba(40, 167, 69, 0.1); color: #28a745;">
-                    <i class="fas fa-user-check"></i>
-                </div>
-                <div class="card-title">উপস্থিত</div>
-                <div class="card-value">২৮৫</div>
-                <div class="card-progress">
-                    <div class="progress-bar" style="width: 89%; background-color: #28a745;"></div>
-                </div>
-            </div>
-            
-            <div class="card">
-                <div class="card-icon" style="background-color: rgba(220, 53, 69, 0.1); color: #dc3545;">
-                    <i class="fas fa-user-times"></i>
-                </div>
-                <div class="card-title">অনুপস্থিত</div>
-                <div class="card-value">৩৫</div>
-                <div class="card-progress">
-                    <div class="progress-bar" style="width: 11%; background-color: #dc3545;"></div>
-                </div>
-            </div>
-            
-            <div class="card">
-                <div class="card-icon" style="background-color: rgba(255, 193, 7, 0.1); color: #ffc107;">
-                    <i class="fas fa-chart-line"></i>
-                </div>
-                <div class="card-title">উপস্থিতির হার</div>
-                <div class="card-value">৮৯%</div>
-                <div class="card-progress">
-                    <div class="progress-bar" style="width: 89%; background-color: #ffc107;"></div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="attendance-summary">
-            <div class="summary-table">
-                <h2>শ্রেণিভিত্তিক হাজিরা সারাংশ</h2>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>শ্রেণি</th>
-                            <th>শাখা</th>
-                            <th>মোট ছেলে</th>
-                            <th>মোট মেয়ে</th>
-                            <th>উপস্থিত ছেলে</th>
-                            <th>উপস্থিত মেয়ে</th>
-                            <th>অনুপস্থিত ছেলে</th>
-                            <th>অনুপস্থিত মেয়ে</th>
-                            <th>মোট উপস্থিত</th>
-                            <th>মোট অনুপস্থিত</th>
-                            <th>উপস্থিতির হার</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>পঞ্চম</td>
-                            <td>ক</td>
-                            <td>২০</td>
-                            <td>১৫</td>
-                            <td class="present">১৮</td>
-                            <td class="present">১৪</td>
-                            <td class="absent">২</td>
-                            <td class="absent">১</td>
-                            <td class="present">৩২</td>
-                            <td class="absent">৩</td>
-                            <td>৯১%</td>
-                        </tr>
-                        <tr>
-                            <td>পঞ্চম</td>
-                            <td>খ</td>
-                            <td>২২</td>
-                            <td>১৮</td>
-                            <td class="present">২০</td>
-                            <td class="present">১৭</td>
-                            <td class="absent">২</td>
-                            <td class="absent">১</td>
-                            <td class="present">৩৭</td>
-                            <td class="absent">৩</td>
-                            <td>৯৩%</td>
-                        </tr>
-                        <tr>
-                            <td>ষষ্ঠ</td>
-                            <td>ক</td>
-                            <td>২৫</td>
-                            <td>২০</td>
-                            <td class="present">২৩</td>
-                            <td class="present">১৯</td>
-                            <td class="absent">২</td>
-                            <td class="absent">১</td>
-                            <td class="present">৪২</td>
-                            <td class="absent">৩</td>
-                            <td>৯৩%</td>
-                        </tr>
-                        <tr>
-                            <td>ষষ্ঠ</td>
-                            <td>খ</td>
-                            <td>২৪</td>
-                            <td>২১</td>
-                            <td class="present">২২</td>
-                            <td class="present">২০</td>
-                            <td class="absent">২</td>
-                            <td class="absent">১</td>
-                            <td class="present">৪২</td>
-                            <td class="absent">৩</td>
-                            <td>৯৩%</td>
-                        </tr>
-                        <tr>
-                            <td>সপ্তম</td>
-                            <td>ক</td>
-                            <td>২০</td>
-                            <td>১৫</td>
-                            <td class="present">১৮</td>
-                            <td class="present">১৩</td>
-                            <td class="absent">২</td>
-                            <td class="absent">২</td>
-                            <td class="present">৩১</td>
-                            <td class="absent">৪</td>
-                            <td>৮৯%</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            
-            <div class="chart-container">
-                <h2>উপস্থিতির হার (শ্রেণিভিত্তিক)</h2>
-                <canvas id="attendanceChart"></canvas>
-            </div>
-        </div>
-        
-        <div class="absent-list">
-            <h2>অনুপস্থিত শিক্ষার্থীদের তালিকা</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>ক্রমিক নং</th>
-                        <th>নাম</th>
-                        <th>শ্রেণি</th>
-                        <th>শাখা</th>
-                        <th>রোল নং</th>
-                        <th>মোবাইল নং</th>
-                        <th>গ্রাম</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>১</td>
-                        <td>আরাফাত রহমান</td>
-                        <td>পঞ্চম</td>
-                        <td>ক</td>
-                        <td>১২</td>
-                        <td>০১৭১২৩৪৫৬৭৮</td>
-                        <td>নয়াপল্লী</td>
-                    </tr>
-                    <tr>
-                        <td>২</td>
-                        <td>সুমাইয়া আক্তার</td>
-                        <td>পঞ্চম</td>
-                        <td>ক</td>
-                        <td>১৮</td>
-                        <td>০১৮৯৮৭৬৫৪৩২</td>
-                        <td>পুরানবাজার</td>
-                    </tr>
-                    <tr>
-                        <td>৩</td>
-                        <td>রিফাত আহমেদ</td>
-                        <td>পঞ্চম</td>
-                        <td>খ</td>
-                        <td>১০</td>
-                        <td>০১৯১২৩৪৫৬৭৮</td>
-                        <td>নতুনগাঁও</td>
-                    </tr>
-                    <tr>
-                        <td>৪</td>
-                        <td>তাসনিমা ইসলাম</td>
-                        <td>ষষ্ঠ</td>
-                        <td>ক</td>
-                        <td>১৫</td>
-                        <td>০১৭৯৮৭৬৫৪৩২</td>
-                        <td>মধুপুর</td>
-                    </tr>
-                    <tr>
-                        <td>५</td>
-                        <td>জুবায়ের হোসেন</td>
-                        <td>সপ্তম</td>
-                        <td>ক</td>
-                        <td>০৮</td>
-                        <td>০১৮১২৩৪৫৬৭০</td>
-                        <td>শ্যামনগর</td>
-                    </tr>
-                </tbody>
-            </table>
-            
-            <div class="action-buttons">
-                <button class="btn btn-primary">
-                    <i class="fas fa-download"></i> রিপোর্ট ডাউনলোড
-                </button>
-                <button class="btn btn-success">
-                    <i class="fas fa-paper-plane"></i> এসএমএস পাঠান
-                </button>
-            </div>
-        </div>
-        
-        <footer>
-            <p>© ২০২৩ কিন্ডার গার্ডেন | সকল অধিকার সংরক্ষিত</p>
-        </footer>
-    </div>
+<body class="hold-transition sidebar-mini">
+<div class="wrapper">
 
-    <script>
-        // Initialize chart
-        document.addEventListener('DOMContentLoaded', function() {
-            const ctx = document.getElementById('attendanceChart').getContext('2d');
-            const attendanceChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: ['পঞ্চম - ক', 'পঞ্চম - খ', 'ষষ্ঠ - ক', 'ষষ্ঠ - খ', 'সপ্তম - ক'],
-                    datasets: [{
-                        label: 'উপস্থিতির হার (%)',
-                        data: [91, 93, 93, 93, 89],
-                        backgroundColor: [
-                            'rgba(78, 115, 223, 0.7)',
-                            'rgba(78, 115, 223, 0.7)',
-                            'rgba(78, 115, 223, 0.7)',
-                            'rgba(78, 115, 223, 0.7)',
-                            'rgba(78, 115, 223, 0.7)'
-                        ],
-                        borderColor: [
-                            'rgba(78, 115, 223, 1)',
-                            'rgba(78, 115, 223, 1)',
-                            'rgba(78, 115, 223, 1)',
-                            'rgba(78, 115, 223, 1)',
-                            'rgba(78, 115, 223, 1)'
-                        ],
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    scales: {
-                        y: {
+    <!-- Navbar -->
+    <?php include 'inc/header.php'; ?>
+    <!-- /.navbar -->
+
+    <!-- Main Sidebar Container -->
+    <?php include 'inc/sidebar.php'; ?>
+
+    <!-- Content Wrapper. Contains page content -->
+    <div class="content-wrapper">
+        <!-- Content Header (Page header) -->
+        <div class="content-header">
+            <div class="container-fluid">
+                <div class="row mb-2">
+                    <div class="col-sm-6">
+                        <h1 class="m-0">হাজিরা ড্যাশবোর্ড</h1>
+                    </div>
+                    <div class="col-sm-6">
+                        <ol class="breadcrumb float-sm-right">
+                            <li class="breadcrumb-item"><a href="dashboard.php">হোম</a></li>
+                            <li class="breadcrumb-item active">হাজিরা ড্যাশবোর্ড</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main content -->
+        <section class="content">
+            <div class="container-fluid">
+                <!-- Date selection form -->
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-body">
+                                <form method="GET" action="" class="form-inline">
+                                    <div class="form-group mr-2">
+                                        <label for="date" class="mr-2">তারিখ নির্বাচন করুন:</label>
+                                        <input type="date" class="form-control" id="date" name="date" value="<?php echo $selected_date; ?>">
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">দেখুন</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Small boxes (Stat box) -->
+                <div class="row">
+                    <div class="col-lg-3 col-6">
+                        <!-- small box -->
+                        <div class="small-box bg-gradient-info">
+                            <div class="inner">
+                                <h3><?php echo $total_students; ?></h3>
+                                <p>মোট শিক্ষার্থী</p>
+                            </div>
+                            <div class="icon">
+                                <i class="fas fa-user-graduate"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- ./col -->
+                    <div class="col-lg-3 col-6">
+                        <!-- small box -->
+                        <div class="small-box bg-gradient-success">
+                            <div class="inner">
+                                <h3><?php echo $present_students; ?></h3>
+                                <p>উপস্থিত</p>
+                            </div>
+                            <div class="icon">
+                                <i class="fas fa-user-check"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- ./col -->
+                    <div class="col-lg-3 col-6">
+                        <!-- small box -->
+                        <div class="small-box bg-gradient-danger">
+                            <div class="inner">
+                                <h3><?php echo $absent_students; ?></h3>
+                                <p>অনুপস্থিত</p>
+                            </div>
+                            <div class="icon">
+                                <i class="fas fa-user-times"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- ./col -->
+                    <div class="col-lg-3 col-6">
+                        <!-- small box -->
+                        <div class="small-box bg-gradient-primary">
+                            <div class="inner">
+                                <h3><?php echo $attendance_percentage; ?>%</h3>
+                                <p>উপস্থিতির হার</p>
+                            </div>
+                            <div class="icon">
+                                <i class="fas fa-chart-line"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- ./col -->
+                </div>
+                <!-- /.row -->
+
+                <!-- Main row -->
+                <div class="row">
+                    <!-- Left col -->
+                    <section class="col-lg-8 connectedSortable">
+                        <!-- Class-wise attendance summary -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">
+                                    <i class="fas fa-chart-bar mr-1"></i>
+                                    শ্রেণিভিত্তিক হাজিরা সারাংশ
+                                </h3>
+                            </div>
+                            <!-- /.card-header -->
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-bordered table-striped attendance-table">
+                                        <thead>
+                                            <tr>
+                                                <th>শ্রেণি</th>
+                                                <th>শাখা</th>
+                                                <th>মোট ছেলে</th>
+                                                <th>মোট মেয়ে</th>
+                                                <th>উপস্থিত ছেলে</th>
+                                                <th>উপস্থিত মেয়ে</th>
+                                                <th>অনুপস্থিত ছেলে</th>
+                                                <th>অনুপস্থিত মেয়ে</th>
+                                                <th>মোট উপস্থিত</th>
+                                                <th>মোট অনুপস্থিত</th>
+                                                <th>উপস্থিতির হার</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach($attendance_data as $data): ?>
+                                            <tr>
+                                                <td><?php echo $data['class_name']; ?></td>
+                                                <td><?php echo $data['section_name']; ?></td>
+                                                <td><?php echo $data['total_boys']; ?></td>
+                                                <td><?php echo $data['total_girls']; ?></td>
+                                                <td class="present"><?php echo $data['present_boys']; ?></td>
+                                                <td class="present"><?php echo $data['present_girls']; ?></td>
+                                                <td class="absent"><?php echo $data['absent_boys']; ?></td>
+                                                <td class="absent"><?php echo $data['absent_girls']; ?></td>
+                                                <td class="present"><?php echo $data['total_present']; ?></td>
+                                                <td class="absent"><?php echo $data['total_absent']; ?></td>
+                                                <td><?php echo $data['attendance_percentage']; ?>%</td>
+                                            </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <!-- /.card-body -->
+                        </div>
+                        <!-- /.card -->
+
+                        <!-- Class-wise attendance chart -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">
+                                    <i class="fas fa-chart-line mr-1"></i>
+                                    শ্রেণিভিত্তিক উপস্থিতির হার
+                                </h3>
+                            </div>
+                            <!-- /.card-header -->
+                            <div class="card-body">
+                                <div class="chart">
+                                    <canvas id="class-attendance-chart" height="100"></canvas>
+                                </div>
+                            </div>
+                            <!-- /.card-body -->
+                        </div>
+                        <!-- /.card -->
+                    </section>
+                    <!-- /.Left col -->
+
+                    <!-- right col -->
+                    <section class="col-lg-4 connectedSortable">
+                        <!-- Gender distribution chart -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">
+                                    <i class="fas fa-chart-pie mr-1"></i>
+                                    উপস্থিত শিক্ষার্থীদের লিঙ্গ অনুপাত
+                                </h3>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="gender-chart" height="200"></canvas>
+                            </div>
+                        </div>
+                        <!-- /.card -->
+
+                        <!-- Absent students list -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">
+                                    <i class="fas fa-users mr-1"></i>
+                                    অনুপস্থিত শিক্ষার্থীদের তালিকা
+                                </h3>
+                            </div>
+                            <!-- /.card-header -->
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>ক্রমিক</th>
+                                                <th>নাম</th>
+                                                <th>শ্রেণি</th>
+                                                <th>শাখা</th>
+                                                <th>রোল</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php $serial = 1; ?>
+                                            <?php foreach($absent_list as $student): ?>
+                                            <tr>
+                                                <td><?php echo $serial++; ?></td>
+                                                <td><?php echo $student['first_name'] . ' ' . $student['last_name']; ?></td>
+                                                <td><?php echo $student['class_name']; ?></td>
+                                                <td><?php echo $student['section_name']; ?></td>
+                                                <td><?php echo $student['roll_number']; ?></td>
+                                            </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <!-- /.card-body -->
+                            <div class="card-footer">
+                                <a href="absent_details.php?date=<?php echo $selected_date; ?>" class="btn btn-primary btn-sm">সমস্ত অনুপস্থিত শিক্ষার্থী দেখুন</a>
+                            </div>
+                            <!-- /.card-footer -->
+                        </div>
+                        <!-- /.card -->
+                    </section>
+                    <!-- right col -->
+                </div>
+                <!-- /.row (main row) -->
+            </div><!-- /.container-fluid -->
+        </section>
+        <!-- /.content -->
+    </div>
+    <!-- /.content-wrapper -->
+
+    <!-- Main Footer -->
+    <?php include 'inc/footer.php'; ?>
+</div>
+<!-- ./wrapper -->
+
+<!-- REQUIRED SCRIPTS -->
+<!-- jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<!-- Bootstrap 4 -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
+<!-- AdminLTE App -->
+<script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
+<!-- ChartJS -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    $(document).ready(function() {
+        // Gender Chart
+        var genderChartCanvas = document.getElementById('gender-chart').getContext('2d');
+        var genderChart = new Chart(genderChartCanvas, {
+            type: 'pie',
+            data: {
+                labels: <?php echo json_encode($gender_labels); ?>,
+                datasets: [{
+                    data: <?php echo json_encode($gender_counts); ?>,
+                    backgroundColor: <?php echo json_encode($gender_colors); ?>,
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        });
+
+        // Class-wise attendance chart
+        var classAttendanceChartCanvas = document.getElementById('class-attendance-chart').getContext('2d');
+        var classAttendanceChart = new Chart(classAttendanceChartCanvas, {
+            type: 'bar',
+            data: {
+                labels: <?php echo json_encode($class_labels); ?>,
+                datasets: [{
+                    label: 'উপস্থিতির হার (%)',
+                    data: <?php echo json_encode($class_percentages); ?>,
+                    backgroundColor: 'rgba(78, 115, 223, 0.7)',
+                    borderColor: 'rgba(78, 115, 223, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                scales: {
+                    yAxes: [{
+                        ticks: {
                             beginAtZero: true,
                             max: 100,
-                            ticks: {
-                                callback: function(value) {
-                                    return value + '%';
-                                }
+                            callback: function(value) {
+                                return value + '%';
                             }
                         }
-                    }
+                    }]
                 }
-            });
+            }
         });
-        
-        // Function to load data based on selected date
-        function loadData() {
-            const date = document.getElementById('datePicker').value;
-            alert('তারিখ: ' + date + ' এর জন্য ডেটা লোড হচ্ছে...');
-            // In a real application, you would fetch data from the server here
-        }
-    </script>
+    });
+</script>
 </body>
 </html>
