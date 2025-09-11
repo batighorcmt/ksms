@@ -21,7 +21,7 @@ $attendance_query = $pdo->prepare("
         COUNT(*) as total_taken,
         SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as total_present
     FROM attendance
-    WHERE date = ? AND is_deleted = 0
+    WHERE date = ?
 ");
 $attendance_query->execute([$today]);
 $attendance_data = $attendance_query->fetch();
@@ -44,7 +44,7 @@ $class_data_query = $pdo->prepare("
     FROM students st
     JOIN classes c ON st.class_id = c.id
     JOIN sections s ON st.section_id = s.id
-    LEFT JOIN attendance a ON st.id = a.student_id AND a.date = ? AND a.is_deleted = 0
+    LEFT JOIN attendance a ON st.id = a.student_id AND a.date = ?
     WHERE st.status = 'active'
     GROUP BY c.id, s.id
     ORDER BY c.sort_order, s.sort_order
@@ -69,7 +69,7 @@ $absent_students_query = $pdo->prepare("
     JOIN sections s ON st.section_id = s.id
     LEFT JOIN student_profiles sp ON st.id = sp.student_id
     WHERE st.id NOT IN (
-        SELECT student_id FROM attendance WHERE date = ? AND is_deleted = 0 AND status = 'present'
+        SELECT student_id FROM attendance WHERE date = ? AND status = 'present'
     ) AND st.status = 'active'
     ORDER BY st.class_id, st.section_id, st.roll_no
 ");
