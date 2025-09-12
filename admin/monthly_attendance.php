@@ -63,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
     
     // মাসের দিন সংখ্যা এবং প্রথম দিন নির্ধারণ করুন
     $days_in_month = cal_days_in_month(CAL_GREGORIAN, $month, $year);
-    $first_day = date('W, strtotime("$year-$month-01")); // 1 (সোমবার) থেকে 7 (রবিবার)
+    $first_day = date('w', strtotime("$year-$month-01")); // 1 (সোমবার) থেকে 7 (রবিবার)
     
     // শিক্ষার্থীদের লোড করুন
     $students_stmt = $pdo->prepare("
