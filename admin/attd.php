@@ -71,6 +71,10 @@ $absent_students_list = $pdo->prepare("
         st.roll_number,
         st.mobile_number,
         st.present_address as village,
+        st.father_name,
+        st.mother_name,
+        st.guardian_relation,
+        st.photo,
         CASE WHEN a.status IS NULL THEN 'রেকর্ড করা হয়নি' ELSE 'অনুপস্থিত' END as status_type
     FROM students st
     JOIN classes c ON st.class_id = c.id
@@ -227,6 +231,43 @@ if (empty($gender_present)) {
             background-color: #e2e3e5;
             color: #383d41;
         }
+        .student-name-link {
+            cursor: pointer;
+            color: #4e73df;
+            font-weight: 500;
+        }
+        .student-name-link:hover {
+            text-decoration: underline;
+            color: #224abe;
+        }
+        .student-photo {
+            width: 120px;
+            height: 120px;
+            object-fit: cover;
+            border-radius: 50%;
+            border: 4px solid #f8f9fc;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .student-info-label {
+            font-weight: 600;
+            color: #4e73df;
+            min-width: 120px;
+            display: inline-block;
+        }
+        .consecutive-absent {
+            font-size: 18px;
+            font-weight: bold;
+            color: #dc3545;
+        }
+        @media (max-width: 768px) {
+            .modal-dialog {
+                margin: 10px;
+            }
+            .student-photo {
+                width: 100px;
+                height: 100px;
+            }
+        }
     </style>
 </head>
 <body class="hold-transition sidebar-mini">
@@ -324,7 +365,7 @@ if (empty($gender_present)) {
                         <div class="small-box bg-gradient-primary">
                             <div class="inner">
                                 <h3><?php echo $attendance_percentage; ?>%</h3>
-                                <p>উপস্থিতির হার</p>
+                                <p>উপस्थিতির হার</p>
                             </div>
                             <div class="icon">
                                 <i class="fas fa-chart-line"></i>
@@ -472,7 +513,23 @@ if (empty($gender_present)) {
                                             <?php foreach($absent_list as $student): ?>
                                             <tr>
                                                 <td><?php echo $serial++; ?></td>
-                                                <td><?php echo $student['first_name'] . ' ' . $student['last_name']; ?></td>
+                                                <td>
+                                                    <span class="student-name-link" data-toggle="modal" data-target="#studentModal" 
+                                                          data-student-id="<?php echo $student['id']; ?>"
+                                                          data-student-name="<?php echo $student['first_name'] . ' ' . $student['last_name']; ?>"
+                                                          data-class-name="<?php echo $student['class_name']; ?>"
+                                                          data-section-name="<?php echo $student['section_name']; ?>"
+                                                          data-roll-number="<?php echo $student['roll_number']; ?>"
+                                                          data-mobile-number="<?php echo $student['mobile_number']; ?>"
+                                                          data-village="<?php echo $student['village']; ?>"
+                                                          data-father-name="<?php echo $student['father_name']; ?>"
+                                                          data-mother-name="<?php echo $student['mother_name']; ?>"
+                                                          data-guardian-relation="<?php echo $student['guardian_relation']; ?>"
+                                                          data-photo="<?php echo $student['photo'] ? '../uploads/students/' . $student['photo'] : '../assets/img/default-student.png'; ?>"
+                                                          data-status-type="<?php echo $student['status_type']; ?>">
+                                                        <?php echo $student['first_name'] . ' ' . $student['last_name']; ?>
+                                                    </span>
+                                                </td>
                                                 <td><?php echo $student['class_name']; ?></td>
                                                 <td><?php echo $student['section_name']; ?></td>
                                                 <td><?php echo $student['roll_number']; ?></td>
@@ -508,6 +565,107 @@ if (empty($gender_present)) {
     <?php include 'inc/footer.php'; ?>
 </div>
 <!-- ./wrapper -->
+
+<!-- Student Modal -->
+<div class="modal fade" id="studentModal" tabindex="-1" role="dialog" aria-labelledby="studentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-primary">
+                <h5 class="modal-title" id="studentModalLabel">শিক্ষার্থী বিস্তারিত তথ্য</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-4 text-center">
+                        <img id="modalStudentPhoto" src="../assets/img/default-student.png" class="student-photo mb-3" alt="Student Photo">
+                        <h4 id="modalStudentName" class="mb-1"></h4>
+                        <p id="modalStudentClass" class="text-muted"></p>
+                        <p id="modalStudentStatus" class="status-badge status-absent"></p>
+                    </div>
+                    <div class="col-md-8">
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <h5 class="border-bottom pb-2">ব্যক্তিগত তথ্য</h5>
+                            </div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-sm-4">
+                                <span class="student-info-label">পিতার নাম:</span>
+                            </div>
+                            <div class="col-sm-8">
+                                <span id="modalFatherName"></span>
+                            </div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-sm-4">
+                                <span class="student-info-label">মাতার নাম:</span>
+                            </div>
+                            <div class="col-sm-8">
+                                <span id="modalMotherName"></span>
+                            </div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-sm-4">
+                                <span class="student-info-label">অভিভাবক:</span>
+                            </div>
+                            <div class="col-sm-8">
+                                <span id="modalGuardianRelation"></span>
+                            </div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-sm-4">
+                                <span class="student-info-label">মোবাইল নং:</span>
+                            </div>
+                            <div class="col-sm-8">
+                                <span id="modalMobileNumber"></span>
+                            </div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-sm-4">
+                                <span class="student-info-label">গ্রাম:</span>
+                            </div>
+                            <div class="col-sm-8">
+                                <span id="modalVillage"></span>
+                            </div>
+                        </div>
+                        <div class="row mb-3 mt-3">
+                            <div class="col-12">
+                                <h5 class="border-bottom pb-2">হাজিরা তথ্য</h5>
+                            </div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-sm-4">
+                                <span class="student-info-label">একটানা অনুপস্থিত:</span>
+                            </div>
+                            <div class="col-sm-8">
+                                <span class="consecutive-absent" id="modalConsecutiveAbsent">৩ দিন</span>
+                            </div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-sm-4">
+                                <span class="student-info-label">সর্বশেষ মন্তব্য:</span>
+                            </div>
+                            <div class="col-sm-8">
+                                <span id="modalRemarks">কোন মন্তব্য নেই</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <a href="#" id="modalCallButton" class="btn btn-success">
+                    <i class="fas fa-phone"></i> কল করুন
+                </a>
+                <a href="#" id="modalSmsButton" class="btn btn-info">
+                    <i class="fas fa-sms"></i> মেসেজ পাঠান
+                </a>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">বন্ধ করুন</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- REQUIRED SCRIPTS -->
 <!-- jQuery -->
@@ -568,6 +726,54 @@ if (empty($gender_present)) {
                     }]
                 }
             }
+        });
+
+        // Student Modal functionality
+        $('.student-name-link').on('click', function() {
+            var studentId = $(this).data('student-id');
+            var studentName = $(this).data('student-name');
+            var className = $(this).data('class-name');
+            var sectionName = $(this).data('section-name');
+            var rollNumber = $(this).data('roll-number');
+            var mobileNumber = $(this).data('mobile-number');
+            var village = $(this).data('village');
+            var fatherName = $(this).data('father-name');
+            var motherName = $(this).data('mother-name');
+            var guardianRelation = $(this).data('guardian-relation');
+            var photo = $(this).data('photo');
+            var statusType = $(this).data('status-type');
+
+            // Set modal content
+            $('#modalStudentPhoto').attr('src', photo);
+            $('#modalStudentName').text(studentName);
+            $('#modalStudentClass').text(className + ' - ' + sectionName + ' (রোল: ' + rollNumber + ')');
+            $('#modalStudentStatus').text(statusType);
+            $('#modalFatherName').text(fatherName || 'তথ্য নেই');
+            $('#modalMotherName').text(motherName || 'তথ্য নেই');
+            $('#modalGuardianRelation').text(guardianRelation || 'তথ্য নেই');
+            $('#modalMobileNumber').text(mobileNumber || 'তথ্য নেই');
+            $('#modalVillage').text(village || 'তথ্য নেই');
+
+            // Set button actions
+            if (mobileNumber) {
+                $('#modalCallButton').attr('href', 'tel:' + mobileNumber);
+                $('#modalSmsButton').attr('href', 'sms:' + mobileNumber);
+            } else {
+                $('#modalCallButton').addClass('disabled');
+                $('#modalSmsButton').addClass('disabled');
+            }
+
+            // TODO: Fetch consecutive absent days and remarks from server via AJAX
+            // This is a placeholder - you would need to implement an API endpoint
+            // to get this data dynamically
+            $('#modalConsecutiveAbsent').text('৩ দিন');
+            $('#modalRemarks').text('জ্বরের কারণে অনুপস্থিত');
+        });
+
+        // Reset modal state when closed
+        $('#studentModal').on('hidden.bs.modal', function () {
+            $('#modalCallButton').removeClass('disabled');
+            $('#modalSmsButton').removeClass('disabled');
         });
     });
 </script>
