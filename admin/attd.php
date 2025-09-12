@@ -86,15 +86,16 @@ $absent_students_list = $pdo->prepare("
 $absent_students_list->execute([$selected_date]);
 $absent_list = $absent_students_list->fetchAll();
 
-// Fetch data for charts
-// Gender distribution for present students
+// Fetch data for charts - Only present students
 $gender_present_data = $pdo->prepare("
     SELECT 
         st.gender,
         COUNT(*) as count
     FROM students st
-    LEFT JOIN attendance a ON st.id = a.student_id AND a.date = ?
-    WHERE st.status = 'active' AND (a.status IN ('present', 'late', 'half_day') OR a.status IS NULL)
+    JOIN attendance a ON st.id = a.student_id
+    WHERE a.date = ? 
+      AND a.status IN ('present', 'late', 'half_day')
+      AND st.status = 'active'
     GROUP BY st.gender
 ");
 $gender_present_data->execute([$selected_date]);
@@ -258,6 +259,10 @@ if (empty($gender_present)) {
             font-size: 18px;
             font-weight: bold;
             color: #dc3545;
+        }
+        .consecutive-days-cell {
+            font-weight: bold;
+            text-align: center;
         }
         @media (max-width: 768px) {
             .modal-dialog {
@@ -505,6 +510,7 @@ if (empty($gender_present)) {
                                                 <th>শ্রেণি</th>
                                                 <th>শাখা</th>
                                                 <th>রোল</th>
+                                                <th>অনুপস্থিত (দিন)</th>
                                                 <th>স্থিতি</th>
                                             </tr>
                                         </thead>
@@ -513,25 +519,15 @@ if (empty($gender_present)) {
                                             <?php foreach($absent_list as $student): 
                                                 // Fetch consecutive absent days for each student
                                                 $consecutive_absent_query = $pdo->prepare("
-                                                    SELECT COUNT(*) as consecutive_days
-                                                    FROM (
-                                                        SELECT date, status, 
-                                                            @absent_count := IF(status = 'absent' OR status IS NULL, @absent_count + 1, 0) as consecutive_count,
-                                                            @reset := IF(status IN ('present', 'late', 'half_day'), 1, 0) as reset_flag
-                                                        FROM (
-                                                            SELECT date, status
-                                                            FROM attendance 
-                                                            WHERE student_id = ? AND date <= ?
-                                                            UNION ALL
-                                                            SELECT ? as date, NULL as status
-                                                        ) a
-                                                        CROSS JOIN (SELECT @absent_count := 0, @reset := 0) vars
-                                                        ORDER BY date DESC
-                                                    ) t
-                                                    WHERE consecutive_count > 0
-                                                    LIMIT 1
+                                                    SELECT DATEDIFF(?, COALESCE((
+                                                        SELECT MAX(date) 
+                                                        FROM attendance 
+                                                        WHERE student_id = ? 
+                                                        AND status IN ('present', 'late', 'half_day')
+                                                        AND date <= ?
+                                                    ), DATE_SUB(?, INTERVAL 1 DAY))) as consecutive_days
                                                 ");
-                                                $consecutive_absent_query->execute([$student['id'], $selected_date, $selected_date]);
+                                                $consecutive_absent_query->execute([$selected_date, $student['id'], $selected_date, $selected_date]);
                                                 $consecutive_absent = $consecutive_absent_query->fetch();
                                                 $consecutive_days = $consecutive_absent['consecutive_days'] ?? 0;
 
@@ -571,6 +567,7 @@ if (empty($gender_present)) {
                                                 <td><?php echo $student['class_name']; ?></td>
                                                 <td><?php echo $student['section_name']; ?></td>
                                                 <td><?php echo $student['roll_number']; ?></td>
+                                                <td class="consecutive-days-cell absent"><?php echo $consecutive_days; ?></td>
                                                 <td>
                                                     <span class="status-badge <?php echo $student['status_type'] == 'অনুপস্থিত' ? 'status-absent' : 'status-not-recorded'; ?>">
                                                         <?php echo $student['status_type']; ?>
@@ -786,7 +783,7 @@ if (empty($gender_present)) {
             // Set modal content
             $('#modalStudentPhoto').attr('src', photo);
             $('#modalStudentName').text(studentName);
-            $('#modalStudentClass').text(className + ' - ' + sectionName + ' (রোল: ' + rollNumber + ')');
+            $('#modalStudentClass').text(className + ' - ' . sectionName + ' (রোল: ' + rollNumber + ')');
             $('#modalStudentStatus').text(statusType);
             $('#modalFatherName').text(fatherName || 'তথ্য নেই');
             $('#modalMotherName').text(motherName || 'তথ্য নেই');
