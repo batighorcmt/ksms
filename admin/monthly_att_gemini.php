@@ -10,18 +10,14 @@ if (!isAuthenticated() || !hasRole(['super_admin', 'teacher'])) {
 $current_month = date('m');
 $current_year = date('Y');
 $months = [
-    '01' => 'জানুয়ারি', '02' => 'ফেব্রুয়ারি', '03' => 'মার্চ',
-    '04' => 'এপ্রিল', '05' => 'মে', '06' => 'জুন',
-    '07' => 'জুলাই', '08' => 'আগস্ট', '09' => 'সেপ্টেম্বর',
+    '01' => 'জানুয়ারি', '02' => 'ফেব্রুয়ারি', '03' => 'মার্চ', 
+    '04' => 'এপ্রিল', '05' => 'মে', '06' => 'জুন', 
+    '07' => 'জুলাই', '08' => 'আগস্ট', '09' => 'সেপ্টেম্বর', 
     '10' => 'অক্টোবর', '11' => 'নভেম্বর', '12' => 'ডিসেম্বর'
 ];
 
 // স্কুল তথ্য লোড করুন
 $school_info = $pdo->query("SELECT * FROM school_info WHERE id = 1")->fetch();
-
-// প্রধান শিক্ষকের তথ্য লোড করুন
-$head_teacher_query = $pdo->query("SELECT u.name, tp.designation FROM users u JOIN teacher_profiles tp ON u.id = tp.teacher_id WHERE u.role = 'head_teacher' LIMIT 1");
-$head_teacher_info = $head_teacher_query->fetch();
 
 // ক্লাস এবং সেকশন লোড করুন
 $classes = $pdo->query("SELECT * FROM classes WHERE status='active' ORDER BY numeric_value ASC")->fetchAll();
@@ -35,138 +31,301 @@ $holidays = $pdo->query("SELECT * FROM holidays WHERE status='active'")->fetchAl
 $holiday_dates = array_column($holidays, 'date');
 
 // ভেরিয়েবল ডিক্লেয়ারেশন
-$class_id = isset($_GET['class_id']) ? $_GET['class_id'] : '';
-$section_id = isset($_GET['section_id']) ? $_GET['section_id'] : '';
-$selected_month = isset($_GET['month']) ? $_GET['month'] : $current_month;
-$selected_year = isset($_GET['year']) ? $_GET['year'] : $current_year;
-$is_print_view = isset($_GET['print_view']);
+$class_id = isset($_GET['class_id']) ? intval($_GET['class_id']) : null;
+$section_id = isset($_GET['section_id']) ? intval($_GET['section_id']) : null;
+$month = isset($_GET['month']) ? $_GET['month'] : $current_month;
+$year = isset($_GET['year']) ? $_GET['year'] : $current_year;
+$class_name = '';
+$section_name = '';
 
-$students = [];
-$attendance_records = [];
-$monthly_stats = [];
-$total_working_days = 0;
-
-if ($class_id && $section_id && $selected_month && $selected_year) {
+// ফর্ম সাবমিট হলে
+if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
+    $class_id = intval($_GET['class_id']);
+    $section_id = intval($_GET['section_id']);
+    $month = $_GET['month'];
+    $year = $_GET['year'];
+    
     // নির্বাচিত ক্লাসের সেকশন লোড করুন
-    $sections_query = $pdo->prepare("SELECT * FROM sections WHERE class_id = ? AND status='active'");
-    $sections_query->execute([$class_id]);
-    $sections = $sections_query->fetchAll();
+    $section_stmt = $pdo->prepare("SELECT * FROM sections WHERE class_id = ? AND status='active'");
+    $section_stmt->execute([$class_id]);
+    $sections = $section_stmt->fetchAll();
+    
+    // নির্বাচিত ক্লাস ও সেকশনের নাম লোড করুন
+    $class_stmt = $pdo->prepare("SELECT name FROM classes WHERE id = ?");
+    $class_stmt->execute([$class_id]);
+    $class_result = $class_stmt->fetch();
+    $class_name = $class_result ? $class_result['name'] : '';
+    
+    $section_stmt = $pdo->prepare("SELECT name FROM sections WHERE id = ?");
+    $section_stmt->execute([$section_id]);
+    $section_result = $section_stmt->fetch();
+    $section_name = $section_result ? $section_result['name'] : '';
+    
+    // মাসের দিন সংখ্যা এবং প্রথম দিন নির্ধারণ করুন
+    $days_in_month = cal_days_in_month(CAL_GREGORIAN, $month, $year);
 
-    // শিক্ষার্থীর তালিকা লোড করুন
-    $students_query = $pdo->prepare("SELECT id, first_name, last_name, roll_no FROM students WHERE class_id = ? AND section_id = ? AND status='active' ORDER BY roll_no ASC");
-    $students_query->execute([$class_id, $section_id]);
-    $students = $students_query->fetchAll();
+// date('w') -> 0=Sunday ... 6=Saturday
+$w = date('w', strtotime("$year-$month-01"));
 
-    // মাসিক উপস্থিতির রেকর্ড লোড করুন
-    $attendance_query = $pdo->prepare("SELECT student_id, date, status FROM attendance WHERE class_id = ? AND section_id = ? AND MONTH(date) = ? AND YEAR(date) = ?");
-    $attendance_query->execute([$class_id, $section_id, $selected_month, $selected_year]);
-    $attendance_records = $attendance_query->fetchAll(PDO::FETCH_GROUP | PDO::FETCH_ASSOC);
-
-    // মাসিক পরিসংখ্যান গণনা করুন
-    $num_days_in_month = cal_days_in_month(CAL_GREGORIAN, $selected_month, $selected_year);
-    for ($i = 1; $i <= $num_days_in_month; $i++) {
-        $date = $selected_year . '-' . $selected_month . '-' . sprintf('%02d', $i);
-        $day_of_week = date('w', strtotime($date));
-        $is_working_day = !in_array($day_of_week, $weekly_holidays) && !in_array($date, $holiday_dates);
-        if ($is_working_day) {
-            $total_working_days++;
+// আপনার ডাটাবেজের ফরম্যাটে রূপান্তর (Sunday=1 ... Saturday=7)
+$first_day = $w + 1;
+    
+    // শিক্ষার্থীদের লোড করুন
+    $students_stmt = $pdo->prepare("
+        SELECT id, first_name, last_name, roll_number 
+        FROM students 
+        WHERE class_id = ? AND section_id = ? AND status='active'
+        ORDER BY roll_number ASC
+    ");
+    $students_stmt->execute([$class_id, $section_id]);
+    $students = $students_stmt->fetchAll();
+    
+    // উপস্থিতি ডেটা লোড করুন
+    $attendance_data = [];
+    if (!empty($students)) {
+        $student_ids = array_column($students, 'id');
+        $placeholders = implode(',', array_fill(0, count($student_ids), '?'));
+        
+        $attendance_stmt = $pdo->prepare("
+            SELECT student_id, DATE(date) as attendance_date, status 
+            FROM attendance 
+            WHERE student_id IN ($placeholders) 
+            AND MONTH(date) = ? 
+            AND YEAR(date) = ?
+            ORDER BY student_id, attendance_date
+        ");
+        
+        $params = array_merge($student_ids, [$month, $year]);
+        $attendance_stmt->execute($params);
+        
+        while ($row = $attendance_stmt->fetch(PDO::FETCH_ASSOC)) {
+            $attendance_data[$row['student_id']][$row['attendance_date']] = $row['status'];
         }
-    }
-
-    foreach ($students as $student) {
-        $present_days = 0;
-        $absent_days = 0;
-        $late_days = 0;
-
-        for ($i = 1; $i <= $num_days_in_month; $i++) {
-            $date = $selected_year . '-' . $selected_month . '-' . sprintf('%02d', $i);
-            $record = isset($attendance_records[$student['id']]) ? array_filter($attendance_records[$student['id']], function($item) use ($date) {
-                return $item['date'] == $date;
-            }) : [];
-
-            if (!empty($record)) {
-                $status = reset($record)['status'];
-                if ($status == 'present') {
-                    $present_days++;
-                } elseif ($status == 'absent') {
-                    $absent_days++;
-                } elseif ($status == 'late') {
-                    $late_days++;
-                }
-            } else {
-                // যদি এই দিনে কোনো রেকর্ড না থাকে এবং এটি কর্মদিবস হয়, তাহলে অনুপস্থিত হিসেবে গণ্য করা হবে
-                $day_of_week = date('w', strtotime($date));
-                if (!in_array($day_of_week, $weekly_holidays) && !in_array($date, $holiday_dates)) {
-                     $absent_days++;
-                }
-            }
-        }
-        $monthly_stats[$student['id']] = [
-            'present' => $present_days,
-            'absent' => $absent_days,
-            'late' => $late_days,
-            'working_days' => $total_working_days,
-            'percentage' => $total_working_days > 0 ? round(($present_days / $total_working_days) * 100, 2) : 0,
-        ];
     }
 }
+
+// প্রিন্ট ভিউ এর জন্য
+$is_print_view = isset($_GET['print']) && $_GET['print'] == 'true';
 ?>
+
 <!DOCTYPE html>
 <html lang="bn">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>মাসিক উপস্থিতি</title>
-    <!-- AdminLTE CSS -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/admin-lte/3.2.0/css/adminlte.min.css">
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-    <!-- Google Fonts -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tiro+Bangla&display=swap">
+    <title>মাসিক হাজিরা রিপোর্ট - কিন্ডার গার্ডেন</title>
+
+    <!-- Google Font: Source Sans Pro -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Theme style -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
+    <!-- Bengali Font -->
+    <link href="https://fonts.maateen.me/solaiman-lipi/font.css" rel="stylesheet">
+    
     <style>
-        body {
-            font-family: 'Tiro Bangla', sans-serif;
+        body, .main-sidebar, .nav-link {
+            font-family: 'SolaimanLipi', 'Source Sans Pro', sans-serif;
+        }
+        .report-card {
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            border: none;
+        }
+        .report-card .card-header {
+            background: linear-gradient(45deg, #4e73df, #224abe);
+            color: white;
+            font-weight: 600;
+            border-radius: 10px 10px 0 0 !important;
+        }
+        .attendance-table {
+            font-size: 0.75rem;
+        }
+        .attendance-table th {
+            background-color: #f8f9fc;
+            color: #4e73df;
+            font-weight: 600;
+            text-align: center;
+            vertical-align: middle;
+            padding: 5px 3px;
+        }
+        .attendance-table td {
+            text-align: center;
+            vertical-align: middle;
+            padding: 4px 2px;
+        }
+        .day-off {
+            background-color: #f8f9fa;
+        }
+        .present-icon {
+            color: #28a745;
+        }
+        .absent-icon {
+            color: #dc3545;
+        }
+        .late-icon {
+            color: #ffc107;
+        }
+        .half-day-icon {
+            color: #17a2b8;
+        }
+        .holiday {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .summary-card {
+            background: linear-gradient(45deg, #f8f9fc, #e3e6f0);
+            border-left: 4px solid #4e73df;
         }
         .school-header {
             text-align: center;
             margin-bottom: 20px;
-            position: relative;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #4e73df;
         }
-        .school-header h1 {
-            font-size: 2.5rem;
-            margin: 0;
+        .school-name {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4e73df;
+            margin-bottom: 5px;
         }
-        .school-header p {
-            margin: 0;
-            font-size: 1.1rem;
+        .school-details {
+            font-size: 14px;
+            color: #6c757d;
         }
-        .school-logo {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100px; /* লোগোর আকার পরিবর্তন করুন */
+        .report-title {
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            margin: 15px 0;
+            color: #4e73df;
+        }
+        .criteria-info {
+            font-size: 14px;
+            text-align: center;
+            margin-bottom: 15px;
+            color: #6c757d;
+        }
+        .daily-total {
+            font-weight: bold;
+            background-color: #e9ecef;
         }
         .signature-area {
-            text-align: right;
             margin-top: 50px;
-            padding-right: 20px;
+            text-align: right;
+            padding-right: 50px;
         }
-        .signature-area h4 {
-            margin: 0;
+        .signature-line {
+            border-top: 1px solid #000;
+            width: 300px;
+            display: inline-block;
+            padding-top: 5px;
         }
-        .signature-area p {
-            margin: 0;
-            font-style: italic;
+        .school-header-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        .school-logo {
+            margin-right: 20px;
+        }
+        .school-logo img {
+            max-height: 80px;
+        }
+        .school-info {
+            text-align: center;
+        }
+        .school-name-large {
+            font-size: 28px;
+            font-weight: bold;
+            color: #4e73df;
+            margin-bottom: 5px;
+        }
+        .school-address {
+            font-size: 16px;
+            color: #6c757d;
+            margin-bottom: 5px;
+        }
+        .school-contact {
+            font-size: 14px;
+            color: #6c757d;
         }
         @media print {
+            @page {
+                size: landscape;
+                margin: 0.5cm;
+            }
             .no-print {
                 display: none !important;
+            }
+            body {
+                font-size: 12px;
+                margin: 0;
+                padding: 10px;
+            }
+            .attendance-table {
+                font-size: 10px;
+            }
+            .school-header {
+                margin-bottom: 10px;
+                padding-bottom: 5px;
+            }
+            .school-name-large {
+                font-size: 22px;
+            }
+            .school-address {
+                font-size: 14px;
+            }
+            .report-title {
+                font-size: 16px;
+                margin: 10px 0;
+            }
+            .container-fluid {
+                padding: 0 5px;
+            }
+            .card {
+                border: none;
+                box-shadow: none;
+                margin-bottom: 10px;
+            }
+            .card-header {
+                background-color: #4e73df !important;
+                color: white !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .summary-card {
+                background: #f8f9fc !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .content-wrapper {
+                margin-left: 0 !important;
+            }
+            .main-sidebar, .navbar {
+                display: none !important;
+            }
+            .signature-area {
+                margin-top: 30px;
+                padding-right: 30px;
+            }
+        }
+        .print-only {
+            display: none;
+        }
+        @media print {
+            .print-only {
+                display: block;
             }
         }
     </style>
 </head>
-<body class="hold-transition sidebar-mini">
+<body class="hold-transition sidebar-mini <?php echo $is_print_view ? 'sidebar-collapse' : ''; ?>">
 <div class="wrapper">
+
     <?php if (!$is_print_view): ?>
     <!-- Navbar -->
     <?php include 'inc/header.php'; ?>
@@ -174,195 +333,436 @@ if ($class_id && $section_id && $selected_month && $selected_year) {
 
     <!-- Main Sidebar Container -->
     <?php include 'inc/sidebar.php'; ?>
-    <!-- /.Main Sidebar Container -->
     <?php endif; ?>
 
     <!-- Content Wrapper. Contains page content -->
     <div class="content-wrapper">
-        <!-- Main content -->
-        <section class="content">
+        <!-- Content Header (Page header) -->
+        <?php if (!$is_print_view): ?>
+        <div class="content-header">
             <div class="container-fluid">
-                <div class="card">
-                    <div class="card-header no-print">
-                        <h3 class="card-title">মাসিক উপস্থিতি প্রতিবেদন</h3>
+                <div class="row mb-2">
+                    <div class="col-sm-6">
+                        <h1 class="m-0 text-dark">মাসিক হাজিরা রিপোর্ট</h1>
                     </div>
-                    <div class="card-body">
-                        <!-- প্রতিষ্ঠানের নাম ও ঠিকানা -->
-                        <div class="school-header">
-                            <?php if (!empty($school_info['logo'])): ?>
-                                <img src="<?php echo htmlspecialchars($school_info['logo']); ?>" alt="School Logo" class="school-logo">
-                            <?php endif; ?>
-                            <h1><?php echo htmlspecialchars($school_info['name']); ?></h1>
-                            <p><?php echo htmlspecialchars($school_info['address']); ?></p>
-                            <p>যোগাযোগ: <?php echo htmlspecialchars($school_info['phone']); ?> | ইমেইল: <?php echo htmlspecialchars($school_info['email']); ?></p>
-                        </div>
-                        <hr class="no-print">
-                        <!-- ফর্ম -->
-                        <form method="GET" class="no-print">
-                            <div class="row">
-                                <div class="col-md-3">
-                                    <div class="form-group">
-                                        <label for="class_id">শ্রেণী নির্বাচন করুন:</label>
-                                        <select name="class_id" id="class_id" class="form-control" required>
-                                            <option value="">নির্বাচন করুন</option>
-                                            <?php foreach ($classes as $class): ?>
-                                                <option value="<?php echo $class['id']; ?>" <?php echo ($class['id'] == $class_id) ? 'selected' : ''; ?>>
-                                                    <?php echo htmlspecialchars($class['name']); ?>
-                                                </option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="form-group">
-                                        <label for="section_id">শাখা নির্বাচন করুন:</label>
-                                        <select name="section_id" id="section_id" class="form-control" required>
-                                            <option value="">নির্বাচন করুন</option>
-                                            <?php
-                                                if ($class_id) {
-                                                    $sections_query = $pdo->prepare("SELECT * FROM sections WHERE class_id = ? AND status='active'");
-                                                    $sections_query->execute([$class_id]);
-                                                    $sections = $sections_query->fetchAll();
-                                                    foreach ($sections as $section) {
-                                                        echo '<option value="' . $section['id'] . '"' . (($section['id'] == $section_id) ? 'selected' : '') . '>' . htmlspecialchars($section['name']) . '</option>';
-                                                    }
-                                                }
-                                            ?>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="form-group">
-                                        <label for="month">মাস নির্বাচন করুন:</label>
-                                        <select name="month" id="month" class="form-control" required>
-                                            <?php foreach ($months as $key => $value): ?>
-                                                <option value="<?php echo $key; ?>" <?php echo ($key == $selected_month) ? 'selected' : ''; ?>>
-                                                    <?php echo htmlspecialchars($value); ?>
-                                                </option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="form-group">
-                                        <label for="year">বছর নির্বাচন করুন:</label>
-                                        <input type="number" name="year" id="year" class="form-control" value="<?php echo htmlspecialchars($selected_year); ?>" required>
-                                    </div>
-                                </div>
-                            </div>
-                            <button type="submit" class="btn btn-primary">রিপোর্ট দেখুন</button>
-                            <?php if (!empty($students)): ?>
-                            <a href="?<?php echo http_build_query($_GET); ?>&print_view=1" target="_blank" class="btn btn-secondary ml-2">প্রিন্ট করুন</a>
-                            <?php endif; ?>
-                        </form>
-                        <hr>
-                        <?php if (!empty($students)): ?>
-                        <div class="card-header border-0 mt-4 text-center">
-                            <h3 class="card-title">
-                                <strong>মাসিক উপস্থিতি প্রতিবেদন - <?php echo htmlspecialchars($months[$selected_month]); ?>, <?php echo htmlspecialchars($selected_year); ?></strong>
-                            </h3><br>
-                            <h5 class="card-title">
-                                <strong>শ্রেণী:</strong> <?php echo htmlspecialchars($classes[array_search($class_id, array_column($classes, 'id'))]['name']); ?>,
-                                <strong>শাখা:</strong> <?php echo htmlspecialchars($sections[array_search($section_id, array_column($sections, 'id'))]['name']); ?>
-                            </h5>
-                        </div>
-                        <div class="table-responsive p-0">
-                            <table class="table table-bordered text-center">
-                                <thead>
-                                    <tr>
-                                        <th rowspan="2">ক্রমিক নং</th>
-                                        <th rowspan="2">শিক্ষার্থীর নাম</th>
-                                        <th rowspan="2">রোল</th>
-                                        <th colspan="<?php echo $num_days_in_month; ?>">মাসিক উপস্থিতি</th>
-                                        <th rowspan="2">উপস্থিতি (দিন)</th>
-                                        <th rowspan="2">অনুপস্থিতি (দিন)</th>
-                                        <th rowspan="2">উপস্থিতির হার (%)</th>
-                                    </tr>
-                                    <tr>
-                                        <?php for ($i = 1; $i <= $num_days_in_month; $i++): ?>
-                                            <?php
-                                                $date = $selected_year . '-' . $selected_month . '-' . sprintf('%02d', $i);
-                                                $day_of_week = date('w', strtotime($date));
-                                                $is_holiday = in_array($day_of_week, $weekly_holidays) || in_array($date, $holiday_dates);
-                                                $day_name = date('D', strtotime($date));
-                                            ?>
-                                            <th class="<?php echo $is_holiday ? 'bg-secondary' : ''; ?>">
-                                                <?php echo $i; ?><br><?php echo $day_name; ?>
-                                            </th>
-                                        <?php endfor; ?>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php $i = 1; foreach ($students as $student): ?>
-                                    <tr>
-                                        <td><?php echo $i++; ?></td>
-                                        <td class="text-left"><?php echo htmlspecialchars($student['first_name'] . ' ' . $student['last_name']); ?></td>
-                                        <td><?php echo htmlspecialchars($student['roll_no']); ?></td>
-                                        <?php for ($d = 1; $d <= $num_days_in_month; $d++): ?>
-                                            <?php
-                                                $date = $selected_year . '-' . $selected_month . '-' . sprintf('%02d', $d);
-                                                $day_of_week = date('w', strtotime($date));
-                                                $is_holiday = in_array($day_of_week, $weekly_holidays) || in_array($date, $holiday_dates);
-                                                $status = 'n/a';
-                                                if (!$is_holiday) {
-                                                    $record = isset($attendance_records[$student['id']]) ? array_filter($attendance_records[$student['id']], function($item) use ($date) {
-                                                        return $item['date'] == $date;
-                                                    }) : [];
-                                                    if (!empty($record)) {
-                                                        $status = reset($record)['status'];
-                                                    } else {
-                                                        $status = 'absent';
-                                                    }
-                                                }
-                                                $status_class = '';
-                                                switch ($status) {
-                                                    case 'present': $status_class = 'bg-success'; break;
-                                                    case 'absent': $status_class = 'bg-danger'; break;
-                                                    case 'late': $status_class = 'bg-warning'; break;
-                                                    default: break;
-                                                }
-                                            ?>
-                                            <td class="<?php echo $status_class; ?>">
-                                                <?php echo ($status == 'present') ? 'P' : (($status == 'absent') ? 'A' : (($status == 'late') ? 'L' : 'H')); ?>
-                                            </td>
-                                        <?php endfor; ?>
-                                        <td><?php echo $monthly_stats[$student['id']]['present']; ?></td>
-                                        <td><?php echo $monthly_stats[$student['id']]['absent']; ?></td>
-                                        <td><?php echo $monthly_stats[$student['id']]['percentage']; ?>%</td>
-                                    </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="row">
-                            <div class="col-12 text-center my-3">
-                                <small>P = উপস্থিত, A = অনুপস্থিত, L = বিলম্ব, H = ছুটির দিন</small>
-                                <p>মোট কর্মদিবস: <?php echo $total_working_days; ?></p>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-12 text-right mt-5">
-                                <?php if ($head_teacher_info): ?>
-                                <div class="signature-area">
-                                    <br>
-                                    <hr style="width: 200px; border-top: 1px dashed #000; margin: 0 0 5px auto;">
-                                    <strong><?php echo htmlspecialchars($head_teacher_info['name']); ?></strong><br>
-                                    <small><?php echo htmlspecialchars($head_teacher_info['designation']); ?></small><br>
-                                    <small>স্বাক্ষর</small>
-                                </div>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                        <?php else: ?>
-                            <div class="alert alert-warning">
-                                অনুগ্রহ করে শ্রেণী, শাখা, মাস এবং বছর নির্বাচন করে রিপোর্ট দেখুন।
-                            </div>
-                        <?php endif; ?>
+                    <div class="col-sm-6">
+                        <ol class="breadcrumb float-sm-right">
+                            <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>dashboard.php">হোম</a></li>
+                            <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>admin/reports.php">রিপোর্ট</a></li>
+                            <li class="breadcrumb-item active">মাসিক হাজিরা রিপোর্ট</li>
+                        </ol>
                     </div>
                 </div>
             </div>
+        </div>
+        <?php endif; ?>
+
+        <!-- Main content -->
+        <section class="content">
+            <div class="container-fluid">
+                <!-- Notification Alerts -->
+                <?php if(!$is_print_view && isset($_SESSION['success'])): ?>
+                    <div class="alert alert-success alert-dismissible">
+                        <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
+                        <h5><i class="icon fas fa-check"></i> সফল!</h5>
+                        <?php echo $_SESSION['success']; unset($_SESSION['success']); ?>
+                    </div>
+                <?php endif; ?>
+
+                <?php if(!$is_print_view && isset($_SESSION['error'])): ?>
+                    <div class="alert alert-danger alert-dismissible">
+                        <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
+                        <h5><i class="icon fas fa-ban"></i> ত্রুটি!</h5>
+                        <?php echo $_SESSION['error']; unset($_SESSION['error']); ?>
+                    </div>
+                <?php endif; ?>
+
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="card report-card">
+                            <?php if (!$is_print_view): ?>
+                            <div class="card-header">
+                                <h3 class="card-title">রিপোর্ট জেনারেট করুন</h3>
+                            </div>
+                            <?php endif; ?>
+                            <div class="card-body">
+                                <?php if (!$is_print_view): ?>
+                                <form method="GET" action="">
+                                    <div class="row">
+                                        <div class="col-md-3">
+                                            <div class="form-group">
+                                                <label for="class_id">ক্লাস নির্বাচন করুন</label>
+                                                <select class="form-control" id="class_id" name="class_id" required>
+                                                    <option value="">নির্বাচন করুন</option>
+                                                    <?php foreach($classes as $class): ?>
+                                                        <option value="<?php echo $class['id']; ?>" <?php echo (isset($class_id) && $class_id == $class['id']) ? 'selected' : ''; ?>>
+                                                            <?php echo $class['name']; ?>
+                                                        </option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="form-group">
+                                                <label for="section_id">শাখা নির্বাচন করুন</label>
+                                                <select class="form-control" id="section_id" name="section_id" required>
+                                                    <option value="">নির্বাচন করুন</option>
+                                                    <?php foreach($sections as $section): ?>
+                                                        <option value="<?php echo $section['id']; ?>" <?php echo (isset($section_id) && $section_id == $section['id']) ? 'selected' : ''; ?>>
+                                                            <?php echo $section['name']; ?>
+                                                        </option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <div class="form-group">
+                                                <label for="month">মাস</label>
+                                                <select class="form-control" id="month" name="month" required>
+                                                    <?php foreach($months as $key => $name): ?>
+                                                        <option value="<?php echo $key; ?>" <?php echo (isset($month) && $month == $key) ? 'selected' : (($key == $current_month) ? 'selected' : ''); ?>>
+                                                            <?php echo $name; ?>
+                                                        </option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <div class="form-group">
+                                                <label for="year">বছর</label>
+                                                <select class="form-control" id="year" name="year" required>
+                                                    <?php for($y = date('Y'); $y >= date('Y') - 5; $y--): ?>
+                                                        <option value="<?php echo $y; ?>" <?php echo (isset($year) && $year == $y) ? 'selected' : (($y == $current_year) ? 'selected' : ''); ?>>
+                                                            <?php echo $y; ?>
+                                                        </option>
+                                                    <?php endfor; ?>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <div class="form-group" style="margin-top: 32px;">
+                                                <button type="submit" name="generate_report" class="btn btn-primary">
+                                                    <i class="fas fa-chart-bar"></i> রিপোর্ট দেখুন
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </form>
+                                <?php endif; ?>
+
+                                <?php if(isset($students) && isset($attendance_data)): ?>
+                                    <?php if (!$is_print_view): ?>
+                                    <hr>
+                                    
+                                    <div class="d-flex justify-content-between align-items-center mb-3 no-print">
+                                        <h4>
+                                            <?php 
+                                            if(!empty($class_name) && !empty($section_name)) {
+                                                echo $class_name . ' - ' . $section_name . ' শাখার ' . $months[$month] . ', ' . $year . ' এর উপস্থিতি রিপোর্ট';
+                                            }
+                                            ?>
+                                        </h4>
+                                        <div>
+                                            <a href="?<?php echo http_build_query(array_merge($_GET, ['print' => 'true'])); ?>" target="_blank" class="btn btn-success mr-2">
+                                                <i class="fas fa-print"></i> প্রিন্ট ভিউ
+                                            </a>
+                                            <button onclick="window.print()" class="btn btn-info">
+                                                <i class="fas fa-file-pdf"></i> প্রিন্ট করুন
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <?php endif; ?>
+                                    
+                                    <!-- Print Header -->
+                                    <div class="school-header-container <?php echo !$is_print_view ? 'no-print' : ''; ?>">
+                                        <div class="school-logo">
+                                            <?php if (!empty($school_info['logo'])): ?>
+                                                <img src="<?php echo BASE_URL . 'uploads/logo/' . $school_info['logo']; ?>" alt="School Logo">
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="school-info">
+                                            <div class="school-name-large"><?php echo $school_info['name']; ?></div>
+                                            <div class="school-address"><?php echo $school_info['address']; ?></div>
+                                            <div class="school-contact">
+                                                ফোন: <?php echo $school_info['phone']; ?> | 
+                                                ইমেইল: <?php echo $school_info['email']; ?>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="report-title">
+                                        মাসিক হাজিরা রিপোর্ট
+                                    </div>
+                                    
+                                    <div class="criteria-info">
+                                        ক্লাস: <?php echo $class_name; ?> | 
+                                        শাখা: <?php echo $section_name; ?> | 
+                                        মাস: <?php echo $months[$month] . ', ' . $year; ?>
+                                    </div>
+                                    
+                                    <?php if(!empty($students)): ?>
+                                        <div class="table-responsive">
+                                            <table class="table table-bordered table-striped attendance-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th rowspan="2" style="width: 30px;">রোল</th>
+                                                        <th rowspan="2" style="min-width: 120px;">শিক্ষার্থীর নাম</th>
+                                                        <?php for($day = 1; $day <= $days_in_month; $day++): 
+                                                            $date = sprintf("%04d-%02d-%02d", $year, $month, $day);
+                                                            $day_of_week = date('N', strtotime($date));
+                                                            $is_weekend = in_array($day_of_week, $weekly_holidays);
+                                                            $is_holiday = in_array($date, $holiday_dates);
+                                                            $is_day_off = $is_weekend || $is_holiday;
+                                                        ?>
+                                                            <th class="<?php echo $is_day_off ? 'day-off' : ''; ?>">
+                                                                <?php 
+                                                                $bangla_days = ['', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহস্পতি', 'শুক্র', 'শনি', 'রবি'];
+                                                                echo $day; 
+                                                                ?>
+                                                            </th>
+                                                        <?php endfor; ?>
+                                                        <th rowspan="2" style="width: 40px;">মোট উপ.</th>
+                                                        <th rowspan="2" style="width: 40px;">মোট অনু.</th>
+                                                        <th rowspan="2" style="width: 40px;">%</th>
+                                                    </tr>
+                                                    <tr>
+                                                        <?php for($day = 1; $day <= $days_in_month; $day++): 
+                                                            $date = sprintf("%04d-%02d-%02d", $year, $month, $day);
+                                                            $day_of_week = date('N', strtotime($date));
+                                                            $is_weekend = in_array($day_of_week, $weekly_holidays);
+                                                            $is_holiday = in_array($date, $holiday_dates);
+                                                            $is_day_off = $is_weekend || $is_holiday;
+                                                        ?>
+                                                            <th class="<?php echo $is_day_off ? 'day-off' : ''; ?>">
+                                                                <?php 
+                                                                $bangla_days = ['', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহস্পতি', 'শুক্র', 'শনি', 'রবি'];
+                                                                echo $bangla_days[$day_of_week]; 
+                                                                ?>
+                                                            </th>
+                                                        <?php endfor; ?>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <?php 
+                                                    $total_present_all = 0;
+                                                    $total_absent_all = 0;
+                                                    $total_students = count($students);
+                                                    $daily_present_totals = array_fill(1, $days_in_month, 0);
+                                                    $daily_absent_totals = array_fill(1, $days_in_month, 0);
+                                                    ?>
+                                                    
+                                                    <?php foreach($students as $student): 
+                                                        $student_id = $student['id'];
+                                                        $total_present = 0;
+                                                        $total_absent = 0;
+                                                    ?>
+                                                        <tr>
+                                                            <td><?php echo $student['roll_number']; ?></td>
+                                                            <td><?php echo $student['first_name'] . ' ' . $student['last_name']; ?></td>
+                                                            
+                                                            <?php for($day = 1; $day <= $days_in_month; $day++): 
+                                                                $date = sprintf("%04d-%02d-%02d", $year, $month, $day);
+                                                                $day_of_week = date('N', strtotime($date));
+                                                                $is_weekend = in_array($day_of_week, $weekly_holidays);
+                                                                $is_holiday = in_array($date, $holiday_dates);
+                                                                $is_day_off = $is_weekend || $is_holiday;
+                                                                
+                                                                $status = isset($attendance_data[$student_id][$date]) ? $attendance_data[$student_id][$date] : '';
+                                                                
+                                                                if($is_day_off) {
+                                                                    echo '<td class="day-off">ছুটি</td>';
+                                                                } else {
+                                                                    if($status == 'present') {
+                                                                        echo '<td class="present-icon"><i class="fas fa-check-circle"></i></td>';
+                                                                        $total_present++;
+                                                                        $daily_present_totals[$day]++;
+                                                                    } elseif($status == 'absent') {
+                                                                        echo '<td class="absent-icon"><i class="fas fa-times-circle"></i></td>';
+                                                                        $total_absent++;
+                                                                        $daily_absent_totals[$day]++;
+                                                                    } elseif($status == 'late') {
+                                                                        echo '<td class="late-icon"><i class="fas fa-clock"></i></td>';
+                                                                        $total_present++; // দেরীতে আসলেও উপস্থিত ধরা হয়
+                                                                        $daily_present_totals[$day]++;
+                                                                    } elseif($status == 'half_day') {
+                                                                        echo '<td class="half-day-icon"><i class="fas fa-adjust"></i></td>';
+                                                                        $total_present++; // অর্ধদিবসও উপস্থিত ধরা হয়
+                                                                        $daily_present_totals[$day]++;
+                                                                    } else {
+                                                                        echo '<td>-</td>';
+                                                                    }
+                                                                }
+                                                            endfor; ?>
+                                                            
+                                                            <?php 
+                                                            // কর্মদিবস গণনা (ছুটি বাদে)
+                                                            $working_days = 0;
+                                                            for($day = 1; $day <= $days_in_month; $day++) {
+                                                                $date = sprintf("%04d-%02d-%02d", $year, $month, $day);
+                                                                $day_of_week = date('N', strtotime($date));
+                                                                $is_weekend = in_array($day_of_week, $weekly_holidays);
+                                                                $is_holiday = in_array($date, $holiday_dates);
+                                                                $is_day_off = $is_weekend || $is_holiday;
+                                                                
+                                                                if(!$is_day_off) {
+                                                                    $working_days++;
+                                                                }
+                                                            }
+                                                            
+                                                            // Division by Zero Error প্রতিরোধ
+                                                            $attendance_percentage = 0;
+                                                            if ($working_days > 0) {
+                                                                $attendance_percentage = round(($total_present / $working_days) * 100, 2);
+                                                            }
+                                                            
+                                                            $total_present_all += $total_present;
+                                                            $total_absent_all += $total_absent;
+                                                            ?>
+                                                            
+                                                            <td class="present-icon"><?php echo $total_present; ?></td>
+                                                            <td class="absent-icon"><?php echo $total_absent; ?></td>
+                                                            <td><?php echo $attendance_percentage; ?>%</td>
+                                                        </tr>
+                                                    <?php endforeach; ?>
+                                                    
+                                                    <!-- Daily Present Total Row -->
+                                                    <tr class="daily-total">
+                                                        <td colspan="2">দৈনিক মোট উপস্থিতি</td>
+                                                        <?php for($day = 1; $day <= $days_in_month; $day++): 
+                                                            $date = sprintf("%04d-%02d-%02d", $year, $month, $day);
+                                                            $day_of_week = date('N', strtotime($date));
+                                                            $is_weekend = in_array($day_of_week, $weekly_holidays);
+                                                            $is_holiday = in_array($date, $holiday_dates);
+                                                            $is_day_off = $is_weekend || $is_holiday;
+                                                        ?>
+                                                            <?php if($is_day_off): ?>
+                                                                <td class="day-off">-</td>
+                                                            <?php else: ?>
+                                                                <td class="present-icon"><?php echo $daily_present_totals[$day]; ?></td>
+                                                            <?php endif; ?>
+                                                        <?php endfor; ?>
+                                                        <td class="present-icon"><?php echo $total_present_all; ?></td>
+                                                        <td colspan="2">মোট উপস্থিতি</td>
+                                                    </tr>
+                                                    
+                                                    <!-- Daily Absent Total Row -->
+                                                    <tr class="daily-total">
+                                                        <td colspan="2">দৈনিক মোট অনুপস্থিতি</td>
+                                                        <?php for($day = 1; $day <= $days_in_month; $day++): 
+                                                            $date = sprintf("%04d-%02d-%02d", $year, $month, $day);
+                                                            $day_of_week = date('N', strtotime($date));
+                                                            $is_weekend = in_array($day_of_week, $weekly_holidays);
+                                                            $is_holiday = in_array($date, $holiday_dates);
+                                                            $is_day_off = $is_weekend || $is_holiday;
+                                                        ?>
+                                                            <?php if($is_day_off): ?>
+                                                                <td class="day-off">-</td>
+                                                            <?php else: ?>
+                                                                <td class="absent-icon"><?php echo $daily_absent_totals[$day]; ?></td>
+                                                            <?php endif; ?>
+                                                        <?php endfor; ?>
+                                                        <td class="absent-icon"><?php echo $total_absent_all; ?></td>
+                                                        <td colspan="2">মোট অনুপস্থিতি</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        
+                                        <!-- প্রধান শিক্ষকের স্বাক্ষর -->
+                                        <div class="signature-area print-only">
+                                            <div class="signature-line">
+                                                <p>প্রতিষ্ঠান প্রধানের স্বাক্ষর</p>
+                                                <p>নাম: <?php echo $school_info['principal_name']; ?></p>
+                                                <p>পদবী: প্রধান শিক্ষক</p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="row mt-4 no-print">
+                                            <div class="col-md-12">
+                                                <div class="card summary-card">
+                                                    <div class="card-body">
+                                                        <h5>উপস্থিতি সংক্ষিপ্তসার</h5>
+                                                        <div class="row">
+                                                            <div class="col-md-3">
+                                                                <div class="info-box">
+                                                                    <span class="info-box-icon bg-success"><i class="fas fa-user-check"></i></span>
+                                                                    <div class="info-box-content">
+                                                                        <span class="info-box-text">মোট উপস্থিতি</span>
+                                                                        <span class="info-box-number"><?php echo $total_present_all; ?></span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-md-3">
+                                                                <div class="info-box">
+                                                                    <span class="info-box-icon bg-danger"><i class="fas fa-user-times"></i></span>
+                                                                    <div class="info-box-content">
+                                                                        <span class="info-box-text">মোট অনুপস্থিতি</span>
+                                                                        <span class="info-box-number"><?php echo $total_absent_all; ?></span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-md-3">
+                                                                <div class="info-box">
+                                                                    <span class="info-box-icon bg-info"><i class="fas fa-chart-pie"></i></span>
+                                                                    <div class="info-box-content">
+                                                                        <span class="info-box-text">সর্বমোট উপস্থিতির হার</span>
+                                                                        <span class="info-box-number">
+                                                                            <?php 
+                                                                            $total_possible_days = $working_days * $total_students;
+                                                                            $overall_percentage = 0;
+                                                                            if ($total_possible_days > 0) {
+                                                                                $overall_percentage = round(($total_present_all / $total_possible_days) * 100, 2);
+                                                                            }
+                                                                            echo $overall_percentage . '%';
+                                                                            ?>
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-md-3">
+                                                                <div class="info-box">
+                                                                    <span class="info-box-icon bg-primary"><i class="fas fa-users"></i></span>
+                                                                    <div class="info-box-content">
+                                                                        <span class="info-box-text">মোট শিক্ষার্থী</span>
+                                                                        <span class="info-box-number"><?php echo $total_students; ?></span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mt-3 no-print">
+                                            <div class="alert alert-info">
+                                                <h5><i class="icon fas fa-info"></i> চিহ্নিতকরণ</h5>
+                                                <p>
+                                                    <span class="present-icon"><i class="fas fa-check-circle"></i></span> = উপস্থিত, 
+                                                    <span class="absent-icon"><i class="fas fa-times-circle"></i></span> = অনুপস্থিত, 
+                                                    <span class="late-icon"><i class="fas fa-clock"></i></span> = দেরীতে উপস্থিত,
+                                                    <span class="half-day-icon"><i class="fas fa-adjust"></i></span> = অর্ধদিবস উপস্থিত,
+                                                    <span class="day-off">ছুটি</span> = সাপ্তাহিক বা সাধারণ ছুটি
+                                                </p>
+                                            </div>
+                                        </div>
+                                    <?php else: ?>
+                                        <div class="alert alert-warning text-center">
+                                            <i class="fas fa-exclamation-triangle"></i> এই ক্লাস এবং শাখায় কোনো শিক্ষার্থী নেই।
+                                        </div>
+                                    <?php endif; ?>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- /.container-fluid -->
         </section>
+        <!-- /.content -->
     </div>
+    <!-- /.content-wrapper -->
+
     <?php if (!$is_print_view): ?>
     <!-- Main Footer -->
     <?php include 'inc/footer.php'; ?>
@@ -396,10 +796,10 @@ if ($class_id && $section_id && $selected_month && $selected_year) {
                 $('#section_id').html('<option value="">নির্বাচন করুন</option>');
             }
         });
-
+        
         // Auto-submit form when in print view
         <?php if ($is_print_view): ?>
-            window.print();
+        window.print();
         <?php endif; ?>
     });
 </script>
