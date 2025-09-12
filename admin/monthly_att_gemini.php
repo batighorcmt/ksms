@@ -24,7 +24,7 @@ $head_teacher_query = $pdo->query("SELECT u.first_name, u.last_name, tp.designat
 $head_teacher_info = $head_teacher_query->fetch();
 
 // ক্লাস এবং সেকশন লোড করুন
-$classes = $pdo->query("SELECT * FROM classes WHERE status='active' ORDER BY name ASC")->fetchAll();
+$classes = $pdo->query("SELECT * FROM classes WHERE status='active' ORDER BY numeric_value ASC")->fetchAll();
 $sections = [];
 
 // সাপ্তাহিক ছুটির দিনগুলো লোড করুন
@@ -262,7 +262,7 @@ if ($class_id && $section_id && $selected_month && $selected_year) {
                                 <strong>মাসিক উপস্থিতি প্রতিবেদন - <?php echo htmlspecialchars($months[$selected_month]); ?>, <?php echo htmlspecialchars($selected_year); ?></strong>
                             </h3><br>
                             <h5 class="card-title">
-                                <strong>শ্রেণী:</strong> <?php echo htmlspecialchars($classes[array_search($class_id, array_column($classes, 'id'))]['name']); ?>, 
+                                <strong>শ্রেণী:</strong> <?php echo htmlspecialchars($classes[array_search($class_id, array_column($classes, 'id'))]['name']); ?>,
                                 <strong>শাখা:</strong> <?php echo htmlspecialchars($sections[array_search($section_id, array_column($sections, 'id'))]['name']); ?>
                             </h5>
                         </div>
