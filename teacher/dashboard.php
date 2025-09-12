@@ -134,11 +134,11 @@ $total_students = $total_students->fetch()['total'];
 <div class="wrapper">
 
     <!-- Navbar -->
-    <?php include 'inc/header.php'; ?>
+    <?php include '../admin/inc/header.php'; ?>
     <!-- /.navbar -->
 
     <!-- Main Sidebar Container -->
-    <?php include 'inc/sidebar.php'; ?>
+    <?php include '../admin/inc/sidebar.php'; ?>
 
     <!-- Content Wrapper. Contains page content -->
     <div class="content-wrapper">
@@ -416,22 +416,22 @@ $total_students = $total_students->fetch()['total'];
                             <div class="card-body">
                                 <div class="row">
                                     <div class="col-6">
-                                        <a href="<?php echo BASE_URL; ?>attendance.php" class="btn btn-primary btn-block mb-2">
+                                        <a href="<?php echo BASE_URL; ?>/admin/attendance.php" class="btn btn-primary btn-block mb-2">
                                             <i class="fas fa-clipboard-check"></i> উপস্থিতি নিন
                                         </a>
                                     </div>
                                     <div class="col-6">
-                                        <a href="<?php echo BASE_URL; ?>students.php" class="btn btn-info btn-block mb-2">
+                                        <a href="<?php echo BASE_URL; ?>/admin/students.php" class="btn btn-info btn-block mb-2">
                                             <i class="fas fa-users"></i> শিক্ষার্থী দেখুন
                                         </a>
                                     </div>
                                     <div class="col-6">
-                                        <a href="<?php echo BASE_URL; ?>exam.php" class="btn btn-success btn-block mb-2">
+                                        <a href="<?php echo BASE_URL; ?>/admin/exam.php" class="btn btn-success btn-block mb-2">
                                             <i class="fas fa-book"></i> পরীক্ষা ব্যবস্থাপনা
                                         </a>
                                     </div>
                                     <div class="col-6">
-                                        <a href="<?php echo BASE_URL; ?>reports.php" class="btn btn-warning btn-block mb-2">
+                                        <a href="<?php echo BASE_URL; ?>/admin/reports.php" class="btn btn-warning btn-block mb-2">
                                             <i class="fas fa-chart-bar"></i> রিপোর্ট
                                         </a>
                                     </div>
@@ -451,7 +451,7 @@ $total_students = $total_students->fetch()['total'];
     <!-- /.content-wrapper -->
 
     <!-- Main Footer -->
-    <?php include 'inc/footer.php'; ?>
+    <?php include '../admin/inc/footer.php'; ?>
 </div>
 <!-- ./wrapper -->
 
