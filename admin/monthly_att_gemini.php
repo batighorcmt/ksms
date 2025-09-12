@@ -20,7 +20,7 @@ $months = [
 $school_info = $pdo->query("SELECT * FROM school_info WHERE id = 1")->fetch();
 
 // প্রধান শিক্ষকের তথ্য লোড করুন
-$head_teacher_query = $pdo->query("SELECT u.first_name, u.last_name, tp.designation FROM users u JOIN teacher_profiles tp ON u.id = tp.teacher_id WHERE u.role = 'head_teacher' LIMIT 1");
+$head_teacher_query = $pdo->query("SELECT u.name, tp.designation FROM users u JOIN teacher_profiles tp ON u.id = tp.teacher_id WHERE u.role = 'head_teacher' LIMIT 1");
 $head_teacher_info = $head_teacher_query->fetch();
 
 // ক্লাস এবং সেকশন লোড করুন
@@ -346,7 +346,7 @@ if ($class_id && $section_id && $selected_month && $selected_year) {
                                 <div class="signature-area">
                                     <br>
                                     <hr style="width: 200px; border-top: 1px dashed #000; margin: 0 0 5px auto;">
-                                    <strong><?php echo htmlspecialchars($head_teacher_info['first_name'] . ' ' . $head_teacher_info['last_name']); ?></strong><br>
+                                    <strong><?php echo htmlspecialchars($head_teacher_info['name']); ?></strong><br>
                                     <small><?php echo htmlspecialchars($head_teacher_info['designation']); ?></small><br>
                                     <small>স্বাক্ষর</small>
                                 </div>
