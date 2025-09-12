@@ -642,7 +642,7 @@ $is_print_view = isset($_GET['print']) && $_GET['print'] == 'true';
                                                             <?php endif; ?>
                                                         <?php endfor; ?>
                                                         <td class="present-icon"><?php echo $total_present_all; ?></td>
-                                                        <td colspan="2">মোট উপস্থিতি</td>
+                                                        <td colspan="2"><?php echo $overall_percentage . '%'; ?> </td>
                                                     </tr>
                                                     
                                                     <!-- Daily Absent Total Row -->
@@ -662,7 +662,7 @@ $is_print_view = isset($_GET['print']) && $_GET['print'] == 'true';
                                                             <?php endif; ?>
                                                         <?php endfor; ?>
                                                         <td class="absent-icon"><?php echo $total_absent_all; ?></td>
-                                                        <td colspan="2">মোট অনুপস্থিতি</td>
+                                                        <td colspan="2"> <?php echo 100-$overall_percentage . '%'; ?></td>
                                                     </tr>
                                                 </tbody>
                                             </table>
@@ -671,7 +671,6 @@ $is_print_view = isset($_GET['print']) && $_GET['print'] == 'true';
                                         <!-- প্রধান শিক্ষকের স্বাক্ষর -->
                                         <div class="signature-area print-only">
                                             <div class="signature-line">
-                                                <p>প্রতিষ্ঠান প্রধানের স্বাক্ষর</p>
                                                 <p>নাম: <?php echo $school_info['principal_name']; ?></p>
                                                 <p>পদবী: প্রধান শিক্ষক</p>
                                             </div>
