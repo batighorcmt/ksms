@@ -365,7 +365,7 @@ if (empty($gender_present)) {
                         <div class="small-box bg-gradient-primary">
                             <div class="inner">
                                 <h3><?php echo $attendance_percentage; ?>%</h3>
-                                <p>উপस्थিতির হার</p>
+                                <p>উপস্থিতির হার</p>
                             </div>
                             <div class="icon">
                                 <i class="fas fa-chart-line"></i>
@@ -510,7 +510,43 @@ if (empty($gender_present)) {
                                         </thead>
                                         <tbody>
                                             <?php $serial = 1; ?>
-                                            <?php foreach($absent_list as $student): ?>
+                                            <?php foreach($absent_list as $student): 
+                                                // Fetch consecutive absent days for each student
+                                                $consecutive_absent_query = $pdo->prepare("
+                                                    SELECT COUNT(*) as consecutive_days
+                                                    FROM (
+                                                        SELECT date, status, 
+                                                            @absent_count := IF(status = 'absent' OR status IS NULL, @absent_count + 1, 0) as consecutive_count,
+                                                            @reset := IF(status IN ('present', 'late', 'half_day'), 1, 0) as reset_flag
+                                                        FROM (
+                                                            SELECT date, status
+                                                            FROM attendance 
+                                                            WHERE student_id = ? AND date <= ?
+                                                            UNION ALL
+                                                            SELECT ? as date, NULL as status
+                                                        ) a
+                                                        CROSS JOIN (SELECT @absent_count := 0, @reset := 0) vars
+                                                        ORDER BY date DESC
+                                                    ) t
+                                                    WHERE consecutive_count > 0
+                                                    LIMIT 1
+                                                ");
+                                                $consecutive_absent_query->execute([$student['id'], $selected_date, $selected_date]);
+                                                $consecutive_absent = $consecutive_absent_query->fetch();
+                                                $consecutive_days = $consecutive_absent['consecutive_days'] ?? 0;
+
+                                                // Fetch latest remarks for the student
+                                                $remarks_query = $pdo->prepare("
+                                                    SELECT remarks 
+                                                    FROM attendance 
+                                                    WHERE student_id = ? AND date <= ? AND remarks IS NOT NULL AND remarks != ''
+                                                    ORDER BY date DESC 
+                                                    LIMIT 1
+                                                ");
+                                                $remarks_query->execute([$student['id'], $selected_date]);
+                                                $remarks = $remarks_query->fetch();
+                                                $latest_remarks = $remarks ? $remarks['remarks'] : 'কোন মন্তব্য পাওয়া যায়নি';
+                                            ?>
                                             <tr>
                                                 <td><?php echo $serial++; ?></td>
                                                 <td>
@@ -526,7 +562,9 @@ if (empty($gender_present)) {
                                                           data-mother-name="<?php echo $student['mother_name']; ?>"
                                                           data-guardian-relation="<?php echo $student['guardian_relation']; ?>"
                                                           data-photo="<?php echo $student['photo'] ? '../uploads/students/' . $student['photo'] : '../assets/img/default-student.png'; ?>"
-                                                          data-status-type="<?php echo $student['status_type']; ?>">
+                                                          data-status-type="<?php echo $student['status_type']; ?>"
+                                                          data-consecutive-days="<?php echo $consecutive_days; ?>"
+                                                          data-latest-remarks="<?php echo htmlspecialchars($latest_remarks); ?>">
                                                         <?php echo $student['first_name'] . ' ' . $student['last_name']; ?>
                                                     </span>
                                                 </td>
@@ -640,7 +678,7 @@ if (empty($gender_present)) {
                                 <span class="student-info-label">একটানা অনুপস্থিত:</span>
                             </div>
                             <div class="col-sm-8">
-                                <span class="consecutive-absent" id="modalConsecutiveAbsent">৩ দিন</span>
+                                <span class="consecutive-absent" id="modalConsecutiveAbsent"></span>
                             </div>
                         </div>
                         <div class="row mb-2">
@@ -648,7 +686,7 @@ if (empty($gender_present)) {
                                 <span class="student-info-label">সর্বশেষ মন্তব্য:</span>
                             </div>
                             <div class="col-sm-8">
-                                <span id="modalRemarks">কোন মন্তব্য নেই</span>
+                                <span id="modalRemarks"></span>
                             </div>
                         </div>
                     </div>
@@ -742,6 +780,8 @@ if (empty($gender_present)) {
             var guardianRelation = $(this).data('guardian-relation');
             var photo = $(this).data('photo');
             var statusType = $(this).data('status-type');
+            var consecutiveDays = $(this).data('consecutive-days');
+            var latestRemarks = $(this).data('latest-remarks');
 
             // Set modal content
             $('#modalStudentPhoto').attr('src', photo);
@@ -753,21 +793,19 @@ if (empty($gender_present)) {
             $('#modalGuardianRelation').text(guardianRelation || 'তথ্য নেই');
             $('#modalMobileNumber').text(mobileNumber || 'তথ্য নেই');
             $('#modalVillage').text(village || 'তথ্য নেই');
+            $('#modalConsecutiveAbsent').text(consecutiveDays + ' দিন');
+            $('#modalRemarks').text(latestRemarks);
 
             // Set button actions
             if (mobileNumber) {
                 $('#modalCallButton').attr('href', 'tel:' + mobileNumber);
                 $('#modalSmsButton').attr('href', 'sms:' + mobileNumber);
+                $('#modalCallButton').removeClass('disabled');
+                $('#modalSmsButton').removeClass('disabled');
             } else {
                 $('#modalCallButton').addClass('disabled');
                 $('#modalSmsButton').addClass('disabled');
             }
-
-            // TODO: Fetch consecutive absent days and remarks from server via AJAX
-            // This is a placeholder - you would need to implement an API endpoint
-            // to get this data dynamically
-            $('#modalConsecutiveAbsent').text('৩ দিন');
-            $('#modalRemarks').text('জ্বরের কারণে অনুপস্থিত');
         });
 
         // Reset modal state when closed
