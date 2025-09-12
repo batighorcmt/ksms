@@ -23,8 +23,13 @@ $school_info = $pdo->query("SELECT * FROM school_info WHERE id = 1")->fetch();
 $classes = $pdo->query("SELECT * FROM classes WHERE status='active' ORDER BY numeric_value ASC")->fetchAll();
 $sections = [];
 
-// সাপ্তাহিক ছুটির দিনগুলো লোড করুন
-$weekly_holidays = $pdo->query("SELECT day_number FROM weekly_holidays WHERE status='active'")->fetchAll(PDO::FETCH_COLUMN);
+// সাপ্তাহিক ছুটির দিনগুলো লোড করুন এবং PHP day format (1=Monday, 7=Sunday) এ convert করুন
+$weekly_holidays_db = $pdo->query("SELECT day_number FROM weekly_holidays WHERE status='active'")->fetchAll(PDO::FETCH_COLUMN);
+$weekly_holidays = [];
+foreach ($weekly_holidays_db as $day) {
+    // Convert database format (1=Sunday, 7=Saturday) to PHP format (1=Monday, 7=Sunday)
+    $weekly_holidays[] = $day == 7 ? 6 : ($day == 6 ? 7 : $day);
+}
 
 // সাধারণ ছুটির দিনগুলো লোড করুন
 $holidays = $pdo->query("SELECT * FROM holidays WHERE status='active'")->fetchAll();
@@ -63,12 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['generate_report'])) {
     
     // মাসের দিন সংখ্যা এবং প্রথম দিন নির্ধারণ করুন
     $days_in_month = cal_days_in_month(CAL_GREGORIAN, $month, $year);
-
-// date('w') -> 0=Sunday ... 6=Saturday
-$w = date('w', strtotime("$year-$month-01"));
-
-// আপনার ডাটাবেজের ফরম্যাটে রূপান্তর (Sunday=1 ... Saturday=7)
-$first_day = $w + 1;
+    $first_day = date('N', strtotime("$year-$month-01")); // 1 (সোমবার) থেকে 7 (রবিবার)
     
     // শিক্ষার্থীদের লোড করুন
     $students_stmt = $pdo->prepare("
@@ -186,24 +186,29 @@ $is_print_view = isset($_GET['print']) && $_GET['print'] == 'true';
             border-bottom: 2px solid #4e73df;
         }
         .school-name {
-            font-size: 24px;
+            font-size: 28px;
             font-weight: bold;
             color: #4e73df;
             margin-bottom: 5px;
         }
         .school-details {
+            font-size: 16px;
+            color: #6c757d;
+            margin-bottom: 5px;
+        }
+        .school-contact {
             font-size: 14px;
             color: #6c757d;
         }
         .report-title {
-            font-size: 18px;
+            font-size: 20px;
             font-weight: bold;
             text-align: center;
             margin: 15px 0;
             color: #4e73df;
         }
         .criteria-info {
-            font-size: 14px;
+            font-size: 16px;
             text-align: center;
             margin-bottom: 15px;
             color: #6c757d;
@@ -214,13 +219,15 @@ $is_print_view = isset($_GET['print']) && $_GET['print'] == 'true';
         }
         .signature-area {
             margin-top: 50px;
-            text-align: center;
         }
         .signature-line {
             border-top: 1px solid #000;
-            width: 300px;
-            margin: 0 auto;
+            width: 250px;
             padding-top: 40px;
+            float: right;
+        }
+        .principal-name {
+            font-weight: bold;
         }
         @media print {
             @page {
@@ -243,10 +250,10 @@ $is_print_view = isset($_GET['print']) && $_GET['print'] == 'true';
                 padding-bottom: 5px;
             }
             .school-name {
-                font-size: 18px;
+                font-size: 22px;
             }
             .report-title {
-                font-size: 16px;
+                font-size: 18px;
                 margin: 10px 0;
             }
             .container-fluid {
@@ -282,6 +289,20 @@ $is_print_view = isset($_GET['print']) && $_GET['print'] == 'true';
             .print-only {
                 display: block;
             }
+        }
+        .school-logo {
+            max-height: 80px;
+            max-width: 80px;
+            margin-right: 15px;
+        }
+        .school-header-content {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+        .school-info {
+            text-align: center;
         }
     </style>
 </head>
@@ -437,11 +458,18 @@ $is_print_view = isset($_GET['print']) && $_GET['print'] == 'true';
                                     
                                     <!-- Print Header -->
                                     <div class="school-header <?php echo !$is_print_view ? 'no-print' : ''; ?>">
-                                        <div class="school-name"><?php echo $school_info['name']; ?></div>
-                                        <div class="school-details">
-                                            <?php echo $school_info['address']; ?> | 
-                                            ফোন: <?php echo $school_info['phone']; ?> | 
-                                            ইমেইল: <?php echo $school_info['email']; ?>
+                                        <div class="school-header-content">
+                                            <?php if (!empty($school_info['logo'])): ?>
+                                                <img src="<?php echo BASE_URL . $school_info['logo']; ?>" class="school-logo" alt="School Logo">
+                                            <?php endif; ?>
+                                            <div class="school-info">
+                                                <div class="school-name"><?php echo $school_info['name']; ?></div>
+                                                <div class="school-details"><?php echo $school_info['address']; ?></div>
+                                                <div class="school-contact">
+                                                    ফোন: <?php echo $school_info['phone']; ?> | 
+                                                    ইমেইল: <?php echo $school_info['email']; ?>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                     
@@ -504,6 +532,20 @@ $is_print_view = isset($_GET['print']) && $_GET['print'] == 'true';
                                                     $total_students = count($students);
                                                     $daily_present_totals = array_fill(1, $days_in_month, 0);
                                                     $daily_absent_totals = array_fill(1, $days_in_month, 0);
+                                                    
+                                                    // কর্মদিবস গণনা (ছুটি বাদে)
+                                                    $working_days = 0;
+                                                    for($day = 1; $day <= $days_in_month; $day++) {
+                                                        $date = sprintf("%04d-%02d-%02d", $year, $month, $day);
+                                                        $day_of_week = date('N', strtotime($date));
+                                                        $is_weekend = in_array($day_of_week, $weekly_holidays);
+                                                        $is_holiday = in_array($date, $holiday_dates);
+                                                        $is_day_off = $is_weekend || $is_holiday;
+                                                        
+                                                        if(!$is_day_off) {
+                                                            $working_days++;
+                                                        }
+                                                    }
                                                     ?>
                                                     
                                                     <?php foreach($students as $student): 
@@ -550,20 +592,6 @@ $is_print_view = isset($_GET['print']) && $_GET['print'] == 'true';
                                                             endfor; ?>
                                                             
                                                             <?php 
-                                                            // কর্মদিবস গণনা (ছুটি বাদে)
-                                                            $working_days = 0;
-                                                            for($day = 1; $day <= $days_in_month; $day++) {
-                                                                $date = sprintf("%04d-%02d-%02d", $year, $month, $day);
-                                                                $day_of_week = date('N', strtotime($date));
-                                                                $is_weekend = in_array($day_of_week, $weekly_holidays);
-                                                                $is_holiday = in_array($date, $holiday_dates);
-                                                                $is_day_off = $is_weekend || $is_holiday;
-                                                                
-                                                                if(!$is_day_off) {
-                                                                    $working_days++;
-                                                                }
-                                                            }
-                                                            
                                                             // Division by Zero Error প্রতিরোধ
                                                             $attendance_percentage = 0;
                                                             if ($working_days > 0) {
@@ -580,9 +608,9 @@ $is_print_view = isset($_GET['print']) && $_GET['print'] == 'true';
                                                         </tr>
                                                     <?php endforeach; ?>
                                                     
-                                                    <!-- Daily Present Total Row -->
+                                                    <!-- Grand Total Row -->
                                                     <tr class="daily-total">
-                                                        <td colspan="2">দৈনিক মোট উপস্থিতি</td>
+                                                        <td colspan="2">সর্বমোট</td>
                                                         <?php for($day = 1; $day <= $days_in_month; $day++): 
                                                             $date = sprintf("%04d-%02d-%02d", $year, $month, $day);
                                                             $day_of_week = date('N', strtotime($date));
@@ -593,31 +621,20 @@ $is_print_view = isset($_GET['print']) && $_GET['print'] == 'true';
                                                             <?php if($is_day_off): ?>
                                                                 <td class="day-off">-</td>
                                                             <?php else: ?>
-                                                                <td class="present-icon"><?php echo $daily_present_totals[$day]; ?></td>
+                                                                <td>
+                                                                    <span class="present-icon"><?php echo $daily_present_totals[$day]; ?></span> /
+                                                                    <span class="absent-icon"><?php echo $daily_absent_totals[$day]; ?></span>
+                                                                </td>
                                                             <?php endif; ?>
                                                         <?php endfor; ?>
-                                                        <td class="present-icon"><?php echo $total_present_all; ?></td>
-                                                        <td colspan="2">মোট উপস্থিতি</td>
-                                                    </tr>
-                                                    
-                                                    <!-- Daily Absent Total Row -->
-                                                    <tr class="daily-total">
-                                                        <td colspan="2">দৈনিক মোট অনুপস্থিতি</td>
-                                                        <?php for($day = 1; $day <= $days_in_month; $day++): 
-                                                            $date = sprintf("%04d-%02d-%02d", $year, $month, $day);
-                                                            $day_of_week = date('N', strtotime($date));
-                                                            $is_weekend = in_array($day_of_week, $weekly_holidays);
-                                                            $is_holiday = in_array($date, $holiday_dates);
-                                                            $is_day_off = $is_weekend || $is_holiday;
+                                                        <?php 
+                                                        $total_possible_days = $working_days * $total_students;
+                                                        $overall_present_percentage = $total_possible_days > 0 ? round(($total_present_all / $total_possible_days) * 100, 2) : 0;
+                                                        $overall_absent_percentage = $total_possible_days > 0 ? round(($total_absent_all / $total_possible_days) * 100, 2) : 0;
                                                         ?>
-                                                            <?php if($is_day_off): ?>
-                                                                <td class="day-off">-</td>
-                                                            <?php else: ?>
-                                                                <td class="absent-icon"><?php echo $daily_absent_totals[$day]; ?></td>
-                                                            <?php endif; ?>
-                                                        <?php endfor; ?>
-                                                        <td class="absent-icon"><?php echo $total_absent_all; ?></td>
-                                                        <td colspan="2">মোট অনুপস্থিতি</td>
+                                                        <td class="present-icon"><?php echo $overall_present_percentage; ?>%</td>
+                                                        <td class="absent-icon"><?php echo $overall_absent_percentage; ?>%</td>
+                                                        <td><?php echo $overall_present_percentage; ?>%</td>
                                                     </tr>
                                                 </tbody>
                                             </table>
@@ -627,8 +644,8 @@ $is_print_view = isset($_GET['print']) && $_GET['print'] == 'true';
                                         <div class="signature-area print-only">
                                             <div class="signature-line">
                                                 <p>প্রতিষ্ঠান প্রধানের স্বাক্ষর</p>
-                                                <p>নাম: _________________________</p>
-                                                <p>পদবী: _________________________</p>
+                                                <p class="principal-name"><?php echo $school_info['principal_name']; ?></p>
+                                                <p>প্রধান শিক্ষক</p>
                                             </div>
                                         </div>
                                         
@@ -661,16 +678,7 @@ $is_print_view = isset($_GET['print']) && $_GET['print'] == 'true';
                                                                     <span class="info-box-icon bg-info"><i class="fas fa-chart-pie"></i></span>
                                                                     <div class="info-box-content">
                                                                         <span class="info-box-text">সর্বমোট উপস্থিতির হার</span>
-                                                                        <span class="info-box-number">
-                                                                            <?php 
-                                                                            $total_possible_days = $working_days * $total_students;
-                                                                            $overall_percentage = 0;
-                                                                            if ($total_possible_days > 0) {
-                                                                                $overall_percentage = round(($total_present_all / $total_possible_days) * 100, 2);
-                                                                            }
-                                                                            echo $overall_percentage . '%';
-                                                                            ?>
-                                                                        </span>
+                                                                        <span class="info-box-number"><?php echo $overall_present_percentage; ?>%</span>
                                                                     </div>
                                                                 </div>
                                                             </div>
