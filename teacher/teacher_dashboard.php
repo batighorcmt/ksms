@@ -151,7 +151,7 @@ $total_students = $total_students->fetch()['total'];
                     </div>
                     <div class="col-sm-6">
                         <ol class="breadcrumb float-sm-right">
-                            <li class="breadcrumb-item"><a href="<?php echo ADMIN_URL; ?>dashboard.php">হোম</a></li>
+                            <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>dashboard.php">হোম</a></li>
                             <li class="breadcrumb-item active">শিক্ষক ড্যাশবোর্ড</li>
                         </ol>
                     </div>
@@ -180,7 +180,7 @@ $total_students = $total_students->fetch()['total'];
                             <div class="icon">
                                 <i class="fas fa-school"></i>
                             </div>
-                            <a href="<?php echo ADMIN_URL; ?>classes.php" class="small-box-footer">বিস্তারিত <i class="fas fa-arrow-circle-right"></i></a>
+                            <a href="<?php echo BASE_URL; ?>/admin/classes.php" class="small-box-footer">বিস্তারিত <i class="fas fa-arrow-circle-right"></i></a>
                         </div>
                     </div>
                     <!-- ./col -->
@@ -194,7 +194,7 @@ $total_students = $total_students->fetch()['total'];
                             <div class="icon">
                                 <i class="fas fa-user-graduate"></i>
                             </div>
-                            <a href="<?php echo ADMIN_URL; ?>students.php" class="small-box-footer">বিস্তারিত <i class="fas fa-arrow-circle-right"></i></a>
+                            <a href="<?php echo BASE_URL; ?>/admin/students.php" class="small-box-footer">বিস্তারিত <i class="fas fa-arrow-circle-right"></i></a>
                         </div>
                     </div>
                     <!-- ./col -->
@@ -208,7 +208,7 @@ $total_students = $total_students->fetch()['total'];
                             <div class="icon">
                                 <i class="fas fa-clipboard-check"></i>
                             </div>
-                            <a href="<?php echo ADMIN_URL; ?>attendance.php" class="small-box-footer">বিস্তারিত <i class="fas fa-arrow-circle-right"></i></a>
+                            <a href="<?php echo BASE_URL; ?>/admin/attendance.php" class="small-box-footer">বিস্তারিত <i class="fas fa-arrow-circle-right"></i></a>
                         </div>
                     </div>
                     <!-- ./col -->
@@ -269,10 +269,10 @@ $total_students = $total_students->fetch()['total'];
                                                 <td><?php echo $class['section_name'] ?? 'N/A'; ?></td>
                                                 <td><?php echo $student_count; ?></td>
                                                 <td>
-                                                    <a href="<?php echo ADMIN_URL; ?>attendance.php?class_id=<?php echo $class['id']; ?>" class="btn btn-primary btn-sm">
+                                                    <a href="<?php echo BASE_URL; ?>attendance.php?class_id=<?php echo $class['id']; ?>" class="btn btn-primary btn-sm">
                                                         <i class="fas fa-clipboard-check"></i> উপস্থিতি
                                                     </a>
-                                                    <a href="<?php echo ADMIN_URL; ?>students.php?class_id=<?php echo $class['id']; ?>" class="btn btn-info btn-sm">
+                                                    <a href="<?php echo BASE_URL; ?>students.php?class_id=<?php echo $class['id']; ?>" class="btn btn-info btn-sm">
                                                         <i class="fas fa-users"></i> শিক্ষার্থী
                                                     </a>
                                                 </td>
@@ -331,7 +331,7 @@ $total_students = $total_students->fetch()['total'];
                             </div>
                             <!-- /.card-body -->
                             <div class="card-footer text-center">
-                                <a href="<?php echo ADMIN_URL; ?>attendance.php" class="btn btn-primary">
+                                <a href="<?php echo BASE_URL; ?>attendance.php" class="btn btn-primary">
                                     <i class="fas fa-list"></i> সমস্ত উপস্থিতি রেকর্ড দেখুন
                                 </a>
                             </div>
@@ -416,22 +416,22 @@ $total_students = $total_students->fetch()['total'];
                             <div class="card-body">
                                 <div class="row">
                                     <div class="col-6">
-                                        <a href="<?php echo ADMIN_URL; ?>attendance.php" class="btn btn-primary btn-block mb-2">
+                                        <a href="<?php echo BASE_URL; ?>attendance.php" class="btn btn-primary btn-block mb-2">
                                             <i class="fas fa-clipboard-check"></i> উপস্থিতি নিন
                                         </a>
                                     </div>
                                     <div class="col-6">
-                                        <a href="<?php echo ADMIN_URL; ?>students.php" class="btn btn-info btn-block mb-2">
+                                        <a href="<?php echo BASE_URL; ?>students.php" class="btn btn-info btn-block mb-2">
                                             <i class="fas fa-users"></i> শিক্ষার্থী দেখুন
                                         </a>
                                     </div>
                                     <div class="col-6">
-                                        <a href="<?php echo ADMIN_URL; ?>exam.php" class="btn btn-success btn-block mb-2">
+                                        <a href="<?php echo BASE_URL; ?>exam.php" class="btn btn-success btn-block mb-2">
                                             <i class="fas fa-book"></i> পরীক্ষা ব্যবস্থাপনা
                                         </a>
                                     </div>
                                     <div class="col-6">
-                                        <a href="<?php echo ADMIN_URL; ?>reports.php" class="btn btn-warning btn-block mb-2">
+                                        <a href="<?php echo BASE_URL; ?>reports.php" class="btn btn-warning btn-block mb-2">
                                             <i class="fas fa-chart-bar"></i> রিপোর্ট
                                         </a>
                                     </div>
