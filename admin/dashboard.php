@@ -242,7 +242,7 @@ if (empty($gender_ratio)) {
                             <div class="icon">
                                 <i class="fas fa-clipboard-check"></i>
                             </div>
-                            <a href="attendance.php" class="small-box-footer">বিস্তারিত <i class="fas fa-arrow-circle-right"></i></a>
+                            <a href="attendance_overview.php" class="small-box-footer">বিস্তারিত <i class="fas fa-arrow-circle-right"></i></a>
                         </div>
                     </div>
                     <!-- ./col -->

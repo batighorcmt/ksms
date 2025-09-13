@@ -1,7 +1,7 @@
 <!-- Main Sidebar Container -->
 <aside class="main-sidebar sidebar-dark-primary elevation-4">
     <!-- Brand Logo -->
-    <a href="<?php echo BASE_URL; ?>dashboard.php" class="brand-link text-center">
+    <a href="<?php echo BASE_URL; ?>admin/dashboard.php" class="brand-link text-center">
         <span class="brand-text font-weight-light logo-custom">কিন্ডার গার্ডেন</span>
     </a>
 
@@ -33,10 +33,44 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="<?php echo BASE_URL; ?>admin/classes.php" class="nav-link">
+                    <a href="#" class="nav-link">
                         <i class="nav-icon fas fa-school"></i>
-                        <p>শ্রেণি ব্যবস্থাপনা</p>
+                        <p>শ্রেণি ব্যবস্থাপনা <i class="right fas fa-angle-left"></i></p>
                     </a>
+                    <ul class="nav nav-treeview">
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/classes.php" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>শ্রেণি তালিকা</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/routine_list.php" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>ক্লাস রুটিন</p>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link">
+                        <i class="nav-icon fas fa-school"></i>
+                        <p>বিষয় ব্যবস্থাপনা <i class="right fas fa-angle-left"></i></p>
+                    </a>
+                    <ul class="nav nav-treeview">
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/school_subjects.php" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>অনুমোদিত বিষয়</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/subjects.php" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>বিষয় তালিকা</p>
+                            </a>
+                        </li>
+                    </ul>
                 </li>
                 <li class="nav-item">
                     <a href="<?php echo BASE_URL; ?>admin/teachers.php" class="nav-link">
@@ -45,10 +79,37 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="<?php echo BASE_URL; ?>admin/attendance.php" class="nav-link">
+                    <a href="#" class="nav-link">
                         <i class="nav-icon fas fa-clipboard-check"></i>
-                        <p>উপস্থিতি ব্যবস্থাপনা</p>
+                        <p>উপস্থিতি ব্যবস্থাপনা <i class="right fas fa-angle-left"></i> </p>
                     </a>
+                    <ul class="nav nav-treeview">
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/attendance_overview.php" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>উপস্থিতি ড্যাশবোর্ড</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/attendance.php" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>উপস্থিতি গ্রহণ</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/attendance_report.php" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>প্রতিদিনের রিপোর্ট প্রিন্ট</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/monthly_attendance.php" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>মাসিক উপস্থিতি</p>
+                            </a>
+                        </li>
+
+                    </ul>
                 </li>
                 <li class="nav-item">
                     <a href="<?php echo BASE_URL; ?>admin/exam.php" class="nav-link">
