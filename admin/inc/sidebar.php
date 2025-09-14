@@ -27,10 +27,23 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="<?php echo BASE_URL; ?>admin/students.php" class="nav-link">
+                    <a href="#" class="nav-link">
                         <i class="nav-icon fas fa-user-graduate"></i>
-                        <p>শিক্ষার্থী ব্যবস্থাপনা</p>
+                        <p>শিক্ষার্থী ব্যবস্থাপনা <i class="right fas fa-angle-left"></i> </p>
                     </a>
+                    <ul class="nav nav-treeview">
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/students.php" class="nav-link">
+                                <i class="far fa-people nav-icon"></i>
+                                <p>শিক্ষার্থী তালিকা</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/student_list_print.php" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>শিক্ষার্থী তালিকা প্রিন্ট</p>
+                        </li>
+                    </ul>
                 </li>
                 <li class="nav-item">
                     <a href="#" class="nav-link">
