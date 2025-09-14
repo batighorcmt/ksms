@@ -33,10 +33,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
         $user_id = $_SESSION['user_id'] ?? 0;
         // Only allow if a specific section is selected and the section's teacher_id matches
         if ($section_id !== null) {
-            $sec_stmt = $pdo->prepare("SELECT teacher_id FROM sections WHERE id = ? LIMIT 1");
+            $sec_stmt = $pdo->prepare("SELECT section_teacher_id FROM sections WHERE id = ? LIMIT 1");
             $sec_stmt->execute([$section_id]);
             $sec = $sec_stmt->fetch();
-            if ($sec && intval($sec['teacher_id']) === intval($user_id)) {
+            if ($sec && intval($sec['section_teacher_id']) === intval($user_id)) {
                 $allowed = true;
             }
         }
