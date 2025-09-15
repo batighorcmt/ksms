@@ -66,7 +66,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 ?>
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>রুটিন যোগ করুন - কিন্ডার গার্ডেন</title>
 
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
+    <link href="https://fonts.maateen.me/solaiman-lipi/font.css" rel="stylesheet">
+    <style>body, .main-sidebar, .nav-link {font-family: 'SolaimanLipi', 'Source Sans Pro', sans-serif;}</style>
+</head>
+<body class="hold-transition sidebar-mini">
+<div class="wrapper">
 <?php include 'inc/header.php'; ?>
 <?php include 'inc/sidebar.php'; ?>
 
