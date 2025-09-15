@@ -1,277 +1,411 @@
-<?php
-session_start();
-require_once '../config.php';
-
-if (!isset($_SESSION['user_id'])) {
-    header("Location: ../login.php");
-    exit();
-}
-
-// ক্লাস লিস্ট লোড
-$classes = [];
-$class_query = $conn->query("SELECT id, name FROM classes ORDER BY numeric_value ASC");
-while ($row = $class_query->fetch_assoc()) {
-    $classes[] = $row;
-}
-
-// ফর্ম সাবমিশন
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $student_id       = trim($_POST['student_id']);
-    $first_name       = trim($_POST['first_name']);
-    $last_name        = trim($_POST['last_name']);
-    $father_name      = trim($_POST['father_name']);
-    $mother_name      = trim($_POST['mother_name']);
-    $guardian_relation= trim($_POST['guardian_relation']);
-    $guardian_name    = trim($_POST['guardian_name']);
-    $dob              = $_POST['date_of_birth'];
-    $gender           = $_POST['gender'];
-    $mobile_number    = trim($_POST['mobile_number']);
-    $class_id         = intval($_POST['class_id']);
-    $section_id       = intval($_POST['section_id']);
-    $roll_number      = intval($_POST['roll_number']);
-    $admission_date   = $_POST['admission_date'];
-    $status           = $_POST['status'];
-
-    // Photo Upload
-    $photo = null;
-    if (!empty($_FILES['photo']['name'])) {
-        $upload_dir = "../uploads/students/";
-        if (!is_dir($upload_dir)) mkdir($upload_dir, 0777, true);
-        $photo_name = time() . "_" . basename($_FILES['photo']['name']);
-        $target_file = $upload_dir . $photo_name;
-        if (move_uploaded_file($_FILES['photo']['tmp_name'], $target_file)) {
-            $photo = $photo_name;
-        }
-    }
-
-    // Insert into students
-    $sql = "INSERT INTO students (
-                student_id, first_name, last_name, father_name, mother_name,
-                guardian_relation, date_of_birth, gender, mobile_number,
-                class_id, section_id, roll_number, admission_date, status, photo
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param(
-        "ssssssssiiissss",
-        $student_id, $first_name, $last_name, $father_name, $mother_name,
-        $guardian_relation, $dob, $gender, $mobile_number,
-        $class_id, $section_id, $roll_number, $admission_date, $status, $photo
-    );
-
-    if ($stmt->execute()) {
-        // Create default login user for student
-        $password_hash = password_hash("123456", PASSWORD_BCRYPT);
-        $full_name = $first_name . " " . $last_name;
-        $user_sql = "INSERT INTO users (username, password, role, full_name, status) VALUES (?,?,?,?,?)";
-        $user_stmt = $conn->prepare($user_sql);
-        $role = "student";
-        $active = "active";
-        $user_stmt->bind_param("sssss", $student_id, $password_hash, $role, $full_name, $active);
-        $user_stmt->execute();
-
-        $_SESSION['success'] = "✅ শিক্ষার্থী সফলভাবে যোগ হয়েছে!";
-        header("Location: students_list.php");
-        exit();
-    } else {
-        $_SESSION['error'] = "❌ কিছু সমস্যা হয়েছে: " . $stmt->error;
-    }
-}
-?>
-<!doctype html>
+<!DOCTYPE html>
 <html lang="bn">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>নতুন শিক্ষার্থী যোগ করুন</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>শিক্ষার্থী নিবন্ধন ফর্ম</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.maateen.me/solaiman-lipi/font.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
     <style>
-        body, .main-sidebar, .nav-link { font-family: 'SolaimanLipi', sans-serif; }
-        .no-data{color:#6b7280}
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'SolaimanLipi', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 900px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: #4a6fc0;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .form-container {
+            padding: 20px;
+        }
+        
+        .section-title {
+            font-size: 18px;
+            color: #4a6fc0;
+            margin-bottom: 15px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid #4a6fc0;
+        }
+        
+        .row {
+            display: flex;
+            flex-wrap: wrap;
+            margin: 0 -10px;
+        }
+        
+        .col {
+            flex: 1;
+            padding: 0 10px;
+            min-width: 250px;
+            margin-bottom: 15px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #4a6fc0;
+            box-shadow: 0 0 0 2px rgba(74, 111, 192, 0.2);
+        }
+        
+        input:disabled {
+            background-color: #f5f5f5;
+            color: #777;
+        }
+        
+        .btn {
+            background: #4a6fc0;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .btn i {
+            margin-right: 8px;
+        }
+        
+        .btn:hover {
+            background: #3b5aa6;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .photo-upload {
+            border: 2px dashed #ddd;
+            border-radius: 5px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            transition: all 0.3s;
+        }
+        
+        .photo-upload:hover {
+            border-color: #4a6fc0;
+        }
+        
+        .photo-preview {
+            width: 150px;
+            height: 150px;
+            border-radius: 5px;
+            object-fit: cover;
+            margin-top: 15px;
+            display: none;
+            border: 1px solid #ddd;
+        }
+        
+        .login-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            border-left: 4px solid #4a6fc0;
+        }
+        
+        .login-info p {
+            margin-bottom: 8px;
+            color: #555;
+        }
+        
+        .info-text {
+            font-weight: 600;
+            color: #4a6fc0 !important;
+        }
+        
+        @media (max-width: 768px) {
+            .col {
+                flex: 100%;
+            }
+        }
     </style>
 </head>
-<body class="hold-transition sidebar-mini">
-<div class="wrapper">
-
-<?php include 'inc/header.php'; ?>
-<?php include 'inc/sidebar.php'; ?>
-
-<div class="content-wrapper p-4">
-    <h2 class="mb-4">➕ নতুন শিক্ষার্থী যোগ করুন</h2>
-
-    <?php if (isset($_SESSION['success'])): ?>
-        <div class="alert alert-success alert-dismissible fade show">
-            <?= $_SESSION['success']; unset($_SESSION['success']); ?>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>শিক্ষার্থী নিবন্ধন ফর্ম</h1>
+            <p>নতুন শিক্ষার্থীর তথ্য যোগ করুন</p>
         </div>
-    <?php endif; ?>
-    <?php if (isset($_SESSION['error'])): ?>
-        <div class="alert alert-danger alert-dismissible fade show">
-            <?= $_SESSION['error']; unset($_SESSION['error']); ?>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    <?php endif; ?>
-
-    <div class="card shadow border-0 rounded-3">
-        <div class="card-body p-4">
-            <form method="POST" enctype="multipart/form-data" class="row g-3">
-
-                <div class="col-md-4">
-                    <label class="form-label">Student ID</label>
-                    <input type="text" name="student_id" class="form-control" required>
+        
+        <div class="form-container">
+            <form id="studentForm">
+                <h3 class="section-title">ব্যক্তিগত তথ্য</h3>
+                
+                <div class="row">
+                    <div class="col">
+                        <div class="form-group">
+                            <label for="firstName">শিক্ষার্থীর নামের প্রথম অংশ</label>
+                            <input type="text" id="firstName" name="firstName" required>
+                        </div>
+                    </div>
+                    
+                    <div class="col">
+                        <div class="form-group">
+                            <label for="lastName">শিক্ষার্থীর নামের শেষ অংশ</label>
+                            <input type="text" id="lastName" name="lastName" required>
+                        </div>
+                    </div>
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label">First Name</label>
-                    <input type="text" name="first_name" class="form-control" required>
+                
+                <div class="row">
+                    <div class="col">
+                        <div class="form-group">
+                            <label for="class">শ্রেণী</label>
+                            <select id="class" name="class" required>
+                                <option value="">নির্বাচন করুন</option>
+                                <option value="1">১ম শ্রেণী</option>
+                                <option value="2">২য় শ্রেণী</option>
+                                <option value="3">৩য় শ্রেণী</option>
+                                <option value="4">৪র্থ শ্রেণী</option>
+                                <option value="5">৫ম শ্রেণী</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="col">
+                        <div class="form-group">
+                            <label for="section">শাখা</label>
+                            <select id="section" name="section" required>
+                                <option value="">নির্বাচন করুন</option>
+                                <option value="A">ক</option>
+                                <option value="B">খ</option>
+                                <option value="C">গ</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label">Last Name</label>
-                    <input type="text" name="last_name" class="form-control" required>
+                
+                <div class="row">
+                    <div class="col">
+                        <div class="form-group">
+                            <label for="roll">রোল নম্বর</label>
+                            <input type="number" id="roll" name="roll" required min="1">
+                        </div>
+                    </div>
+                    
+                    <div class="col">
+                        <div class="form-group">
+                            <label for="dob">জন্ম তারিখ</label>
+                            <input type="date" id="dob" name="dob" required>
+                        </div>
+                    </div>
                 </div>
-
-                <div class="col-md-6">
-                    <label class="form-label">Father's Name</label>
-                    <input type="text" name="father_name" id="father_name" class="form-control">
+                
+                <h3 class="section-title">অভিভাবকের তথ্য</h3>
+                
+                <div class="row">
+                    <div class="col">
+                        <div class="form-group">
+                            <label for="fatherName">পিতার নাম</label>
+                            <input type="text" id="fatherName" name="fatherName" required>
+                        </div>
+                    </div>
+                    
+                    <div class="col">
+                        <div class="form-group">
+                            <label for="motherName">মাতার নাম</label>
+                            <input type="text" id="motherName" name="motherName" required>
+                        </div>
+                    </div>
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label">Mother's Name</label>
-                    <input type="text" name="mother_name" id="mother_name" class="form-control">
+                
+                <div class="row">
+                    <div class="col">
+                        <div class="form-group">
+                            <label for="guardianRelation">অভিভাবকের সম্পর্ক</label>
+                            <select id="guardianRelation" name="guardianRelation" required>
+                                <option value="">নির্বাচন করুন</option>
+                                <option value="father">পিতা</option>
+                                <option value="mother">মাতা</option>
+                                <option value="other">অন্যন্য</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="col">
+                        <div class="form-group">
+                            <label for="guardianName">অভিভাবকের নাম</label>
+                            <input type="text" id="guardianName" name="guardianName" required disabled>
+                        </div>
+                    </div>
                 </div>
-
-                <div class="col-md-4">
-                    <label class="form-label">Guardian Relation</label>
-                    <select name="guardian_relation" id="guardian_relation" class="form-select" required>
-                        <option value="">Select</option>
-                        <option value="father">Father</option>
-                        <option value="mother">Mother</option>
-                        <option value="other">Other</option>
-                    </select>
+                
+                <div class="row">
+                    <div class="col">
+                        <div class="form-group">
+                            <label for="contact">যোগাযোগ নম্বর</label>
+                            <input type="tel" id="contact" name="contact" required placeholder="01XXXXXXXXX">
+                        </div>
+                    </div>
+                    
+                    <div class="col">
+                        <div class="form-group">
+                            <label for="address">ঠিকানা</label>
+                            <textarea id="address" name="address" rows="2" required></textarea>
+                        </div>
+                    </div>
                 </div>
-                <div class="col-md-8">
-                    <label class="form-label">Guardian Name</label>
-                    <input type="text" name="guardian_name" id="guardian_name" class="form-control" required>
+                
+                <h3 class="section-title">ছবি আপলোড</h3>
+                
+                <div class="photo-upload">
+                    <label for="photo" class="btn">
+                        <i class="fas fa-camera"></i> ছবি নির্বাচন করুন
+                    </label>
+                    <input type="file" id="photo" name="photo" accept="image/*" style="display: none;">
+                    <img id="photoPreview" class="photo-preview" alt="ছবি প্রিভিউ">
                 </div>
-
-                <div class="col-md-6">
-                    <label class="form-label">Date of Birth</label>
-                    <input type="date" name="date_of_birth" class="form-control" required>
+                
+                <div class="login-info">
+                    <p>লগইন তথ্য:</p>
+                    <p>শিক্ষার্থী আইডি: <span class="info-text" id="studentIdDisplay">নিবন্ধন完成时会生成</span></p>
+                    <p>ডিফল্ট পাসওয়ার্ড: <span class="info-text">১২৩৪৫৬</span></p>
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label">Gender</label>
-                    <select name="gender" class="form-select" required>
-                        <option value="">Select</option>
-                        <option value="male">পুরুষ</option>
-                        <option value="female">মহিলা</option>
-                        <option value="other">অন্যান্য</option>
-                    </select>
-                </div>
-
-                <div class="col-md-6">
-                    <label class="form-label">Mobile Number</label>
-                    <input type="text" name="mobile_number" class="form-control">
-                </div>
-
-                <div class="col-md-6">
-                    <label class="form-label">Photo</label>
-                    <input type="file" name="photo" id="photo" class="form-control" accept="image/*">
-                    <img id="photoPreview" src="#" alt="Preview" class="img-thumbnail mt-2" style="display:none; max-height:150px;">
-                </div>
-
-                <div class="col-md-4">
-                    <label class="form-label">Class</label>
-                    <select name="class_id" id="class_id" class="form-select" required>
-                        <option value="">Select Class</option>
-                        <?php foreach ($classes as $cls): ?>
-                            <option value="<?= $cls['id']; ?>"><?= htmlspecialchars($cls['name']); ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Section</label>
-                    <select name="section_id" id="section_id" class="form-select" required>
-                        <option value="">Select Section</option>
-                    </select>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Roll Number</label>
-                    <input type="number" name="roll_number" class="form-control">
-                </div>
-
-                <div class="col-md-6">
-                    <label class="form-label">Admission Date</label>
-                    <input type="date" name="admission_date" class="form-control">
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Status</label>
-                    <select name="status" class="form-select">
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                        <option value="graduated">Graduated</option>
-                    </select>
-                </div>
-
-                <div class="col-12 text-end">
-                    <button type="submit" class="btn btn-primary px-4">
-                        <i class="bi bi-save"></i> Save Student
+                
+                <div style="text-align: center; margin-top: 25px;">
+                    <button type="submit" class="btn" style="padding: 12px 30px;">
+                        <i class="fas fa-user-plus"></i> নিবন্ধন完成
                     </button>
                 </div>
             </form>
         </div>
     </div>
-</div>
 
-<?php include 'inc/footer.php'; ?>
-
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-// Guardian Relation অনুযায়ী Guardian Name নিয়ন্ত্রণ
-document.getElementById('guardian_relation').addEventListener('change', function() {
-    let relation = this.value;
-    let guardianInput = document.getElementById('guardian_name');
-    if (relation === 'father') {
-        guardianInput.value = document.getElementById('father_name').value;
-        guardianInput.setAttribute('disabled', true);
-    } else if (relation === 'mother') {
-        guardianInput.value = document.getElementById('mother_name').value;
-        guardianInput.setAttribute('disabled', true);
-    } else {
-        guardianInput.value = '';
-        guardianInput.removeAttribute('disabled');
-    }
-});
-
-// Photo Preview
-document.getElementById('photo').addEventListener('change', function(e) {
-    const reader = new FileReader();
-    reader.onload = function(event) {
-        const img = document.getElementById('photoPreview');
-        img.src = event.target.result;
-        img.style.display = 'block';
-    };
-    reader.readAsDataURL(e.target.files[0]);
-});
-
-// AJAX দিয়ে section load
-document.getElementById('class_id').addEventListener('change', function() {
-    let classId = this.value;
-    let sectionSelect = document.getElementById('section_id');
-    sectionSelect.innerHTML = '<option value="">Loading...</option>';
-
-    fetch('get_sections.php?class_id=' + classId)
-        .then(res => res.json())
-        .then(data => {
-            sectionSelect.innerHTML = '<option value="">Select Section</option>';
-            data.forEach(sec => {
-                let opt = document.createElement('option');
-                opt.value = sec.id;
-                opt.textContent = sec.name;
-                sectionSelect.appendChild(opt);
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Generate student ID
+            function generateStudentId() {
+                const year = new Date().getFullYear().toString().substr(-2);
+                const random = Math.floor(1000 + Math.random() * 9000);
+                return `ST${year}${random}`;
+            }
+            
+            // Set student ID
+            document.getElementById('studentIdDisplay').textContent = generateStudentId();
+            
+            // Handle guardian relation change
+            const relationSelect = document.getElementById('guardianRelation');
+            const guardianNameInput = document.getElementById('guardianName');
+            const fatherNameInput = document.getElementById('fatherName');
+            const motherNameInput = document.getElementById('motherName');
+            
+            relationSelect.addEventListener('change', function() {
+                if (this.value === 'father') {
+                    guardianNameInput.value = fatherNameInput.value;
+                    guardianNameInput.disabled = true;
+                } else if (this.value === 'mother') {
+                    guardianNameInput.value = motherNameInput.value;
+                    guardianNameInput.disabled = true;
+                } else {
+                    guardianNameInput.value = '';
+                    guardianNameInput.disabled = false;
+                }
+            });
+            
+            // Update guardian name if father/mother name changes
+            fatherNameInput.addEventListener('input', function() {
+                if (relationSelect.value === 'father') {
+                    guardianNameInput.value = this.value;
+                }
+            });
+            
+            motherNameInput.addEventListener('input', function() {
+                if (relationSelect.value === 'mother') {
+                    guardianNameInput.value = this.value;
+                }
+            });
+            
+            // Photo preview
+            const photoInput = document.getElementById('photo');
+            const photoPreview = document.getElementById('photoPreview');
+            
+            photoInput.addEventListener('change', function() {
+                const file = this.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        photoPreview.src = e.target.result;
+                        photoPreview.style.display = 'block';
+                    }
+                    reader.readAsDataURL(file);
+                }
+            });
+            
+            // Form submission
+            document.getElementById('studentForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                // Validate form
+                if (this.checkValidity()) {
+                    // Show success message (in a real application, you would send data to server)
+                    alert('শিক্ষার্থী সফলভাবে নিবন্ধিত হয়েছে!');
+                    this.reset();
+                    photoPreview.style.display = 'none';
+                    document.getElementById('studentIdDisplay').textContent = generateStudentId();
+                } else {
+                    alert('দয়া করে所有 প্রয়োজনীয় তথ্য পূরণ করুন।');
+                }
             });
         });
-});
-</script>
+    </script>
 </body>
 </html>
