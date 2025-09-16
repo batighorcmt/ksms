@@ -390,7 +390,10 @@ if (empty($gender_present)) {
                                 <span class="info-box-text">হাজিরা রেকর্ডের অবস্থা</span>
                                 <span class="info-box-number">
                                     <?php 
-                                    $recorded_count = $present_students + $absent_students;
+                                    // Count students who have an attendance record for the selected date
+                                    $recorded_count_query = $pdo->prepare("SELECT COUNT(DISTINCT student_id) as recorded FROM attendance WHERE date = ?");
+                                    $recorded_count_query->execute([$selected_date]);
+                                    $recorded_count = $recorded_count_query->fetch()['recorded'] ?? 0;
                                     $not_recorded = $total_students - $recorded_count;
                                     echo "আজকের তারিখে " . $recorded_count . " জন শিক্ষার্থীর হাজিরা রেকর্ড করা হয়েছে, " . $not_recorded . " জনের রেকর্ড করা হয়নি (অনুপস্থিত হিসেবে গণ্য)";
                                     ?>
