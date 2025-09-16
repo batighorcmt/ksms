@@ -31,13 +31,27 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
         $allowed = true;
     } else {
         $user_id = $_SESSION['user_id'] ?? 0;
-        // Only allow if a specific section is selected and the section's teacher_id matches
         if ($section_id !== null) {
-            $sec_stmt = $pdo->prepare("SELECT section_teacher_id FROM sections WHERE id = ? LIMIT 1");
-            $sec_stmt->execute([$section_id]);
-            $sec = $sec_stmt->fetch();
-            if ($sec && intval($sec['section_teacher_id']) === intval($user_id)) {
-                $allowed = true;
+            // Detect which column stores the section teacher id and use it safely
+            $col = null;
+            try {
+                $cols = $pdo->query("SHOW COLUMNS FROM sections")->fetchAll(PDO::FETCH_COLUMN);
+                if (in_array('section_teacher_id', $cols)) {
+                    $col = 'section_teacher_id';
+                } elseif (in_array('teacher_id', $cols)) {
+                    $col = 'teacher_id';
+                }
+            } catch (Exception $ex) {
+                // ignore and leave $col null
+            }
+
+            if ($col) {
+                $sec_stmt = $pdo->prepare("SELECT `" . $col . "` AS t FROM sections WHERE id = ? LIMIT 1");
+                $sec_stmt->execute([$section_id]);
+                $sec = $sec_stmt->fetch();
+                if ($sec && intval($sec['t']) === intval($user_id)) {
+                    $allowed = true;
+                }
             }
         }
     }
@@ -70,20 +84,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
                     $status = $data['status'] ?? '';
                     $remarks = $data['remarks'] ?? '';
 
-                    $update_stmt = $pdo->prepare("
-                        UPDATE attendance 
-                        SET status = ?, remarks = ?, updated_at = CURRENT_TIMESTAMP 
-                        WHERE student_id = ? AND class_id = ? AND section_id = ? AND date = ?
-                    ");
+                    $update_stmt = $pdo->prepare("\n                        UPDATE attendance \n                        SET status = ?, remarks = ?, updated_at = CURRENT_TIMESTAMP \n                        WHERE student_id = ? AND class_id = ? AND section_id = ? AND date = ?\n                    ");
                     $update_stmt->execute([$status, $remarks, $student_id, $class_id, $section_id, $date]);
                 }
                 $_SESSION['success'] = "উপস্থিতি সফলভাবে আপডেট করা হয়েছে!";
             } else {
                 // Insert new attendance records
-                $attendance_stmt = $pdo->prepare("
-                    INSERT INTO attendance (student_id, class_id, section_id, date, status, remarks, recorded_by)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                ");
+                $attendance_stmt = $pdo->prepare("\n                    INSERT INTO attendance (student_id, class_id, section_id, date, status, remarks, recorded_by)\n                    VALUES (?, ?, ?, ?, ?, ?, ?)\n                ");
                 $recorded_by = $_SESSION['user_id'];
                 foreach ($_POST['attendance'] as $student_id => $data) {
                     $status = $data['status'] ?? '';
@@ -118,11 +125,26 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['view_attendance'])) {
     } else {
         $user_id = $_SESSION['user_id'] ?? 0;
         if ($selected_section !== null) {
-            $sec_stmt = $pdo->prepare("SELECT section_teacher_id FROM sections WHERE id = ? LIMIT 1");
-            $sec_stmt->execute([$selected_section]);
-            $sec = $sec_stmt->fetch();
-            if ($sec && intval($sec['section_teacher_id']) === intval($user_id)) {
-                $allowed = true;
+            // detect the right column
+            $col = null;
+            try {
+                $cols = $pdo->query("SHOW COLUMNS FROM sections")->fetchAll(PDO::FETCH_COLUMN);
+                if (in_array('section_teacher_id', $cols)) {
+                    $col = 'section_teacher_id';
+                } elseif (in_array('teacher_id', $cols)) {
+                    $col = 'teacher_id';
+                }
+            } catch (Exception $ex) {
+                // ignore
+            }
+
+            if ($col) {
+                $sec_stmt = $pdo->prepare("SELECT `" . $col . "` AS t FROM sections WHERE id = ? LIMIT 1");
+                $sec_stmt->execute([$selected_section]);
+                $sec = $sec_stmt->fetch();
+                if ($sec && intval($sec['t']) === intval($user_id)) {
+                    $allowed = true;
+                }
             }
         }
     }
@@ -182,7 +204,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['view_attendance'])) {
         $student_stmt->execute($student_params);
         $students = $student_stmt->fetchAll();
     }
-}
+
+    }
 
 // Get sections based on selected class
 $sections = [];
