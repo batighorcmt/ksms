@@ -443,10 +443,9 @@ if ($is_print) {
                                             $last_name = htmlspecialchars($st['last_name'] ?? '');
                                             $roll = isset($st['roll_number']) ? htmlspecialchars($st['roll_number']) : 'N/A';
                                             $is_selected = in_array($student_id, $selected_students ?? []) ? 'selected' : '';
+                                            $option_text = $roll . ' - ' . $first_name . ' ' . $last_name;
                                         ?>
-                                        <option value="<?php echo $student_id; ?>" <?php echo $is_selected; ?>>
-                                            <?php echo $roll . ' - ' . $first_name . ' ' . $last_name; ?>
-                                        </option>
+                                        <option value="<?php echo $student_id; ?>" <?php echo $is_selected; ?>><?php echo $option_text; ?></option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
@@ -550,8 +549,10 @@ $(function() {
         placeholder: "ছাত্র/ছাত্রী নির্বাচন করুন",
         allowClear: true,
         templateSelection: function (data, container) {
-            if (!data.id) return data.text;
-            // Show roll - name in selected box
+            // For multi-select, data is an array when rendering all selected
+            if (Array.isArray(data)) {
+                return data.map(function(item) { return item.text; }).join(', ');
+            }
             return data.text;
         }
     });
