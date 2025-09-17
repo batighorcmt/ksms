@@ -126,7 +126,7 @@ $sections = $pdo->query("SELECT * FROM sections ORDER BY name ASC")->fetchAll();
                             <thead>
                                 <tr>
                                     <th>#</th>
-                                    <th>ক্লাস</th>
+                                    <th>ক্লাস </th>
                                     <th>শাখা</th>
                                     <th>বিষয়</th>
                                     <th>হোমওয়ার্ক</th>

@@ -3,7 +3,8 @@ require_once '../../config.php';
 
 // Authentication check - only super_admin can manage holidays
 if (!isAuthenticated() || !hasRole(['super_admin'])) {
-    redirect('../login.php');
+    header('Location: ../login.php');
+    exit;
 }
 
 $page_title = 'ছুটির দিন ব্যবস্থাপনা';
@@ -88,7 +89,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
     }
     
-    redirect('settings/holiday_management.php');
+    header('Location: settings/holiday_management.php');
+    exit;
 }
 
 // Fetch all holidays
