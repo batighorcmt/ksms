@@ -561,19 +561,54 @@ $(function() {
     });
     // Custom CSS for X button
     $('<style>\
+    .select2-container--default .select2-selection--multiple {\
+        display: flex;\
+        flex-wrap: wrap;\
+        align-items: flex-start;\
+        min-height: 45px;\
+    }\
+    .select2-container--default .select2-selection--multiple .select2-selection__rendered {\
+        display: flex;\
+        flex-wrap: wrap;\
+        align-items: center;\
+        gap: 4px;\
+        padding: 0;\
+    }\
     .select2-container--default .select2-selection--multiple .select2-selection__choice {\
-        min-height:32px;\
-        display:flex;align-items:center;\
-        padding-right:28px;\
-        position:relative;\
+        min-height: 32px;\
+        display: flex;\
+        align-items: center;\
+        padding: 5px 28px 5px 10px;\
+        position: relative;\
+        margin: 3px 5px 3px 0;\
+        font-size: 0.95rem;\
+        font-weight: 500;\
+        background-color: #4e73df;\
+        color: #fff;\
+        border-radius: 20px;\
     }\
     .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {\
-        position:absolute;right:8px;top:50%;transform:translateY(-50%);\
-        color:#fff;background:#e74c3c;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:1rem;line-height:1;\
-        opacity:0.85;transition:background 0.2s;\
+        position: absolute;\
+        right: 6px;\
+        top: 50%;\
+        transform: translateY(-50%);\
+        color: #fff;\
+        background: #e74c3c;\
+        border-radius: 50%;\
+        width: 18px;\
+        height: 18px;\
+        display: flex;\
+        align-items: center;\
+        justify-content: center;\
+        font-size: 1rem;\
+        line-height: 1;\
+        opacity: 0.85;\
+        transition: background 0.2s;\
+        margin-left: 8px;\
     }\
     .select2-container--default .select2-selection--multiple .select2-selection__choice__remove:hover {\
-        background:#c0392b;opacity:1;\
+        background: #c0392b;\
+        opacity: 1;\
     }\
     </style>').appendTo('head');
 });
