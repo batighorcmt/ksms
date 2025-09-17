@@ -314,6 +314,7 @@ if (isset($_GET['delete'])) {
                                                                     <th>ক্লাস</th>
                                                                     <th>রোল</th>
                                                                     <th>বর্তমান ঠিকানা</th>
+                                                                    <th>বিষয়সমূহ</th>
                                                                     <th>স্ট্যাটাস</th>
                                                                     <th>অ্যাকশন</th>
                                                                 </tr>
@@ -353,6 +354,18 @@ if (isset($_GET['delete'])) {
                                                                     <td><?php echo $student['roll_number']; ?></td>
                                                                     <td><?php echo nl2br(htmlspecialchars((string)($student['present_address'] ?? ''))); ?></td>
                                                                     <td>
+                                                                        <?php
+                                                                        // Fetch subject codes for this student
+                                                                        $subject_codes = [];
+                                                                        $sub_stmt = $pdo->prepare("SELECT s.code FROM student_subjects ss JOIN subjects s ON ss.subject_id = s.id WHERE ss.student_id = ? ORDER BY s.code");
+                                                                        $sub_stmt->execute([$student['id']]);
+                                                                        while ($row = $sub_stmt->fetch()) {
+                                                                            $subject_codes[] = htmlspecialchars($row['code']);
+                                                                        }
+                                                                        echo $subject_codes ? implode(', ', $subject_codes) : '<span style="color:#aaa">-</span>';
+                                                                        ?>
+                                                                    </td>
+                                                                    <td>
                                                                         <?php if($student['status'] == 'active'): ?>
                                                                             <span class="badge badge-success">সক্রিয়</span>
                                                                         <?php else: ?>
@@ -367,6 +380,9 @@ if (isset($_GET['delete'])) {
                                                                             <div class="dropdown-menu dropdown-menu-right">
                                                                                 <a class="dropdown-item" href="student_details.php?id=<?php echo $student['id']; ?>">বিস্তারিত</a>
                                                                                 <a class="dropdown-item" href="edit_student.php?id=<?php echo $student['id']; ?>">সম্পাদনা</a>
+                                                                                <a class="dropdown-item" href="subject_assign.php?student_id=<?php echo $student['student_id']; ?>">
+                                                                                    <i class="fas fa-book"></i> বিষয় নির্ধারণ
+                                                                                </a>
                                                                                 <form method="POST" class="d-inline toggle-status-form" style="display:inline-block;">
                                                                                     <input type="hidden" name="toggle_status_id" value="<?php echo $student['id']; ?>">
                                                                                     <button type="submit" class="dropdown-item"><?php echo ($student['status']=='active') ? 'নিষ্ক্রিয় করুন' : 'সক্রিয় করুন'; ?></button>

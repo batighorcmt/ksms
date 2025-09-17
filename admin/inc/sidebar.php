@@ -8,13 +8,51 @@
     <!-- Sidebar -->
     <div class="sidebar">
         <!-- Sidebar user panel (optional) -->
+        <?php
+        // try to get current user info from session or helper
+        $currentUser = null;
+        if (function_exists('currentUser')) {
+            $currentUser = call_user_func('currentUser');
+        } elseif (!empty($_SESSION['user'])) {
+            $currentUser = $_SESSION['user'];
+        }
+        $userName = 'অ্যাডমিন';
+        $userPhoto = 'https://adminlte.io/themes/v3/dist/img/user2-160x160.jpg';
+        if ($currentUser) {
+            if (!empty($currentUser['full_name'])) $userName = $currentUser['full_name'];
+            if (!empty($currentUser['photo'])) $userPhoto = BASE_URL . 'uploads/users/' . $currentUser['photo'];
+        }
+        ?>
         <div class="user-panel mt-3 pb-3 mb-3 d-flex">
             <div class="image">
-                <img src="https://adminlte.io/themes/v3/dist/img/user2-160x160.jpg" class="img-circle elevation-2" alt="User Image">
+                <img src="<?php echo htmlspecialchars($userPhoto); ?>" class="img-circle elevation-2" alt="User Image">
             </div>
             <div class="info">
-                <a href="#" class="d-block">সুপার অ্যাডমিন</a>
-            </div>
+                    <a href="<?php echo BASE_URL; ?>admin/profile.php" class="d-block"><?php echo htmlspecialchars($userName); ?></a>
+                    <?php
+                    // determine role name (try currentUser role, session, or DB lookup)
+                    $roleLabel = '';
+                    if (!empty($currentUser['role'])) $roleKey = $currentUser['role'];
+                    elseif (!empty($_SESSION['role'])) $roleKey = $_SESSION['role'];
+                    else $roleKey = '';
+
+                    // common mapping
+                    $roleMap = [
+                        'super_admin' => 'সুপার অ্যাডমিন',
+                        'admin' => 'অ্যাডমিন',
+                        'teacher' => 'শিক্ষক',
+                        'student' => 'শিক্ষার্থী',
+                        'parent' => 'অভিভাবক'
+                    ];
+                    if (!empty($roleKey) && isset($roleMap[$roleKey])) {
+                        $roleLabel = $roleMap[$roleKey];
+                    } elseif (!empty($roleKey)) {
+                        $roleLabel = ucwords(str_replace(['_','-'], ' ', $roleKey));
+                    }
+
+                    if ($roleLabel) echo '<small class="text-muted d-block">'.htmlspecialchars($roleLabel).'</small>';
+                    ?>
+                </div>
         </div>
 
         <!-- Sidebar Menu -->
@@ -28,20 +66,21 @@
                 </li>
                 <li class="nav-item">
                     <a href="#" class="nav-link">
-                        <i class="nav-icon fas fa-user-graduate"></i>
-                        <p>শিক্ষার্থী ব্যবস্থাপনা <i class="right fas fa-angle-left"></i> </p>
+                        <i class="nav-icon fas fa-chart-bar"></i>
+                        <p> শিক্ষার্থী ব্যবস্থাপনা <i class="right fas fa-angle-left"></i></p>
                     </a>
                     <ul class="nav nav-treeview">
                         <li class="nav-item">
                             <a href="<?php echo BASE_URL; ?>admin/students.php" class="nav-link">
-                                <i class="far fa-people nav-icon"></i>
+                                <i class="far fa-circle nav-icon"></i>
                                 <p>শিক্ষার্থী তালিকা</p>
                             </a>
                         </li>
                         <li class="nav-item">
                             <a href="<?php echo BASE_URL; ?>admin/student_list_print.php" class="nav-link">
                                 <i class="far fa-circle nav-icon"></i>
-                                <p>শিক্ষার্থী তালিকা প্রিন্ট</p>
+                                <p>শিক্ষার্থী রিপোর্ট</p>
+                            </a>
                         </li>
                     </ul>
                 </li>

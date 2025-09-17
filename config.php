@@ -10,6 +10,7 @@ define('DB_PASS', '');
 
 // Base URL
 define('BASE_URL', 'http://localhost/ksms/');
+define('ADMIN_URL', BASE_URL . 'admin/');
 
 // Enable error reporting
 error_reporting(E_ALL);
