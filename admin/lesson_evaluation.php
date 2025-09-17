@@ -437,10 +437,20 @@ if ($is_print) {
                                 <label>ছাত্র/ছাত্রী (মাল্টি-সিলেক্ট)</label>
                                 <select name="students[]" class="form-control select2-student" multiple required style="width:100%; min-height:48px;">
                                     <?php foreach($students as $st): ?>
-                                        <option value="<?php echo $st['id']; ?>" <?php echo in_array($st['id'], $selected_students ?? []) ? 'selected' : ''; ?>><?php echo htmlspecialchars($st['roll_number']) . ' - ' . htmlspecialchars($st['first_name'] . ' ' . $st['last_name']); ?></option>
+                                        <?php
+                                            $student_id = $st['id'];
+                                            $first_name = htmlspecialchars($st['first_name'] ?? '');
+                                            $last_name = htmlspecialchars($st['last_name'] ?? '');
+                                            $roll = isset($st['roll_number']) ? htmlspecialchars($st['roll_number']) : 'N/A';
+                                            $is_selected = in_array($student_id, $selected_students ?? []) ? 'selected' : '';
+                                        ?>
+                                        <option value="<?php echo $student_id; ?>" <?php echo $is_selected; ?>>
+                                            <?php echo $roll . ' - ' . $first_name . ' ' . $last_name; ?>
+                                        </option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
+
                             <div class="form-row">
                                 <div class="form-group col-md-3">
                                     <label>তারিখ</label>
