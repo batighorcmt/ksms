@@ -59,6 +59,17 @@
         <nav class="mt-2">
             <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
                 <li class="nav-item">
+                    <a href="<?php echo BASE_URL; ?>admin/homework.php" class="nav-link">
+                        <i class="nav-icon fas fa-book-open"></i>
+                        <p>হোমওয়ার্ক</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="<?php echo BASE_URL; ?>admin/lesson_evaluation.php" class="nav-link">
+                        <i class="nav-icon fas fa-clipboard-list"></i>
+                        <p>লেসন ইভুলেশন</p>
+                    </a>
+                </li>
                     <a href="<?php echo BASE_URL; ?>admin/dashboard.php" class="nav-link">
                         <i class="nav-icon fas fa-tachometer-alt"></i>
                         <p>ড্যাশবোর্ড</p>
