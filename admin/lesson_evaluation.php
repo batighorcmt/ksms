@@ -58,7 +58,7 @@ $evaluations = $eval_stmt->fetchAll();
 // For student select2
 $students = [];
 if (isset($_GET['class_id']) && isset($_GET['section_id'])) {
-    $st_stmt = $pdo->prepare("SELECT id, first_name, last_name FROM students WHERE class_id=? AND section_id=? AND status='active' ORDER BY roll_number ASC");
+    $st_stmt = $pdo->prepare("SELECT id, roll_number, first_name, last_name FROM students WHERE class_id=? AND section_id=? AND status='active' ORDER BY roll_number ASC");
     $st_stmt->execute([$_GET['class_id'], $_GET['section_id']]);
     $students = $st_stmt->fetchAll();
 }
@@ -441,9 +441,9 @@ if ($is_print) {
                                             $student_id = $st['id'];
                                             $first_name = htmlspecialchars($st['first_name'] ?? '');
                                             $last_name = htmlspecialchars($st['last_name'] ?? '');
-                                            $roll = isset($st['roll_number']) ? htmlspecialchars($st['roll_number']) : 'N/A';
+                                            $roll = isset($st['roll_number']) && $st['roll_number'] !== null ? htmlspecialchars($st['roll_number']) : '';
                                             $is_selected = in_array($student_id, $selected_students ?? []) ? 'selected' : '';
-                                            $option_text = $roll . ' - ' . $first_name . ' ' . $last_name;
+                                            $option_text = ($roll !== '' ? $roll . ' - ' : '') . $first_name . ' ' . $last_name;
                                         ?>
                                         <option value="<?php echo $student_id; ?>" <?php echo $is_selected; ?>><?php echo $option_text; ?></option>
                                     <?php endforeach; ?>
@@ -549,10 +549,7 @@ $(function() {
         placeholder: "ছাত্র/ছাত্রী নির্বাচন করুন",
         allowClear: true,
         templateSelection: function (data, container) {
-            // For multi-select, data is an array when rendering all selected
-            if (Array.isArray(data)) {
-                return data.map(function(item) { return item.text; }).join(', ');
-            }
+            // Default Select2 behavior: each selected student is a separate badge
             return data.text;
         }
     });
