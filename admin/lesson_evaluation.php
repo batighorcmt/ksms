@@ -3,7 +3,8 @@ require_once '../config.php';
 
 // Authentication check
 if (!isAuthenticated() || !hasRole(['teacher', 'super_admin'])) {
-    redirect('../login.php');
+    header('Location: ../login.php');
+    exit();
 }
 
 $user_id = $_SESSION['user_id'];
@@ -44,7 +45,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute([$user_id, $class_id, $section_id, $subject, $date, $students_json, $is_completed, $remarks, $now]);
         $_SESSION['success'] = 'মূল্যায়ন রেকর্ড হয়েছে!';
     }
-    redirect('lesson_evaluation.php');
+    header('Location: lesson_evaluation.php');
+    
 }
 
 // Fetch evaluations for this teacher
