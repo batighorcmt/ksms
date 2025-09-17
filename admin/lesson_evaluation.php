@@ -10,7 +10,7 @@ $user_id = $_SESSION['user_id'];
 $today = date('Y-m-d');
 
 // Fetch teacher's routine (class, section, subject) for today
-$routine_stmt = $pdo->prepare("SELECT r.id, c.id as class_id, c.name as class_name, s.id as section_id, s.name as section_name, r.subject FROM routines r JOIN classes c ON r.class_id = c.id JOIN sections s ON r.section_id = s.id WHERE r.teacher_id = ?");
+$routine_stmt = $pdo->prepare("SELECT r.id, c.id as class_id, c.name as class_name, s.id as section_id, s.name as section_name, r.subject_id FROM routines r JOIN classes c ON r.class_id = c.id JOIN sections s ON r.section_id = s.id WHERE r.teacher_id = ?");
 $routine_stmt->execute([$user_id]);
 $routines = $routine_stmt->fetchAll();
 
