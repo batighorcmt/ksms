@@ -1,5 +1,6 @@
 <?php
 require_once '../config.php';
+require_once 'print_common.php';
 
 // Authentication check
 if (!isAuthenticated() || !hasRole(['teacher', 'super_admin'])) {
@@ -46,12 +47,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['success'] = 'মূল্যায়ন রেকর্ড হয়েছে!';
     }
     header('Location: lesson_evaluation.php');
-    
+    exit();
 }
 
-// Fetch evaluations for this teacher
-$eval_stmt = $pdo->prepare("SELECT le.*, c.name as class_name, s.name as section_name FROM lesson_evaluation le JOIN classes c ON le.class_id = c.id JOIN sections s ON le.section_id = s.id WHERE le.teacher_id = ? ORDER BY le.date DESC, le.id DESC");
-$eval_stmt->execute([$user_id]);
+// Fetch all evaluations (with teacher name)
+$eval_stmt = $pdo->prepare("SELECT le.*, c.name as class_name, s.name as section_name, u.full_name as teacher_name FROM lesson_evaluation le JOIN classes c ON le.class_id = c.id JOIN sections s ON le.section_id = s.id JOIN users u ON le.teacher_id = u.id ORDER BY le.date DESC, le.id DESC");
+$eval_stmt->execute();
 $evaluations = $eval_stmt->fetchAll();
 
 // For student select2
@@ -60,6 +61,75 @@ if (isset($_GET['class_id']) && isset($_GET['section_id'])) {
     $st_stmt = $pdo->prepare("SELECT id, first_name, last_name FROM students WHERE class_id=? AND section_id=? AND status='active' ORDER BY roll_number ASC");
     $st_stmt->execute([$_GET['class_id'], $_GET['section_id']]);
     $students = $st_stmt->fetchAll();
+}
+
+// Print mode
+$is_print = isset($_GET['print']) && $_GET['print'] == '1';
+if ($is_print) {
+    ?><!doctype html>
+    <html lang="bn">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>মূল্যায়ন রিপোর্ট প্রিন্ট</title>
+        <link href="https://fonts.maateen.me/solaiman-lipi/font.css" rel="stylesheet">
+        <style>body{font-family:'SolaimanLipi',sans-serif;color:#222} .table{width:100%;border-collapse:collapse} .table th,.table td{border:1px solid #e0e0e0;padding:8px} .badge{display:inline-block;padding:2px 7px;background:#e0e7ef;border-radius:4px;margin:1px 1px;font-size:0.95em}</style>
+    </head>
+    <body>
+    <?php echo print_header($pdo, 'মূল্যায়ন রিপোর্ট'); ?>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>তারিখ</th>
+                <th>শ্রেণি</th>
+                <th>শাখা</th>
+                <th>বিষয়</th>
+                <th>শিক্ষক</th>
+                <th>ছাত্র/ছাত্রী</th>
+                <th>পড়া হয়েছে?</th>
+                <th>মন্তব্য</th>
+            </tr>
+        </thead>
+        <tbody>
+        <?php foreach($evaluations as $ev): ?>
+            <tr>
+                <td><?php echo htmlspecialchars($ev['date']); ?></td>
+                <td><?php echo htmlspecialchars($ev['class_name']); ?></td>
+                <td><?php echo htmlspecialchars($ev['section_name']); ?></td>
+                <td><?php echo htmlspecialchars($ev['subject']); ?></td>
+                <td><?php echo htmlspecialchars($ev['teacher_name']); ?></td>
+                <td>
+                    <?php 
+                    $st_ids = json_decode($ev['evaluated_students'], true) ?? []; 
+                    if ($st_ids) {
+                        $in = str_repeat('?,', count($st_ids)-1) . '?';
+                        $st_stmt = $pdo->prepare("SELECT id, roll_number, first_name, last_name FROM students WHERE id IN ($in)");
+                        $st_stmt->execute($st_ids);
+                        $st_map = [];
+                        foreach($st_stmt->fetchAll() as $st) {
+                            $st_map[$st['id']] = $st;
+                        }
+                        foreach($st_ids as $sid) {
+                            if(isset($st_map[$sid])) {
+                                $st = $st_map[$sid];
+                                echo '<span class="badge">'.htmlspecialchars($st['roll_number']).' - '.htmlspecialchars($st['first_name'].' '.$st['last_name']).'</span> ';
+                            } else {
+                                echo '<span class="badge">'.$sid.'</span> ';
+                            }
+                        }
+                    }
+                    ?>
+                </td>
+                <td><?php echo $ev['is_completed'] ? 'হ্যাঁ' : 'না'; ?></td>
+                <td><?php echo htmlspecialchars($ev['remarks']); ?></td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+    <?php echo print_footer(); ?>
+    <script>window.onload=function(){ window.print(); }</script>
+    </body></html><?php
+    exit();
 }
 ?>
 <!DOCTYPE html>
@@ -196,7 +266,10 @@ if (isset($_GET['class_id']) && isset($_GET['section_id'])) {
                 </div>
                 <?php endif; ?>
                 <div class="card">
-                    <div class="card-header"><b>মূল্যায়ন রিপোর্ট</b></div>
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <b>মূল্যায়ন রিপোর্ট</b>
+                        <a href="?print=1" target="_blank" class="btn btn-sm btn-primary"><i class="fa fa-print"></i> প্রিন্ট</a>
+                    </div>
                     <div class="card-body table-responsive">
                         <table class="table table-bordered table-striped">
                             <thead>
@@ -205,6 +278,7 @@ if (isset($_GET['class_id']) && isset($_GET['section_id'])) {
                                     <th>শ্রেণি</th>
                                     <th>শাখা</th>
                                     <th>বিষয়</th>
+                                    <th>শিক্ষক</th>
                                     <th>ছাত্র/ছাত্রী</th>
                                     <th>পড়া হয়েছে?</th>
                                     <th>মন্তব্য</th>
@@ -218,11 +292,11 @@ if (isset($_GET['class_id']) && isset($_GET['section_id'])) {
                                     <td><?php echo htmlspecialchars($ev['class_name']); ?></td>
                                     <td><?php echo htmlspecialchars($ev['section_name']); ?></td>
                                     <td><?php echo htmlspecialchars($ev['subject']); ?></td>
+                                    <td><?php echo htmlspecialchars($ev['teacher_name']); ?></td>
                                     <td>
                                         <?php 
                                         $st_ids = json_decode($ev['evaluated_students'], true) ?? []; 
                                         if ($st_ids) {
-                                            // fetch roll and name for all students in one query
                                             $in = str_repeat('?,', count($st_ids)-1) . '?';
                                             $st_stmt = $pdo->prepare("SELECT id, roll_number, first_name, last_name FROM students WHERE id IN ($in)");
                                             $st_stmt->execute($st_ids);
