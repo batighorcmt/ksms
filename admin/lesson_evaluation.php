@@ -435,9 +435,9 @@ if ($is_print) {
                             </div>
                             <div class="form-group">
                                 <label>ছাত্র/ছাত্রী (মাল্টি-সিলেক্ট)</label>
-                                <select name="students[]" class="form-control select2" multiple required style="width:100%">
+                                <select name="students[]" class="form-control select2-student" multiple required style="width:100%; min-height:48px;">
                                     <?php foreach($students as $st): ?>
-                                        <option value="<?php echo $st['id']; ?>" <?php echo in_array($st['id'], $selected_students ?? []) ? 'selected' : ''; ?>><?php echo htmlspecialchars($st['first_name'] . ' ' . $st['last_name']); ?></option>
+                                        <option value="<?php echo $st['id']; ?>" <?php echo in_array($st['id'], $selected_students ?? []) ? 'selected' : ''; ?>><?php echo htmlspecialchars($st['roll_number']) . ' - ' . htmlspecialchars($st['first_name'] . ' ' . $st['last_name']); ?></option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
@@ -532,13 +532,40 @@ if ($is_print) {
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
 <script>
 $(function() {
-    $('.select2').select2({
-        width: 'resolve',
+    $('.select2-student').select2({
+        width: '100%',
         placeholder: "ছাত্র/ছাত্রী নির্বাচন করুন",
-        allowClear: true
+        allowClear: true,
+        templateSelection: function (data, container) {
+            if (!data.id) return data.text;
+            // Show roll - name in selected box
+            return data.text;
+        }
     });
+    // Fix select2 height and X button alignment
+    $('.select2-student').on('select2:open', function() {
+        $('.select2-results__option').css('font-size', '1rem');
+    });
+    // Custom CSS for X button
+    $('<style>\
+    .select2-container--default .select2-selection--multiple .select2-selection__choice {\
+        min-height:32px;\
+        display:flex;align-items:center;\
+        padding-right:28px;\
+        position:relative;\
+    }\
+    .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {\
+        position:absolute;right:8px;top:50%;transform:translateY(-50%);\
+        color:#fff;background:#e74c3c;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:1rem;line-height:1;\
+        opacity:0.85;transition:background 0.2s;\
+    }\
+    .select2-container--default .select2-selection--multiple .select2-selection__choice__remove:hover {\
+        background:#c0392b;opacity:1;\
+    }\
+    </style>').appendTo('head');
 });
 </script>
 
