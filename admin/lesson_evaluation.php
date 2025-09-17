@@ -213,6 +213,22 @@ if ($is_print) {
                         $eval_stmt->execute([$user_id, $_GET['class_id'], $_GET['section_id'], $_GET['subject'], $today]);
                         $eval = $eval_stmt->fetch();
                         $selected_students = $eval ? json_decode($eval['evaluated_students'], true) : [];
+                        // Find the routine row matching the selected class/section/subject
+                        $selected_class_name = '';
+                        $selected_section_name = '';
+                        $selected_subject_name = '';
+                        foreach ($routines as $r) {
+                            if ($r['class_id'] == $_GET['class_id'] && $r['section_id'] == $_GET['section_id'] && $r['subject_name'] == $_GET['subject']) {
+                                $selected_class_name = $r['class_name'];
+                                $selected_section_name = $r['section_name'];
+                                $selected_subject_name = $r['subject_name'];
+                                break;
+                            }
+                        }
+                        // fallback if not found
+                        if ($selected_class_name === '') $selected_class_name = htmlspecialchars($_GET['class_id']);
+                        if ($selected_section_name === '') $selected_section_name = htmlspecialchars($_GET['section_id']);
+                        if ($selected_subject_name === '') $selected_subject_name = htmlspecialchars($_GET['subject']);
                         ?>
                         <form method="POST">
                             <input type="hidden" name="class_id" value="<?php echo (int)$_GET['class_id']; ?>">
@@ -223,15 +239,15 @@ if ($is_print) {
                             <div class="form-row">
                                 <div class="form-group col-md-4">
                                     <label>শ্রেণি</label>
-                                    <input type="text" class="form-control" value="<?php echo htmlspecialchars($routines[0]['class_name']); ?>" readonly>
+                                    <input type="text" class="form-control" value="<?php echo htmlspecialchars($selected_class_name); ?>" readonly>
                                 </div>
                                 <div class="form-group col-md-4">
                                     <label>শাখা</label>
-                                    <input type="text" class="form-control" value="<?php echo htmlspecialchars($routines[0]['section_name']); ?>" readonly>
+                                    <input type="text" class="form-control" value="<?php echo htmlspecialchars($selected_section_name); ?>" readonly>
                                 </div>
                                 <div class="form-group col-md-4">
                                     <label>বিষয়</label>
-                                    <input type="text" class="form-control" value="<?php echo htmlspecialchars($_GET['subject']); ?>" readonly>
+                                    <input type="text" class="form-control" value="<?php echo htmlspecialchars($selected_subject_name); ?>" readonly>
                                 </div>
                             </div>
                             <div class="form-group">
