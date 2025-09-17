@@ -165,7 +165,7 @@ if ($is_print) {
     body {
         background-color: var(--bg-light);
         color: var(--text-dark);
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        font-family: 'SolaimanLipi', 'Source Sans Pro', sans-serif;
     }
 
     .card {
@@ -270,7 +270,61 @@ if ($is_print) {
     .breadcrumb .breadcrumb-item.active {
         color: var(--text-dark);
     }
+/* Custom Select2 Styling */
+.select2-container--default .select2-selection--multiple {
+    background-color: #ffffff;
+    border: 1px solid #d1d3e2;
+    border-radius: 0.35rem;
+    cursor: text;
+    min-height: 45px;
+    padding: 5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    transition: border-color 0.2s ease-in-out;
+}
 
+.select2-container--default .select2-selection--multiple:focus {
+    border-color: #4e73df;
+}
+
+.select2-container--default .select2-selection--multiple .select2-selection__choice {
+    background-color: #4e73df;
+    border: none;
+    color: #fff;
+    border-radius: 20px;
+    padding: 5px 10px;
+    margin: 3px 5px 3px 0;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: background-color 0.2s ease;
+}
+
+.select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+    margin-left: 8px;
+    color: #ddd;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.select2-container--default .select2-selection--multiple .select2-selection__choice__remove:hover {
+    color: #f8d7da;
+}
+
+/* Dropdown Styling */
+.select2-container--default .select2-results__option--highlighted[aria-selected] {
+    background-color: #4e73df;
+    color: white;
+}
+
+.select2-container--default .select2-results__option {
+    padding: 8px 12px;
+}
+
+/* Adjust search input inside dropdown */
+.select2-container--default .select2-search--dropdown .select2-search__field {
+    padding: 8px;
+    border-radius: 0.35rem;
+    border: 1px solid #ccc;
+}
     </style>
 </head>
 <body class="hold-transition sidebar-mini">
@@ -478,6 +532,15 @@ if ($is_print) {
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-<script>$(function() { $('.select2').select2({ width: 'resolve' }); });</script>
+<script>
+$(function() {
+    $('.select2').select2({
+        width: 'resolve',
+        placeholder: "ছাত্র/ছাত্রী নির্বাচন করুন",
+        allowClear: true
+    });
+});
+</script>
+
 </body>
 </html>
