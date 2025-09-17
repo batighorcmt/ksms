@@ -12,16 +12,22 @@ $total_teachers = $pdo->query("SELECT COUNT(*) as total FROM users WHERE role='t
 $total_classes = $pdo->query("SELECT COUNT(*) as total FROM classes WHERE status='active'")->fetch()['total'];
 
 // Today's attendance
+
+// আজকের উপস্থিতি (attendance_overview.php-এর লজিক অনুসরণে)
 $today = date('Y-m-d');
-$attendance_today = $pdo->prepare("
-    SELECT COUNT(*) as total, 
-           SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present
-    FROM attendance 
-    WHERE date = ?
+$attendance_stats = $pdo->prepare("
+    SELECT 
+        COUNT(st.id) as total_students,
+        SUM(CASE WHEN a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) as present,
+        SUM(CASE WHEN a.status = 'absent' OR a.status IS NULL THEN 1 ELSE 0 END) as absent
+    FROM students st
+    LEFT JOIN attendance a ON st.id = a.student_id AND a.date = ?
+    WHERE st.status = 'active'
 ");
-$attendance_today->execute([$today]);
-$attendance_data = $attendance_today->fetch();
-$attendance_percentage = $attendance_data['total'] > 0 ? round(($attendance_data['present'] / $attendance_data['total']) * 100, 2) : 0;
+$attendance_stats->execute([$today]);
+$stats = $attendance_stats->fetch();
+$present_students = $stats['present'] ?? 0;
+$attendance_percentage = $stats['total_students'] > 0 ? round(($present_students / $stats['total_students']) * 100, 2) : 0;
 
 // Recent fee collections
 $recent_fees = $pdo->query("
