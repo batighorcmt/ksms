@@ -468,7 +468,9 @@ if ($is_print) {
                                     <input type="text" name="remarks" class="form-control" value="<?php echo $eval['remarks'] ?? ''; ?>">
                                 </div>
                             </div>
-                            <button type="submit" class="btn btn-success">সংরক্ষণ করুন</button>
+                            <button type="submit" class="btn btn-success">
+                                <?php echo $eval ? 'আপডেট করুন' : 'সংরক্ষণ করুন'; ?>
+                            </button>
                         </form>
                     </div>
                 </div>
