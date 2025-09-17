@@ -9,10 +9,16 @@ if (!isAuthenticated() || !hasRole(['teacher', 'super_admin'])) {
 $user_id = $_SESSION['user_id'];
 $today = date('Y-m-d');
 
-// Fetch teacher's routine (class, section, subject) for today
-$routine_stmt = $pdo->prepare("SELECT r.id, c.id as class_id, c.name as class_name, s.id as section_id, s.name as section_name, r.subject_id FROM routines r JOIN classes c ON r.class_id = c.id JOIN sections s ON r.section_id = s.id WHERE r.teacher_id = ?");
+// Fetch teacher's routine (class, section, subject) for today (with subject name)
+$routine_stmt = $pdo->prepare("SELECT r.id, c.id as class_id, c.name as class_name, s.id as section_id, s.name as section_name, r.subject_id, sub.name as subject_name FROM routines r JOIN classes c ON r.class_id = c.id JOIN sections s ON r.section_id = s.id JOIN subjects sub ON r.subject_id = sub.id WHERE r.teacher_id = ?");
 $routine_stmt->execute([$user_id]);
 $routines = $routine_stmt->fetchAll();
+
+// Fetch teacher name
+$teacher_name = '';
+$teacher_stmt = $pdo->prepare("SELECT full_name FROM users WHERE id = ?");
+$teacher_stmt->execute([$user_id]);
+$teacher_name = $teacher_stmt->fetchColumn() ?: '';
 
 // Handle add/update evaluation
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -115,9 +121,9 @@ if (isset($_GET['class_id']) && isset($_GET['section_id'])) {
                                 <tr>
                                     <td><?php echo htmlspecialchars($r['class_name']); ?></td>
                                     <td><?php echo htmlspecialchars($r['section_name']); ?></td>
-                                    <td><?php echo htmlspecialchars($r['subject'] ?? ''); ?></td>
+                                    <td><?php echo htmlspecialchars($r['subject_name'] ?? ''); ?></td>
                                     <td>
-                                        <a href="?class_id=<?php echo $r['class_id']; ?>&section_id=<?php echo $r['section_id']; ?>&subject=<?php echo isset($r['subject']) ? urlencode($r['subject']) : ''; ?>" class="btn btn-info btn-sm">দেখুন/মূল্যায়ন</a>
+                                        <a href="?class_id=<?php echo $r['class_id']; ?>&section_id=<?php echo $r['section_id']; ?>&subject=<?php echo isset($r['subject_name']) ? urlencode($r['subject_name']) : ''; ?>" class="btn btn-info btn-sm">দেখুন/মূল্যায়ন</a>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
@@ -171,7 +177,7 @@ if (isset($_GET['class_id']) && isset($_GET['section_id'])) {
                                 </div>
                                 <div class="form-group col-md-3">
                                     <label>শিক্ষক</label>
-                                    <input type="text" class="form-control" value="<?php echo htmlspecialchars($_SESSION['full_name'] ?? ''); ?>" readonly>
+                                    <input type="text" class="form-control" value="<?php echo htmlspecialchars($teacher_name); ?>" readonly>
                                 </div>
                                 <div class="form-group col-md-3">
                                     <label>পড়া হয়েছে কি?</label><br>
@@ -211,10 +217,27 @@ if (isset($_GET['class_id']) && isset($_GET['section_id'])) {
                                     <td><?php echo htmlspecialchars($ev['section_name']); ?></td>
                                     <td><?php echo htmlspecialchars($ev['subject']); ?></td>
                                     <td>
-                                        <?php $st_ids = json_decode($ev['evaluated_students'], true) ?? []; ?>
-                                        <?php foreach($st_ids as $sid): ?>
-                                            <span class="badge badge-info"><?php echo $sid; ?></span>
-                                        <?php endforeach; ?>
+                                        <?php 
+                                        $st_ids = json_decode($ev['evaluated_students'], true) ?? []; 
+                                        if ($st_ids) {
+                                            // fetch roll and name for all students in one query
+                                            $in = str_repeat('?,', count($st_ids)-1) . '?';
+                                            $st_stmt = $pdo->prepare("SELECT id, roll_number, first_name, last_name FROM students WHERE id IN ($in)");
+                                            $st_stmt->execute($st_ids);
+                                            $st_map = [];
+                                            foreach($st_stmt->fetchAll() as $st) {
+                                                $st_map[$st['id']] = $st;
+                                            }
+                                            foreach($st_ids as $sid) {
+                                                if(isset($st_map[$sid])) {
+                                                    $st = $st_map[$sid];
+                                                    echo '<span class="badge badge-info">'.htmlspecialchars($st['roll_number']).' - '.htmlspecialchars($st['first_name'].' '.$st['last_name']).'</span> ';
+                                                } else {
+                                                    echo '<span class="badge badge-secondary">'.$sid.'</span> ';
+                                                }
+                                            }
+                                        }
+                                        ?>
                                     </td>
                                     <td><?php echo $ev['is_completed'] ? 'হ্যাঁ' : 'না'; ?></td>
                                     <td><?php echo htmlspecialchars($ev['remarks']); ?></td>
