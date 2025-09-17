@@ -115,9 +115,9 @@ if (isset($_GET['class_id']) && isset($_GET['section_id'])) {
                                 <tr>
                                     <td><?php echo htmlspecialchars($r['class_name']); ?></td>
                                     <td><?php echo htmlspecialchars($r['section_name']); ?></td>
-                                    <td><?php echo htmlspecialchars($r['subject']); ?></td>
+                                    <td><?php echo htmlspecialchars($r['subject'] ?? ''); ?></td>
                                     <td>
-                                        <a href="?class_id=<?php echo $r['class_id']; ?>&section_id=<?php echo $r['section_id']; ?>&subject=<?php echo urlencode($r['subject']); ?>" class="btn btn-info btn-sm">দেখুন/মূল্যায়ন</a>
+                                        <a href="?class_id=<?php echo $r['class_id']; ?>&section_id=<?php echo $r['section_id']; ?>&subject=<?php echo isset($r['subject']) ? urlencode($r['subject']) : ''; ?>" class="btn btn-info btn-sm">দেখুন/মূল্যায়ন</a>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
