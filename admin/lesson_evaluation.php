@@ -11,8 +11,8 @@ if (!isAuthenticated() || !hasRole(['teacher', 'super_admin'])) {
 $user_id = $_SESSION['user_id'];
 $today = date('Y-m-d');
 
-// Fetch teacher's routine (class, section, subject) for today (with subject name)
-$routine_stmt = $pdo->prepare("SELECT r.id, c.id as class_id, c.name as class_name, s.id as section_id, s.name as section_name, r.subject_id, sub.name as subject_name FROM routines r JOIN classes c ON r.class_id = c.id JOIN sections s ON r.section_id = s.id JOIN subjects sub ON r.subject_id = sub.id WHERE r.teacher_id = ?");
+// Fetch teacher's routine (class, section, subject) for today (with subject name), ordered by class numeric value ASC
+$routine_stmt = $pdo->prepare("SELECT r.id, c.id as class_id, c.name as class_name, c.numeric_value as class_numeric, s.id as section_id, s.name as section_name, r.subject_id, sub.name as subject_name FROM routines r JOIN classes c ON r.class_id = c.id JOIN sections s ON r.section_id = s.id JOIN subjects sub ON r.subject_id = sub.id WHERE r.teacher_id = ? ORDER BY c.numeric_value ASC, s.name ASC, sub.name ASC");
 $routine_stmt->execute([$user_id]);
 $routines = $routine_stmt->fetchAll();
 
@@ -578,7 +578,7 @@ $(function() {
         min-height: 32px;\
         display: flex;\
         align-items: center;\
-        padding: 5px 28px 5px 10px;\
+        padding: 5px 10px 5px 18px;\
         position: relative;\
         margin: 3px 5px 3px 0;\
         font-size: 0.95rem;\
@@ -589,7 +589,7 @@ $(function() {
     }\
     .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {\
         position: absolute;\
-        right: 6px;\
+        left: 6px;\
         top: 50%;\
         transform: translateY(-50%);\
         color: #fff;\
@@ -604,7 +604,7 @@ $(function() {
         line-height: 1;\
         opacity: 0.85;\
         transition: background 0.2s;\
-        margin-left: 8px;\
+        margin-right: 8px;\
     }\
     .select2-container--default .select2-selection--multiple .select2-selection__choice__remove:hover {\
         background: #c0392b;\
