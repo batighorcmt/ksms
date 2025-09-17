@@ -1,3 +1,137 @@
+<?php
+require_once '../config.php';
+require_once 'print_common.php';
+
+// Authentication check
+if (!isAuthenticated() || !hasRole(['teacher', 'super_admin'])) {
+    header('Location: ../login.php');
+    exit();
+}
+
+$user_id = $_SESSION['user_id'];
+$today = date('Y-m-d');
+
+// Fetch teacher's routine (class, section, subject) for today (with subject name)
+$routine_stmt = $pdo->prepare("SELECT r.id, c.id as class_id, c.name as class_name, s.id as section_id, s.name as section_name, r.subject_id, sub.name as subject_name FROM routines r JOIN classes c ON r.class_id = c.id JOIN sections s ON r.section_id = s.id JOIN subjects sub ON r.subject_id = sub.id WHERE r.teacher_id = ?");
+$routine_stmt->execute([$user_id]);
+$routines = $routine_stmt->fetchAll();
+
+// Fetch teacher name
+$teacher_name = '';
+$teacher_stmt = $pdo->prepare("SELECT full_name FROM users WHERE id = ?");
+$teacher_stmt->execute([$user_id]);
+$teacher_name = $teacher_stmt->fetchColumn() ?: '';
+
+// Handle add/update evaluation
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $class_id = $_POST['class_id'];
+    $section_id = $_POST['section_id'];
+    $subject = $_POST['subject'];
+    $date = $_POST['date'];
+    $students = isset($_POST['students']) ? $_POST['students'] : [];
+    $is_completed = isset($_POST['is_completed']) ? 1 : 0;
+    $remarks = trim($_POST['remarks']);
+    $now = date('Y-m-d H:i:s');
+    $eval_id = isset($_POST['eval_id']) ? intval($_POST['eval_id']) : 0;
+    $students_json = json_encode($students, JSON_UNESCAPED_UNICODE);
+
+    if ($eval_id > 0) {
+        // Update
+        $stmt = $pdo->prepare("UPDATE lesson_evaluation SET evaluated_students=?, is_completed=?, remarks=?, updated_at=? WHERE id=? AND teacher_id=?");
+        $stmt->execute([$students_json, $is_completed, $remarks, $now, $eval_id, $user_id]);
+        $_SESSION['success'] = 'মূল্যায়ন আপডেট হয়েছে!';
+    } else {
+        // Insert
+        $stmt = $pdo->prepare("INSERT INTO lesson_evaluation (teacher_id, class_id, section_id, subject, date, evaluated_students, is_completed, remarks, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$user_id, $class_id, $section_id, $subject, $date, $students_json, $is_completed, $remarks, $now]);
+        $_SESSION['success'] = 'মূল্যায়ন রেকর্ড হয়েছে!';
+    }
+    header('Location: lesson_evaluation.php');
+    exit();
+}
+
+// Fetch all evaluations (with teacher name)
+$eval_stmt = $pdo->prepare("SELECT le.*, c.name as class_name, s.name as section_name, u.full_name as teacher_name FROM lesson_evaluation le JOIN classes c ON le.class_id = c.id JOIN sections s ON le.section_id = s.id JOIN users u ON le.teacher_id = u.id ORDER BY le.date DESC, le.id DESC");
+$eval_stmt->execute();
+$evaluations = $eval_stmt->fetchAll();
+
+// For student select2
+$students = [];
+if (isset($_GET['class_id']) && isset($_GET['section_id'])) {
+    $st_stmt = $pdo->prepare("SELECT id, first_name, last_name FROM students WHERE class_id=? AND section_id=? AND status='active' ORDER BY roll_number ASC");
+    $st_stmt->execute([$_GET['class_id'], $_GET['section_id']]);
+    $students = $st_stmt->fetchAll();
+}
+
+// Print mode
+$is_print = isset($_GET['print']) && $_GET['print'] == '1';
+if ($is_print) {
+    ?><!doctype html>
+    <html lang="bn">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>মূল্যায়ন রিপোর্ট প্রিন্ট</title>
+        <link href="https://fonts.maateen.me/solaiman-lipi/font.css" rel="stylesheet">
+        <style>body{font-family:'SolaimanLipi',sans-serif;color:#222} .table{width:100%;border-collapse:collapse} .table th,.table td{border:1px solid #e0e0e0;padding:8px} .badge{display:inline-block;padding:2px 7px;background:#e0e7ef;border-radius:4px;margin:1px 1px;font-size:0.95em}</style>
+    </head>
+    <body>
+    <?php echo print_header($pdo, 'মূল্যায়ন রিপোর্ট'); ?>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>তারিখ</th>
+                <th>শ্রেণি</th>
+                <th>শাখা</th>
+                <th>বিষয়</th>
+                <th>শিক্ষক</th>
+                <th>ছাত্র/ছাত্রী</th>
+                <th>পড়া হয়েছে?</th>
+                <th>মন্তব্য</th>
+            </tr>
+        </thead>
+        <tbody>
+        <?php foreach($evaluations as $ev): ?>
+            <tr>
+                <td><?php echo htmlspecialchars($ev['date']); ?></td>
+                <td><?php echo htmlspecialchars($ev['class_name']); ?></td>
+                <td><?php echo htmlspecialchars($ev['section_name']); ?></td>
+                <td><?php echo htmlspecialchars($ev['subject']); ?></td>
+                <td><?php echo htmlspecialchars($ev['teacher_name']); ?></td>
+                <td>
+                    <?php 
+                    $st_ids = json_decode($ev['evaluated_students'], true) ?? []; 
+                    if ($st_ids) {
+                        $in = str_repeat('?,', count($st_ids)-1) . '?';
+                        $st_stmt = $pdo->prepare("SELECT id, roll_number, first_name, last_name FROM students WHERE id IN ($in)");
+                        $st_stmt->execute($st_ids);
+                        $st_map = [];
+                        foreach($st_stmt->fetchAll() as $st) {
+                            $st_map[$st['id']] = $st;
+                        }
+                        foreach($st_ids as $sid) {
+                            if(isset($st_map[$sid])) {
+                                $st = $st_map[$sid];
+                                echo '<span class="badge">'.htmlspecialchars($st['roll_number']).' - '.htmlspecialchars($st['first_name'].' '.$st['last_name']).'</span> ';
+                            } else {
+                                echo '<span class="badge">'.$sid.'</span> ';
+                            }
+                        }
+                    }
+                    ?>
+                </td>
+                <td><?php echo $ev['is_completed'] ? 'হ্যাঁ' : 'না'; ?></td>
+                <td><?php echo htmlspecialchars($ev['remarks']); ?></td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+    <?php echo print_footer(); ?>
+    <script>window.onload=function(){ window.print(); }</script>
+    </body></html><?php
+    exit();
+}
+?>
 <!DOCTYPE html>
 <html lang="bn">
 <head>
@@ -8,135 +142,135 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.maateen.me/solaiman-lipi/font.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-    <style>
-        body, .main-sidebar, .nav-link { 
-            font-family: 'SolaimanLipi', 'Source Sans Pro', sans-serif; 
-        }
-        
-        /* Modern Color Scheme */
+    <style>body, .main-sidebar, .nav-link { font-family: 'SolaimanLipi', 'Source Sans Pro', sans-serif; }
         :root {
-            --primary: #4361ee;
-            --secondary: #3f37c9;
-            --success: #4cc9f0;
-            --info: #4895ef;
-            --warning: #f72585;
-            --danger: #e63946;
-            --light: #f8f9fa;
-            --dark: #212529;
-            --gradient-primary: linear-gradient(120deg, #4361ee, #3a0ca3);
-            --gradient-success: linear-gradient(120deg, #4cc9f0, #4895ef);
-            --gradient-warning: linear-gradient(120deg, #f72585, #b5179e);
-        }
-        
-        .card-header {
-            background: var(--gradient-primary);
-            color: white;
-        }
-        
-        .card-outline {
-            border-top: 3px solid;
-            border-top-color: var(--primary);
-        }
-        
-        .card-outline-success {
-            border-top-color: var(--success);
-        }
-        
-        .card-outline-info {
-            border-top-color: var(--info);
-        }
-        
-        .btn-modern {
-            background: var(--gradient-primary);
-            border: none;
-            border-radius: 25px;
-            color: white;
-            transition: all 0.3s;
-        }
-        
-        .btn-modern:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-            background: var(--gradient-success);
-        }
-        
-        .badge-modern {
-            border-radius: 15px;
-            padding: 5px 10px;
-            font-weight: normal;
-            margin: 2px;
-        }
-        
-        .table thead {
-            background: var(--gradient-primary);
-            color: white;
-        }
-        
-        .table-hover tbody tr:hover {
-            background-color: rgba(67, 97, 238, 0.1);
-        }
-        
-        .evaluation-stats {
-            display: flex;
-            justify-content: space-around;
-            margin-bottom: 20px;
-        }
-        
-        .stat-box {
-            text-align: center;
-            padding: 15px;
-            border-radius: 10px;
-            color: white;
-            width: 23%;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-        
-        .stat-box i {
-            font-size: 24px;
-            margin-bottom: 10px;
-        }
-        
-        .stat-box .count {
-            font-size: 24px;
-            font-weight: bold;
-        }
-        
-        .stat-box-primary {
-            background: var(--gradient-primary);
-        }
-        
-        .stat-box-success {
-            background: var(--gradient-success);
-        }
-        
-        .stat-box-warning {
-            background: var(--gradient-warning);
-        }
-        
-        .stat-box-info {
-            background: linear-gradient(120deg, #7209b7, #560bad);
-        }
-        
-        .select2-container--default .select2-selection--multiple {
-            border-radius: 10px;
-            padding: 5px;
-            min-height: 42px;
-        }
-        
-        .form-control {
-            border-radius: 10px;
-        }
-        
-        .custom-control-input:checked~.custom-control-label::before {
-            background: var(--gradient-primary);
-            border-color: var(--primary);
-        }
-        
-        .print-btn {
-            background: var(--gradient-warning);
-            border: none;
-            border-radius: 25px;
-        }
+        --primary-color: #4e73df;
+        --primary-light: #6e87f7;
+        --secondary-color: #1cc88a;
+        --accent-color: #36b9cc;
+        --bg-light: #f8f9fc;
+        --bg-dark: #ffffff;
+        --text-dark: #5a5c69;
+        --text-light: #858796;
+        --border-color: #e3e6f0;
+        --badge-bg: #f6c23e;
+        --badge-text: #ffffff;
+        --table-header-bg: #4e73df;
+        --table-header-text: #ffffff;
+        --btn-hover-darken: rgba(0,0,0,0.1);
+        --shadow: 0 4px 6px rgba(0,0,0,0.1);
+        --radius: 0.35rem;
+    }
+
+    body {
+        background-color: var(--bg-light);
+        color: var(--text-dark);
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .card {
+        background: var(--bg-dark);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        margin-bottom: 1.5rem;
+    }
+
+    .card-header {
+        background: var(--primary-color);
+        color: var(--table-header-text);
+        padding: 0.75rem 1rem;
+        border-bottom: none;
+        border-top-left-radius: var(--radius);
+        border-top-right-radius: var(--radius);
+    }
+
+    .card-body {
+        padding: 1rem;
+    }
+
+    .btn {
+        background-color: var(--primary-color);
+        color: #ffffff;
+        border: none;
+        border-radius: var(--radius);
+        padding: 0.5rem 1rem;
+        transition: background-color 0.2s ease, transform 0.1s ease;
+    }
+
+    .btn:hover, .btn:focus {
+        background-color: var(--primary-light);
+        transform: scale(1.02);
+    }
+
+    .btn-info {
+        background-color: var(--secondary-color);
+        color: #ffffff;
+    }
+    .btn-info:hover {
+        background-color: #17d389;
+    }
+
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #ffffff;
+        border-radius: var(--radius);
+        overflow: hidden;
+        box-shadow: var(--shadow);
+    }
+
+    .table th, .table td {
+        padding: 0.75rem 1rem;
+        border: 1px solid var(--border-color);
+    }
+
+    .table thead {
+        background: var(--table-header-bg);
+        color: var(--table-header-text);
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 0.25rem 0.6rem;
+        font-size: 0.85rem;
+        font-weight: bold;
+        background-color: var(--badge-bg);
+        color: var(--badge-text);
+        border-radius: var(--radius);
+        margin: 0.2rem 0.2rem 0.2rem 0;
+    }
+
+    input[readonly], input.form-control[readonly] {
+        background-color: #e9ecef;
+    }
+
+    .form-control:focus {
+        border-color: var(--primary-light);
+        box-shadow: 0 0 0 0.2rem rgba(78, 115, 223, .25);
+    }
+
+    /* Select2 overrides */
+    .select2-container--default .select2-selection--multiple {
+        background-color: #ffffff;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius);
+    }
+    .select2-container--default .select2-selection--multiple .select2-selection__choice {
+        background: var(--accent-color);
+        color: #fff;
+        border: none;
+        border-radius: var(--radius);
+    }
+
+    /* Breadcrumbs, nav links etc */
+    .breadcrumb .breadcrumb-item a {
+        color: var(--primary-color);
+    }
+    .breadcrumb .breadcrumb-item.active {
+        color: var(--text-dark);
+    }
+
     </style>
 </head>
 <body class="hold-transition sidebar-mini">
@@ -171,44 +305,10 @@
                         <?php echo $_SESSION['error']; unset($_SESSION['error']); ?>
                     </div>
                 <?php endif; ?>
-                
-                <!-- Statistics Cards -->
-                <div class="evaluation-stats">
-                    <div class="stat-box stat-box-primary">
-                        <i class="fas fa-chalkboard-teacher"></i>
-                        <div class="count"><?php echo count($routines); ?></div>
-                        <div>মোট ক্লাস</div>
-                    </div>
-                    <div class="stat-box stat-box-success">
-                        <i class="fas fa-tasks"></i>
-                        <div class="count"><?php echo count($evaluations); ?></div>
-                        <div>মূল্যায়ন</div>
-                    </div>
-                    <div class="stat-box stat-box-warning">
-                        <i class="fas fa-users"></i>
-                        <div class="count">
-                            <?php 
-                            $total_students = 0;
-                            foreach($evaluations as $ev) {
-                                $st_ids = json_decode($ev['evaluated_students'], true) ?? [];
-                                $total_students += count($st_ids);
-                            }
-                            echo $total_students;
-                            ?>
-                        </div>
-                        <div>মূল্যায়নকৃত শিক্ষার্থী</div>
-                    </div>
-                    <div class="stat-box stat-box-info">
-                        <i class="fas fa-calendar-day"></i>
-                        <div class="count"><?php echo $today; ?></div>
-                        <div>আজকের তারিখ</div>
-                    </div>
-                </div>
-                
-                <div class="card card-outline mb-4">
+                <div class="card mb-4">
                     <div class="card-header"><b>রুটিন অনুযায়ী ক্লাস তালিকা</b></div>
                     <div class="card-body">
-                        <table class="table table-bordered table-sm table-hover">
+                        <table class="table table-bordered table-sm">
                             <thead>
                                 <tr>
                                     <th>শ্রেণি</th>
@@ -224,7 +324,7 @@
                                     <td><?php echo htmlspecialchars($r['section_name']); ?></td>
                                     <td><?php echo htmlspecialchars($r['subject_name'] ?? ''); ?></td>
                                     <td>
-                                        <a href="?class_id=<?php echo $r['class_id']; ?>&section_id=<?php echo $r['section_id']; ?>&subject=<?php echo isset($r['subject_name']) ? urlencode($r['subject_name']) : ''; ?>" class="btn btn-modern btn-sm">দেখুন/মূল্যায়ন</a>
+                                        <a href="?class_id=<?php echo $r['class_id']; ?>&section_id=<?php echo $r['section_id']; ?>&subject=<?php echo isset($r['subject_name']) ? urlencode($r['subject_name']) : ''; ?>" class="btn btn-info btn-sm">দেখুন/মূল্যায়ন</a>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
@@ -233,7 +333,7 @@
                     </div>
                 </div>
                 <?php if(isset($_GET['class_id'], $_GET['section_id'], $_GET['subject'])): ?>
-                <div class="card card-outline card-outline-success mb-4">
+                <div class="card mb-4">
                     <div class="card-header"><b>মূল্যায়ন ফরম</b></div>
                     <div class="card-body">
                         <?php
@@ -298,28 +398,25 @@
                                 </div>
                                 <div class="form-group col-md-3">
                                     <label>পড়া হয়েছে কি?</label><br>
-                                    <div class="custom-control custom-switch">
-                                        <input type="checkbox" class="custom-control-input" id="is_completed" name="is_completed" value="1" <?php echo ($eval && $eval['is_completed']) ? 'checked' : ''; ?>>
-                                        <label class="custom-control-label" for="is_completed">হ্যাঁ</label>
-                                    </div>
+                                    <input type="checkbox" name="is_completed" value="1" <?php echo ($eval && $eval['is_completed']) ? 'checked' : ''; ?>> হ্যাঁ
                                 </div>
                                 <div class="form-group col-md-3">
                                     <label>মন্তব্য</label>
-                                    <input type="text" name="remarks" class="form-control" value="<?php echo $eval['remarks'] ?? ''; ?>" placeholder="মন্তব্য লিখুন...">
+                                    <input type="text" name="remarks" class="form-control" value="<?php echo $eval['remarks'] ?? ''; ?>">
                                 </div>
                             </div>
-                            <button type="submit" class="btn btn-modern">সংরক্ষণ করুন</button>
+                            <button type="submit" class="btn btn-success">সংরক্ষণ করুন</button>
                         </form>
                     </div>
                 </div>
                 <?php endif; ?>
-                <div class="card card-outline card-outline-info">
+                <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <b>মূল্যায়ন রিপোর্ট</b>
-                        <a href="?print=1" target="_blank" class="btn btn-sm print-btn"><i class="fa fa-print"></i> প্রিন্ট</a>
+                        <a href="?print=1" target="_blank" class="btn btn-sm btn-primary"><i class="fa fa-print"></i> প্রিন্ট</a>
                     </div>
                     <div class="card-body table-responsive">
-                        <table class="table table-bordered table-striped table-hover">
+                        <table class="table table-bordered table-striped">
                             <thead>
                                 <tr>
                                     <th>তারিখ</th>
@@ -355,21 +452,15 @@
                                             foreach($st_ids as $sid) {
                                                 if(isset($st_map[$sid])) {
                                                     $st = $st_map[$sid];
-                                                    echo '<span class="badge badge-modern badge-info">'.htmlspecialchars($st['roll_number']).' - '.htmlspecialchars($st['first_name'].' '.$st['last_name']).'</span> ';
+                                                    echo '<span class="badge badge-info">'.htmlspecialchars($st['roll_number']).' - '.htmlspecialchars($st['first_name'].' '.$st['last_name']).'</span> ';
                                                 } else {
-                                                    echo '<span class="badge badge-modern badge-secondary">'.$sid.'</span> ';
+                                                    echo '<span class="badge badge-secondary">'.$sid.'</span> ';
                                                 }
                                             }
                                         }
                                         ?>
                                     </td>
-                                    <td>
-                                        <?php if($ev['is_completed']): ?>
-                                            <span class="badge badge-modern badge-success">হ্যাঁ</span>
-                                        <?php else: ?>
-                                            <span class="badge badge-modern badge-danger">না</span>
-                                        <?php endif; ?>
-                                    </td>
+                                    <td><?php echo $ev['is_completed'] ? 'হ্যাঁ' : 'না'; ?></td>
                                     <td><?php echo htmlspecialchars($ev['remarks']); ?></td>
                                     <td><?php echo date('d/m/Y H:i', strtotime($ev['created_at'])); ?></td>
                                 </tr>
@@ -387,14 +478,6 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-<script>
-    $(function() { 
-        $('.select2').select2({ 
-            width: 'resolve',
-            placeholder: "ছাত্র/ছাত্রী নির্বাচন করুন",
-            allowClear: true
-        }); 
-    });
-</script>
+<script>$(function() { $('.select2').select2({ width: 'resolve' }); });</script>
 </body>
 </html>
