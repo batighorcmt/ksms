@@ -46,11 +46,11 @@ if($action === 'check_in' && !$record) {
     // Check-in
     $now = date('H:i:s');
     if ($now < $checkin_start) {
-        $status = 'early';
+        $status = 'Early';
     } elseif ($now > $checkin_end) {
-        $status = 'late';
+        $status = 'Late';
     } else {
-        $status = 'present';
+        $status = 'Present';
     }
     $pdo->prepare("INSERT INTO teacher_attendance 
       (teacher_id,date,check_in,status,check_in_photo,check_in_location) 
