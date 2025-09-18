@@ -16,8 +16,8 @@ $subjects = $pdo->prepare("SELECT sub.name, c.name as class_name FROM routines r
 $subjects->execute([$user_id]);
 $subject_list = $subjects->fetchAll();
 
-// Class teacher for (attendance recorder)
-$class_teacher_stmt = $pdo->prepare("SELECT c.name as class_name, s.name as section_name FROM class_teachers ct JOIN classes c ON ct.class_id = c.id JOIN sections s ON ct.section_id = s.id WHERE ct.teacher_id = ?");
+// Class teacher for (attendance recorder) - only class name, as section_id does not exist
+$class_teacher_stmt = $pdo->prepare("SELECT c.name as class_name FROM class_teachers ct JOIN classes c ON ct.class_id = c.id WHERE ct.teacher_id = ?");
 $class_teacher_stmt->execute([$user_id]);
 $class_teacher_for = $class_teacher_stmt->fetchAll();
 
@@ -129,7 +129,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
                                 <?php if($class_teacher_for): ?>
                                     <ul>
                                     <?php foreach($class_teacher_for as $ct): ?>
-                                        <li><?php echo htmlspecialchars($ct['class_name']); ?> - <?php echo htmlspecialchars($ct['section_name']); ?></li>
+                                        <li><?php echo htmlspecialchars($ct['class_name']); ?></li>
                                     <?php endforeach; ?>
                                     </ul>
                                 <?php else: ?>
