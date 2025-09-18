@@ -58,7 +58,8 @@ $record = $stmt->fetch();
               <input type="hidden" name="photo" id="photoInput">
               <input type="hidden" name="lat" id="lat">
               <input type="hidden" name="lng" id="lng">
-              <button type="button" onclick="capture()" class="btn btn-success mt-2">📸 ছবি তুলে হাজিরা দিন</button>
+                <input type="hidden" name="action" value="check_in">
+                <button type="button" onclick="capture('check_in')" class="btn btn-success mt-2">📸 ছবি তুলে চেক-ইন করুন</button>
             </form>
 
           <?php elseif($record && !$record['check_out']): ?>
@@ -69,7 +70,8 @@ $record = $stmt->fetch();
               <input type="hidden" name="photo" id="photoInput">
               <input type="hidden" name="lat" id="lat">
               <input type="hidden" name="lng" id="lng">
-              <button type="button" onclick="capture()" class="btn btn-danger mt-2">📸 ছবি তুলে চেক-আউট দিন</button>
+                <input type="hidden" name="action" value="check_out">
+                <button type="button" onclick="capture('check_out')" class="btn btn-danger mt-2">📸 ছবি তুলে চেক-আউট দিন</button>
             </form>
 
           <?php else: ?>
@@ -92,12 +94,31 @@ $record = $stmt->fetch();
   }
 
   function capture(){
-    let video = document.getElementById('video');
-    let canvas = document.getElementById('canvas');
-    let ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, 320, 240);
-    let data = canvas.toDataURL('image/jpeg', 0.3); // low resolution
-    document.getElementById('photoInput').value = data;
+    function capture(type){
+      let video = document.getElementById('video');
+      let canvas = document.getElementById('canvas');
+      let ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, 320, 240);
+      let data = canvas.toDataURL('image/jpeg', 0.3); // low resolution
+      if(type === 'check_in') {
+        document.getElementById('photoInput').value = data;
+        navigator.geolocation.getCurrentPosition(function(pos){
+          document.getElementById('lat').value = pos.coords.latitude;
+          document.getElementById('lng').value = pos.coords.longitude;
+          document.getElementById('attendanceForm').submit();
+        }, function(){
+          alert("⚠ লোকেশন পাওয়া যায়নি। দয়া করে Location চালু করুন।");
+        });
+      } else if(type === 'check_out') {
+        document.getElementById('photoInput').value = data;
+        navigator.geolocation.getCurrentPosition(function(pos){
+          document.getElementById('lat').value = pos.coords.latitude;
+          document.getElementById('lng').value = pos.coords.longitude;
+          document.getElementById('attendanceForm').submit();
+        }, function(){
+          alert("⚠ লোকেশন পাওয়া যায়নি। দয়া করে Location চালু করুন।");
+        });
+      }
 
     // Location capture
     navigator.geolocation.getCurrentPosition(function(pos){

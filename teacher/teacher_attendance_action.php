@@ -22,23 +22,25 @@ if(!empty($_POST['photo'])){
     file_put_contents($uploadDir.$filename, $data);
 }
 
+
 $lat = $_POST['lat'] ?? null;
 $lng = $_POST['lng'] ?? null;
 $location = ($lat && $lng) ? $lat.",".$lng : null;
+$action = $_POST['action'] ?? '';
 
 // আজকের রেকর্ড আছে কিনা
 $stmt = $pdo->prepare("SELECT * FROM teacher_attendance WHERE teacher_id=? AND date=?");
 $stmt->execute([$teacher_id, $today]);
 $record = $stmt->fetch();
 
-if(!$record){
+if($action === 'check_in' && !$record) {
     // Check-in
     $status = (date('H:i:s') > '09:15:00') ? 'late' : 'present';
     $pdo->prepare("INSERT INTO teacher_attendance 
       (teacher_id,date,check_in,status,check_in_photo,check_in_location) 
       VALUES (?,?,?,?,?,?)")
         ->execute([$teacher_id, $today, date('H:i:s'), $status, $file, $location]);
-} elseif($record && !$record['check_out']){
+} elseif($action === 'check_out' && $record && !$record['check_out']) {
     // Check-out
     $pdo->prepare("UPDATE teacher_attendance 
       SET check_out=?, check_out_photo=?, check_out_location=? 
