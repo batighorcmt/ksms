@@ -531,11 +531,11 @@ if (empty($chart_labels)) {
                                         <tbody>
                                             <?php foreach($period_routine as $r): ?>
                                             <tr>
-                                                <td><?php echo htmlspecialchars($r['day']); ?></td>
-                                                <td><?php echo htmlspecialchars($r['period']); ?></td>
-                                                <td><?php echo htmlspecialchars($r['class_name']); ?></td>
-                                                <td><?php echo htmlspecialchars($r['section_name']); ?></td>
-                                                <td><?php echo htmlspecialchars($r['subject_name']); ?></td>
+                                                <td><?php echo htmlspecialchars($r['day'] ?? ''); ?></td>
+                                                <td><?php echo htmlspecialchars($r['period'] ?? ''); ?></td>
+                                                <td><?php echo htmlspecialchars($r['class_name'] ?? ''); ?></td>
+                                                <td><?php echo htmlspecialchars($r['section_name'] ?? ''); ?></td>
+                                                <td><?php echo htmlspecialchars($r['subject_name'] ?? ''); ?></td>
                                             </tr>
                                             <?php endforeach; ?>
                                         </tbody>
