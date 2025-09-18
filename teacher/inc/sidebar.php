@@ -59,7 +59,7 @@
         <nav class="mt-2">
             <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
                 <li class="nav-item">
-                    <a href="<?php echo BASE_URL; ?>admin/dashboard.php" class="nav-link">
+                    <a href="<?php echo BASE_URL; ?>teacher/dashboard.php" class="nav-link">
                         <i class="nav-icon fas fa-tachometer-alt"></i>
                         <p>ড্যাশবোর্ড</p>
                     </a>
@@ -121,7 +121,7 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="<?php echo BASE_URL; ?>admin/reports.php" class="nav-link">
+                    <a href="#" class="nav-link">
                         <i class="nav-icon fas fa-chart-bar"></i>
                         <p>রিপোর্ট <i class="right fas fa-angle-left"></i></p>
                     </a>
@@ -146,7 +146,7 @@
                     </a>
                     <ul class="nav nav-treeview">
                         <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admin/institute_info.php" class="nav-link">
+                            <a href="<?php echo BASE_URL; ?>teacher/profile.php" class="nav-link">
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>প্রোফাইল</p>
                             </a>
