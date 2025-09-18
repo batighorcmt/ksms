@@ -181,18 +181,30 @@ function hideImgPreview(e) {
 }
 // Print button
 function printReport() {
-    // Use print_common.php for print styling
-    var printContents = document.querySelector('.card').innerHTML;
+    // Use print_common.php for print styling and add header/footer like lesson evaluation print
+    var table = document.querySelector('.card-body').innerHTML;
+    var header = '';
+    var footer = '';
+    // Try to fetch header/footer from print_common.php if available
+    // Fallback: simple header/footer
+    header = '<div style="text-align:center;margin-bottom:10px;">' +
+        '<h2 style="margin:0;font-family:SolaimanLipi,sans-serif;">শিক্ষক হাজিরা রিপোর্ট</h2>' +
+        '<div style="font-size:1.1em;">তারিখ: ' + (document.querySelector('input[name=date]').value || '') + '</div>' +
+        '</div>';
+    footer = '<div style="margin-top:30px;text-align:right;font-size:0.95em;">Powered by KSMS</div>';
+    var style = '<link href="https://fonts.maateen.me/solaiman-lipi/font.css" rel="stylesheet">'+
+        '<style>body{font-family:\'SolaimanLipi\',sans-serif;color:#222} .table{width:100%;border-collapse:collapse} .table th,.table td{border:1px solid #e0e0e0;padding:8px} .badge{display:inline-block;padding:2px 7px;background:#e74c3c;color:#fff;border-radius:4px;margin:1px 1px;font-size:0.95em}</style>';
     var win = window.open('', '', 'height=700,width=1000');
     win.document.write('<html><head><title>শিক্ষক হাজিরা রিপোর্ট</title>');
-    win.document.write('<link rel="stylesheet" href="../print_common.php">');
-    win.document.write('<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css">');
+    win.document.write(style);
     win.document.write('</head><body>');
-    win.document.write(printContents);
+    win.document.write(header);
+    win.document.write(table);
+    win.document.write(footer);
+    win.document.write('<script>window.onload=function(){window.print();window.close();}<\/script>');
     win.document.write('</body></html>');
     win.document.close();
     win.focus();
-    setTimeout(function(){ win.print(); win.close(); }, 500);
 }
 </script>
 </body>

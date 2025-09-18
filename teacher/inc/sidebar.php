@@ -42,7 +42,7 @@
                         'admin' => 'অ্যাডমিন',
                         'teacher' => 'শিক্ষক',
                         'student' => 'শিক্ষার্থী',
-                        'parent' => 'অভিভাবক'
+                        'guardian' => 'অভিভাবক'
                     ];
                     if (!empty($roleKey) && isset($roleMap[$roleKey])) {
                         $roleLabel = $roleMap[$roleKey];
@@ -59,6 +59,24 @@
         <nav class="mt-2">
             <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
                 <li class="nav-item">
+                    <a href="<?php echo BASE_URL; ?>admin/dashboard.php" class="nav-link">
+                        <i class="nav-icon fas fa-tachometer-alt"></i>
+                        <p>ড্যাশবোর্ড</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="<?php echo BASE_URL; ?>teacher/teacher_attendance.php" class="nav-link">
+                        <i class="nav-icon fas fa-user-check"></i>
+                        <p>আমার হাজিরা</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="<?php echo BASE_URL; ?>admin/student_attendance.php" class="nav-link">
+                        <i class="nav-icon fas fa-file-alt"></i>
+                        <p>শিক্ষার্থী হাজিরা গ্রহণ</p>
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="<?php echo BASE_URL; ?>admin/homework.php" class="nav-link">
                         <i class="nav-icon fas fa-book-open"></i>
                         <p>হোমওয়ার্ক</p>
@@ -69,21 +87,7 @@
                         <i class="nav-icon fas fa-clipboard-list"></i>
                         <p>লেসন ইভুলেশন</p>
                     </a>
-                </li>
-                <li class="nav-item">
-                    <a href="<?php echo BASE_URL; ?>teacher/teacher_attendance.php" class="nav-link">
-                        <i class="nav-icon fas fa-user-check"></i>
-                        <p>আমার হাজিরা</p>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="<?php echo BASE_URL; ?>admin/dashboard.php" class="nav-link">
-                        <i class="nav-icon fas fa-tachometer-alt"></i>
-                        <p>ড্যাশবোর্ড</p>
-                    </a>
-                </li>
-                
-                
+                </li>                
                 <li class="nav-item">
                     <a href="#" class="nav-link">
                         <i class="nav-icon fas fa-chart-bar"></i>
@@ -102,85 +106,6 @@
                                 <p>শিক্ষার্থী রিপোর্ট</p>
                             </a>
                         </li>
-                    </ul>
-                </li>
-                <li class="nav-item">
-                    <a href="#" class="nav-link">
-                        <i class="nav-icon fas fa-school"></i>
-                        <p>শ্রেণি ব্যবস্থাপনা <i class="right fas fa-angle-left"></i></p>
-                    </a>
-                    <ul class="nav nav-treeview">
-                        <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admin/classes.php" class="nav-link">
-                                <i class="far fa-circle nav-icon"></i>
-                                <p>শ্রেণি তালিকা</p>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admin/routine_list.php" class="nav-link">
-                                <i class="far fa-circle nav-icon"></i>
-                                <p>ক্লাস রুটিন</p>
-                            </a>
-                        </li>
-                    </ul>
-                </li>
-                <li class="nav-item">
-                    <a href="#" class="nav-link">
-                        <i class="nav-icon fas fa-school"></i>
-                        <p>বিষয় ব্যবস্থাপনা <i class="right fas fa-angle-left"></i></p>
-                    </a>
-                    <ul class="nav nav-treeview">
-                        <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admin/school_subjects.php" class="nav-link">
-                                <i class="far fa-circle nav-icon"></i>
-                                <p>অনুমোদিত বিষয়</p>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admin/subjects.php" class="nav-link">
-                                <i class="far fa-circle nav-icon"></i>
-                                <p>বিষয় তালিকা</p>
-                            </a>
-                        </li>
-                    </ul>
-                </li>
-                <li class="nav-item">
-                    <a href="<?php echo BASE_URL; ?>admin/teachers.php" class="nav-link">
-                        <i class="nav-icon fas fa-chalkboard-teacher"></i>
-                        <p>শিক্ষক ব্যবস্থাপনা</p>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="#" class="nav-link">
-                        <i class="nav-icon fas fa-clipboard-check"></i>
-                        <p>উপস্থিতি ব্যবস্থাপনা <i class="right fas fa-angle-left"></i> </p>
-                    </a>
-                    <ul class="nav nav-treeview">
-                        <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admin/attendance_overview.php" class="nav-link">
-                                <i class="far fa-circle nav-icon"></i>
-                                <p>উপস্থিতি ড্যাশবোর্ড</p>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admin/attendance.php" class="nav-link">
-                                <i class="far fa-circle nav-icon"></i>
-                                <p>উপস্থিতি গ্রহণ</p>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admin/attendance_report.php" class="nav-link">
-                                <i class="far fa-circle nav-icon"></i>
-                                <p>প্রতিদিনের রিপোর্ট প্রিন্ট</p>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admin/monthly_attendance.php" class="nav-link">
-                                <i class="far fa-circle nav-icon"></i>
-                                <p>মাসিক উপস্থিতি</p>
-                            </a>
-                        </li>
-
                     </ul>
                 </li>
                 <li class="nav-item">
@@ -223,19 +148,7 @@
                         <li class="nav-item">
                             <a href="<?php echo BASE_URL; ?>admin/institute_info.php" class="nav-link">
                                 <i class="far fa-circle nav-icon"></i>
-                                <p>প্রতিষ্ঠানের তথ্য</p>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admin/settings/holiday_management.php" class="nav-link">
-                                <i class="nav-icon fas fa-calendar-day"></i>
-                                <p>ছুটির দিন ব্যবস্থাপনা</p>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admin/settings.php" class="nav-link">
-                                <i class="far fa-circle nav-icon"></i>
-                                <p>সাধারণ সেটিংস</p>
+                                <p>প্রোফাইল</p>
                             </a>
                         </li>
                     </ul>
