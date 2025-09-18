@@ -247,11 +247,11 @@ if(empty($chart_labels)){ $chart_labels=['কোনো ডেটা নেই'];
         <tbody>
         <?php foreach($period_routine as $r): ?>
           <tr>
-            <td><?php echo $r['day']; ?></td>
-            <td><?php echo $r['period']; ?></td>
-            <td><?php echo $r['class_name']; ?></td>
-            <td><?php echo $r['section_name']; ?></td>
-            <td><?php echo $r['subject_name']; ?></td>
+            <td><?php echo isset($r['day_of_week']) ? $r['day_of_week'] : ''; ?></td>
+            <td><?php echo isset($r['period_number']) ? $r['period_number'] : ''; ?></td>
+            <td><?php echo $r['class_name'] ?? ''; ?></td>
+            <td><?php echo $r['section_name'] ?? ''; ?></td>
+            <td><?php echo $r['subject_name'] ?? ''; ?></td>
           </tr>
         <?php endforeach; ?>
         </tbody>
