@@ -79,6 +79,7 @@ $records = $stmt->fetchAll();
                                     <th>স্ট্যাটাস</th>
                                     <th>চেক-ইন ছবি</th>
                                     <th>চেক-আউট ছবি</th>
+                                    <th>লোকেশন</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -98,6 +99,30 @@ $records = $stmt->fetchAll();
                                         <?php if($rec['check_out_photo']): ?>
                                             <a href="../<?php echo htmlspecialchars($rec['check_out_photo']); ?>" target="_blank"><img src="../<?php echo htmlspecialchars($rec['check_out_photo']); ?>" width="40"></a>
                                         <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php
+                                        $locs = [];
+                                        if (!empty($rec['check_in_location'])) {
+                                            $loc = explode(',', $rec['check_in_location']);
+                                            if(count($loc) == 2) {
+                                                $lat = trim($loc[0]);
+                                                $lng = trim($loc[1]);
+                                                $url = "https://maps.google.com/?q=$lat,$lng";
+                                                $locs[] = '<a href="'.htmlspecialchars($url).'" target="_blank">চেক-ইন</a>';
+                                            }
+                                        }
+                                        if (!empty($rec['check_out_location'])) {
+                                            $loc = explode(',', $rec['check_out_location']);
+                                            if(count($loc) == 2) {
+                                                $lat = trim($loc[0]);
+                                                $lng = trim($loc[1]);
+                                                $url = "https://maps.google.com/?q=$lat,$lng";
+                                                $locs[] = '<a href="'.htmlspecialchars($url).'" target="_blank">চেক-আউট</a>';
+                                            }
+                                        }
+                                        echo implode(' | ', $locs);
+                                        ?>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
