@@ -285,7 +285,7 @@ if (empty($chart_labels)) {
     <!-- /.navbar -->
 
     <!-- Main Sidebar Container -->
-    <?php include '../admin/inc/sidebar.php'; ?>
+    <?php include 'inc/sidebar.php'; ?>
 
     <!-- Content Wrapper. Contains page content -->
     <div class="content-wrapper">
