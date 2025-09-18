@@ -51,3 +51,4 @@ if($action === 'check_in' && !$record) {
 header("Location: teacher_attendance.php");
 exit;
 ob_end_flush();
+?>

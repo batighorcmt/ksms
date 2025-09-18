@@ -93,34 +93,13 @@ $record = $stmt->fetch();
       .then(stream => { document.getElementById('video').srcObject = stream });
   }
 
-  function capture(){
-    function capture(type){
-      let video = document.getElementById('video');
-      let canvas = document.getElementById('canvas');
-      let ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, 320, 240);
-      let data = canvas.toDataURL('image/jpeg', 0.3); // low resolution
-      if(type === 'check_in') {
-        document.getElementById('photoInput').value = data;
-        navigator.geolocation.getCurrentPosition(function(pos){
-          document.getElementById('lat').value = pos.coords.latitude;
-          document.getElementById('lng').value = pos.coords.longitude;
-          document.getElementById('attendanceForm').submit();
-        }, function(){
-          alert("⚠ লোকেশন পাওয়া যায়নি। দয়া করে Location চালু করুন।");
-        });
-      } else if(type === 'check_out') {
-        document.getElementById('photoInput').value = data;
-        navigator.geolocation.getCurrentPosition(function(pos){
-          document.getElementById('lat').value = pos.coords.latitude;
-          document.getElementById('lng').value = pos.coords.longitude;
-          document.getElementById('attendanceForm').submit();
-        }, function(){
-          alert("⚠ লোকেশন পাওয়া যায়নি। দয়া করে Location চালু করুন।");
-        });
-      }
-
-    // Location capture
+  function capture(type){
+    let video = document.getElementById('video');
+    let canvas = document.getElementById('canvas');
+    let ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, 320, 240);
+    let data = canvas.toDataURL('image/jpeg', 0.3); // low resolution
+    document.getElementById('photoInput').value = data;
     navigator.geolocation.getCurrentPosition(function(pos){
       document.getElementById('lat').value = pos.coords.latitude;
       document.getElementById('lng').value = pos.coords.longitude;
@@ -140,5 +119,6 @@ $record = $stmt->fetch();
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
     <!-- AdminLTE App -->
     <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
-</body>
-</html> 
+
+    </body>    
+    </html>
