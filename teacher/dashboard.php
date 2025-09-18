@@ -53,19 +53,32 @@ $attendance_month = $pdo->prepare("
 $attendance_month->execute([$current_month . '%', $teacher_id]);
 $attendance_month_data = $attendance_month->fetch();
 
-// সাম্প্রতিক উপস্থিতি রেকর্ড
-$recent_attendance = $pdo->prepare("
-    SELECT a.*, s.first_name, s.last_name, c.name as class_name, sec.name as section_name
+// সাম্প্রতিক অনুপস্থিতি রেকর্ড (recent absences only)
+$recent_absence = $pdo->prepare("
+    SELECT a.*, s.first_name, s.last_name, s.phone, s.id as student_id, c.name as class_name, sec.name as section_name
     FROM attendance a
     JOIN students s ON a.student_id = s.id
     JOIN classes c ON a.class_id = c.id
     JOIN sections sec ON a.section_id = sec.id
-    WHERE a.recorded_by = ?
+    WHERE a.recorded_by = ? AND a.status = 'absent'
     ORDER BY a.date DESC, a.id DESC
     LIMIT 8
 ");
-$recent_attendance->execute([$teacher_id]);
-$recent_attendance_data = $recent_attendance->fetchAll();
+$recent_absence->execute([$teacher_id]);
+$recent_absence_data = $recent_absence->fetchAll();
+
+// পিরিওড ভিত্তিক ক্লাস রুটিন (period-wise class routine)
+$routine_stmt = $pdo->prepare("
+    SELECT r.*, c.name as class_name, s.name as section_name, sub.name as subject_name
+    FROM routines r
+    JOIN classes c ON r.class_id = c.id
+    JOIN sections s ON r.section_id = s.id
+    JOIN subjects sub ON r.subject_id = sub.id
+    WHERE r.teacher_id = ?
+    ORDER BY r.day, r.period
+");
+$routine_stmt->execute([$teacher_id]);
+$period_routine = $routine_stmt->fetchAll();
 
 // শিক্ষকের জন্য সাম্প্রতিক নোটিশ
 $notices = $pdo->query("
@@ -461,31 +474,30 @@ if (empty($chart_labels)) {
                                     <div class="card-header">
                                         <h3 class="card-title">
                                             <i class="fas fa-history mr-1"></i>
-                                            সাম্প্রতিক উপস্থিতি
+                                            সাম্প্রতিক অনুপস্থিতি
                                         </h3>
                                     </div>
                                     <div class="card-body p-0">
                                         <ul class="products-list product-list-in-card pl-2 pr-2">
-                                            <?php foreach($recent_attendance_data as $attendance): ?>
+                                            <?php foreach($recent_absence_data as $absence): ?>
                                             <li class="item">
                                                 <div class="product-img">
-                                                    <?php if($attendance['status'] == 'present'): ?>
-                                                        <i class="fas fa-check-circle fa-2x text-success"></i>
-                                                    <?php elseif($attendance['status'] == 'absent'): ?>
-                                                        <i class="fas fa-times-circle fa-2x text-danger"></i>
-                                                    <?php else: ?>
-                                                        <i class="fas fa-clock fa-2x text-warning"></i>
-                                                    <?php endif; ?>
+                                                    <i class="fas fa-times-circle fa-2x text-danger"></i>
                                                 </div>
                                                 <div class="product-info">
-                                                    <a href="javascript:void(0)" class="product-title"><?php echo $attendance['first_name'] . ' ' . $attendance['last_name']; ?>
-                                                        <span class="badge attendance-badge float-right 
-                                                            <?php echo $attendance['status'] == 'present' ? 'badge-success' : ($attendance['status'] == 'absent' ? 'badge-danger' : 'badge-warning'); ?>">
-                                                            <?php echo $attendance['status'] == 'present' ? 'উপস্থিত' : ($attendance['status'] == 'absent' ? 'অনুপস্থিত' : 'বিলম্বিত'); ?>
-                                                        </span>
+                                                    <a href="#" class="product-title" data-toggle="modal" data-target="#studentModal" data-student='<?php echo json_encode([
+                                                        "id" => $absence['student_id'],
+                                                        "name" => $absence['first_name'] . ' ' . $absence['last_name'],
+                                                        "class" => $absence['class_name'],
+                                                        "section" => $absence['section_name'],
+                                                        "phone" => $absence['phone'],
+                                                        "date" => $absence['date']
+                                                    ]); ?>'>
+                                                        <?php echo $absence['first_name'] . ' ' . $absence['last_name']; ?>
+                                                        <span class="badge attendance-badge float-right badge-danger">অনুপস্থিত</span>
                                                     </a>
                                                     <span class="product-description">
-                                                        <?php echo $attendance['class_name']; ?> | <?php echo date('d/m/Y', strtotime($attendance['date'])); ?>
+                                                        <?php echo $absence['class_name']; ?> | <?php echo date('d/m/Y', strtotime($absence['date'])); ?>
                                                     </span>
                                                 </div>
                                             </li>
@@ -493,10 +505,71 @@ if (empty($chart_labels)) {
                                         </ul>
                                     </div>
                                     <div class="card-footer text-center">
-                                        <a href="<?php echo ADMIN_URL; ?>attendance.php" class="btn btn-sm btn-primary">সমস্ত উপস্থিতি দেখুন</a>
+                                        <a href="<?php echo ADMIN_URL; ?>attendance.php" class="btn btn-sm btn-primary">সমস্ত অনুপস্থিতি দেখুন</a>
                                     </div>
                                 </div>
                             </div>
+                        <!-- Period-wise Class Routine -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">
+                                    <i class="fas fa-calendar-alt mr-1"></i>
+                                    পিরিওড ভিত্তিক ক্লাস রুটিন
+                                </h3>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-bordered table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>দিন</th>
+                                                <th>পিরিওড</th>
+                                                <th>ক্লাস</th>
+                                                <th>শাখা</th>
+                                                <th>বিষয়</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach($period_routine as $r): ?>
+                                            <tr>
+                                                <td><?php echo htmlspecialchars($r['day']); ?></td>
+                                                <td><?php echo htmlspecialchars($r['period']); ?></td>
+                                                <td><?php echo htmlspecialchars($r['class_name']); ?></td>
+                                                <td><?php echo htmlspecialchars($r['section_name']); ?></td>
+                                                <td><?php echo htmlspecialchars($r['subject_name']); ?></td>
+                                            </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+</div>
+<!-- Student Info Modal -->
+<div class="modal fade" id="studentModal" tabindex="-1" role="dialog" aria-labelledby="studentModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="studentModalLabel">শিক্ষার্থীর সংক্ষিপ্ত বিবরণী</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p><b>নাম:</b> <span id="modalStudentName"></span></p>
+                <p><b>ক্লাস:</b> <span id="modalStudentClass"></span></p>
+                <p><b>শাখা:</b> <span id="modalStudentSection"></span></p>
+                <p><b>তারিখ:</b> <span id="modalStudentDate"></span></p>
+                <p><b>মোবাইল:</b> <span id="modalStudentPhone"></span></p>
+            </div>
+            <div class="modal-footer">
+                <a href="#" id="callStudentBtn" class="btn btn-success" target="_blank"><i class="fas fa-phone"></i> কল করুন</a>
+                <a href="#" id="smsStudentBtn" class="btn btn-info" target="_blank"><i class="fas fa-sms"></i> মেসেজ পাঠান</a>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">বন্ধ করুন</button>
+            </div>
+        </div>
+    </div>
+</div>
                         </div>
 
                         <!-- Recent Exams -->
@@ -669,6 +742,25 @@ if (empty($chart_labels)) {
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
 <!-- AdminLTE App -->
 <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
+<!-- Modal student info script -->
+<script>
+$(document).on('click', '[data-target="#studentModal"]', function() {
+    var student = $(this).data('student');
+    $('#modalStudentName').text(student.name);
+    $('#modalStudentClass').text(student.class);
+    $('#modalStudentSection').text(student.section);
+    $('#modalStudentDate').text(student.date);
+    $('#modalStudentPhone').text(student.phone);
+    // Call and SMS buttons
+    if(student.phone) {
+        $('#callStudentBtn').attr('href', 'tel:' + student.phone).show();
+        $('#smsStudentBtn').attr('href', 'sms:' + student.phone).show();
+    } else {
+        $('#callStudentBtn').hide();
+        $('#smsStudentBtn').hide();
+    }
+});
+</script>
 
 <script>
     $(document).ready(function() {
