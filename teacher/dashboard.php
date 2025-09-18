@@ -55,7 +55,7 @@ $attendance_month_data = $attendance_month->fetch();
 
 // সাম্প্রতিক অনুপস্থিতি রেকর্ড (recent absences only)
 $recent_absence = $pdo->prepare("
-    SELECT a.*, s.first_name, s.last_name, s.phone, s.id as student_id, c.name as class_name, sec.name as section_name
+    SELECT a.*, s.first_name, s.last_name, s.mobile_number, s.id as student_id, c.name as class_name, sec.name as section_name
     FROM attendance a
     JOIN students s ON a.student_id = s.id
     JOIN classes c ON a.class_id = c.id
@@ -490,7 +490,7 @@ if (empty($chart_labels)) {
                                                         "name" => $absence['first_name'] . ' ' . $absence['last_name'],
                                                         "class" => $absence['class_name'],
                                                         "section" => $absence['section_name'],
-                                                        "phone" => $absence['phone'],
+                                                        "phone" => $absence['mobile_number'],
                                                         "date" => $absence['date']
                                                     ]); ?>'>
                                                         <?php echo $absence['first_name'] . ' ' . $absence['last_name']; ?>
