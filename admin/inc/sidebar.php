@@ -234,6 +234,11 @@
                                 <p>সাধারণ সেটিংস</p>
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/settings/attendance_settings.php" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>হাজিরা সেটিংস</p>
+                            </a>
                     </ul>
                 </li>
                 <li class="nav-item mt-3">
