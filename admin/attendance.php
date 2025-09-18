@@ -3,7 +3,8 @@ require_once '../config.php';
 
 // Authentication check
 if (!isAuthenticated() || !hasRole(['super_admin', 'teacher'])) {
-    redirect('../login.php');
+    header('Location: ../login.php');
+    exit;
 }
 
 // Get today's date for default selection
@@ -351,7 +352,13 @@ if ($selected_class) {
     <!-- /.navbar -->
 
     <!-- Main Sidebar Container -->
-    <?php include 'inc/sidebar.php'; ?>
+    <?php
+    if (hasRole(['super_admin'])) {
+        include 'inc/sidebar.php';
+    } elseif (hasRole(['teacher'])) {
+        include '../teacher/inc/sidebar.php';
+    }
+    ?>
 
     <!-- Content Wrapper. Contains page content -->
     <div class="content-wrapper">
