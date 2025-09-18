@@ -1,6 +1,6 @@
 <?php
+ob_start();
 require_once '../config.php';
-session_start();
 
 $teacher_id = $_SESSION['user_id'];
 $today = date('Y-m-d');
@@ -13,8 +13,13 @@ if(!empty($_POST['photo'])){
     $img = str_replace(' ','+',$img);
     $data = base64_decode($img);
     $filename = $teacher_id."_".time().".jpg";
+
+    // ফোল্ডার সঠিকভাবে সেট করুন
+    $uploadDir = __DIR__."/../uploads/attendance/";
+    if(!is_dir($uploadDir)) mkdir($uploadDir, 0775, true);
+
     $file = "uploads/attendance/".$filename;
-    file_put_contents("../".$file, $data);
+    file_put_contents($uploadDir.$filename, $data);
 }
 
 $lat = $_POST['lat'] ?? null;
@@ -43,4 +48,4 @@ if(!$record){
 
 header("Location: teacher_attendance.php");
 exit;
-?>
+ob_end_flush();
