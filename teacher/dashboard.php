@@ -179,115 +179,131 @@ if (empty($chart_labels)) {
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
-    <style>
+        <style>
         body, .main-sidebar, .nav-link {
             font-family: 'SolaimanLipi', 'Source Sans Pro', sans-serif;
         }
+
+        /* Welcome Box */
         .teacher-welcome {
-            background: linear-gradient(120deg, #4e73df, #224abe);
+            background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+            transition: all 0.3s ease-in-out;
         }
+        .teacher-welcome:hover {
+            transform: translateY(-5px);
+        }
+
+        /* Info-Box Custom */
         .info-box {
             cursor: pointer;
-            transition: transform 0.3s, box-shadow 0.3s;
-            border-radius: 10px;
-            overflow: hidden;
+            border-radius: 15px;
+            transition: all 0.3s;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
         }
         .info-box:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+            transform: scale(1.05);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
         }
-        .progress-sm {
-            height: 12px;
-            border-radius: 6px;
-        }
+
+        /* Gradient backgrounds */
         .bg-gradient-primary {
-            background: linear-gradient(135deg, #4e73df 0%, #224abe 100%) !important;
+            background: linear-gradient(135deg, #4e73df, #224abe) !important;
         }
         .bg-gradient-success {
-            background: linear-gradient(135deg, #1cc88a 0%, #13855c 100%) !important;
+            background: linear-gradient(135deg, #1cc88a, #13855c) !important;
         }
         .bg-gradient-info {
-            background: linear-gradient(135deg, #36b9cc 0%, #258391 100%) !important;
+            background: linear-gradient(135deg, #36b9cc, #258391) !important;
         }
         .bg-gradient-warning {
-            background: linear-gradient(135deg, #f6c23e 0%, #dda20a 100%) !important;
+            background: linear-gradient(135deg, #f6c23e, #e3b10d) !important;
         }
         .bg-gradient-danger {
-            background: linear-gradient(135deg, #e74a3b 0%, #be2617 100%) !important;
+            background: linear-gradient(135deg, #e74a3b, #c0392b) !important;
         }
         .bg-gradient-purple {
-            background: linear-gradient(135deg, #6f42c1 0%, #4e2a8e 100%) !important;
+            background: linear-gradient(135deg, #6f42c1, #4e2a8e) !important;
         }
+
+        /* Card Custom */
         .card {
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-            margin-bottom: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
             border: none;
-        }
-        .card-header {
-            border-top-left-radius: 10px !important;
-            border-top-right-radius: 10px !important;
-            background: white;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-        }
-        .dashboard-widget {
             transition: all 0.3s;
         }
-        .dashboard-widget:hover {
+        .card:hover {
             transform: translateY(-3px);
         }
-        .attendance-badge {
-            font-size: 0.85rem;
-            padding: 5px 10px;
-            border-radius: 20px;
+        .card-header {
+            border-top-left-radius: 15px !important;
+            border-top-right-radius: 15px !important;
+            background: #f8f9fc;
         }
-        .event-date {
-            background: #4e73df;
-            color: white;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            font-weight: bold;
-            margin-right: 15px;
-        }
+
+        /* Quick Action */
         .quick-action-btn {
-            border-radius: 10px;
-            padding: 15px;
+            border-radius: 15px;
+            padding: 20px;
             text-align: center;
-            transition: all 0.3s;
-            background: white;
+            transition: all 0.3s ease;
+            background: #fff;
             border: 1px solid #e3e6f0;
-            height: 100%;
         }
         .quick-action-btn:hover {
             transform: translateY(-5px);
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
             border-color: #4e73df;
+            background: linear-gradient(135deg,#fdfbfb,#ebedee);
         }
         .quick-action-btn i {
             font-size: 2rem;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             color: #4e73df;
         }
-        .notification-dot {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            width: 10px;
-            height: 10px;
-            background: #e74a3b;
+
+        /* Event Design */
+        .event-date {
+            background: linear-gradient(135deg,#4e73df,#224abe);
+            color: #fff;
+            width: 50px;
+            height: 50px;
             border-radius: 50%;
+            font-weight: bold;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+        }
+
+        /* Attendance Badge */
+        .attendance-badge {
+            font-size: 0.85rem;
+            padding: 5px 12px;
+            border-radius: 25px;
+        }
+
+        /* Modal custom */
+        .modal-content {
+            border-radius: 15px;
+            overflow: hidden;
+        }
+        .modal-header {
+            background: linear-gradient(135deg,#4e73df,#224abe);
+            color: #fff;
+        }
+        .modal-footer button, .modal-footer a {
+            border-radius: 8px;
         }
     </style>
+
 </head>
 <body class="hold-transition sidebar-mini">
 <div class="wrapper">
