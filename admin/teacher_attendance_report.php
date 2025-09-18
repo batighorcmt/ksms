@@ -87,9 +87,9 @@ $records = $stmt->fetchAll();
                                 <tr>
                                     <td><?php echo htmlspecialchars($rec['date']); ?></td>
                                     <td><?php echo htmlspecialchars($rec['full_name']); ?></td>
-                                    <td><?php echo htmlspecialchars($rec['check_in']); ?></td>
-                                    <td><?php echo htmlspecialchars($rec['check_out']); ?></td>
-                                    <td><?php echo htmlspecialchars($rec['status']); ?></td>
+                                    <td><?php echo htmlspecialchars($rec['check_in'] ?? ''); ?></td>
+                                    <td><?php echo htmlspecialchars($rec['check_out'] ?? ''); ?></td>
+                                    <td><?php echo htmlspecialchars($rec['status'] ?? ''); ?></td>
                                     <td>
                                         <?php if($rec['check_in_photo']): ?>
                                             <a href="../<?php echo htmlspecialchars($rec['check_in_photo']); ?>" target="_blank"><img src="../<?php echo htmlspecialchars($rec['check_in_photo']); ?>" width="40"></a>
