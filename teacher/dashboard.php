@@ -75,7 +75,7 @@ $routine_stmt = $pdo->prepare("
     JOIN sections s ON r.section_id = s.id
     JOIN subjects sub ON r.subject_id = sub.id
     WHERE r.teacher_id = ?
-    ORDER BY r.day, r.period
+    ORDER BY r.period
 ");
 $routine_stmt->execute([$teacher_id]);
 $period_routine = $routine_stmt->fetchAll();
