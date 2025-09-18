@@ -12,21 +12,23 @@ $teacher_id = isset($_GET['teacher_id']) ? intval($_GET['teacher_id']) : '';
 // Fetch teachers
 $teachers = $pdo->query("SELECT id, full_name FROM users WHERE role='teacher' ORDER BY full_name ASC")->fetchAll();
 
-// Build query
-$sql = "SELECT ta.*, u.full_name FROM teacher_attendance ta JOIN users u ON ta.teacher_id = u.id WHERE 1";
-$params = [];
-if ($teacher_id) {
-    $sql .= " AND ta.teacher_id = ?";
-    $params[] = $teacher_id;
-}
+
+// Build attendance map for the selected date
+$attendanceMap = [];
 if ($date) {
-    $sql .= " AND ta.date = ?";
-    $params[] = $date;
+    $sql = "SELECT ta.*, u.full_name FROM teacher_attendance ta JOIN users u ON ta.teacher_id = u.id WHERE ta.date = ?";
+    $params = [$date];
+    if ($teacher_id) {
+        $sql .= " AND ta.teacher_id = ?";
+        $params[] = $teacher_id;
+    }
+    $sql .= " ORDER BY ta.check_in ASC, u.full_name ASC";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    foreach ($stmt->fetchAll() as $rec) {
+        $attendanceMap[$rec['teacher_id']] = $rec;
+    }
 }
-$sql .= " ORDER BY ta.date DESC, ta.check_in ASC, u.full_name ASC";
-$stmt = $pdo->prepare($sql);
-$stmt->execute($params);
-$records = $stmt->fetchAll();
 
 ?>
 <!DOCTYPE html>
@@ -90,27 +92,40 @@ $records = $stmt->fetchAll();
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php foreach($records as $rec): ?>
+                                <?php
+                                foreach ($teachers as $t) {
+                                    // If filtering by teacher, skip others
+                                    if ($teacher_id && $teacher_id != $t['id']) continue;
+                                    $rec = $attendanceMap[$t['id']] ?? null;
+                                ?>
                                 <tr>
-                                    <td><?php echo htmlspecialchars($rec['date']); ?></td>
-                                    <td><?php echo htmlspecialchars($rec['full_name']); ?></td>
+                                    <td><?php echo htmlspecialchars($date); ?></td>
+                                    <td><?php echo htmlspecialchars($t['full_name']); ?></td>
                                     <td><?php echo htmlspecialchars($rec['check_in'] ?? ''); ?></td>
                                     <td><?php echo htmlspecialchars($rec['check_out'] ?? ''); ?></td>
-                                    <td><?php echo htmlspecialchars($rec['status'] ?? ''); ?></td>
                                     <td>
-                                        <?php if($rec['check_in_photo']): ?>
+                                        <?php
+                                        if ($rec) {
+                                            echo htmlspecialchars($rec['status'] ?? '');
+                                        } else {
+                                            echo '<span class="badge badge-danger">Absent</span>';
+                                        }
+                                        ?>
+                                    </td>
+                                    <td>
+                                        <?php if($rec && $rec['check_in_photo']): ?>
                                             <img src="../<?php echo htmlspecialchars($rec['check_in_photo']); ?>" width="40" class="img-thumb" style="cursor:pointer" onclick="showImgPreview('../<?php echo htmlspecialchars($rec['check_in_photo']); ?>')">
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <?php if($rec['check_out_photo']): ?>
+                                        <?php if($rec && $rec['check_out_photo']): ?>
                                             <img src="../<?php echo htmlspecialchars($rec['check_out_photo']); ?>" width="40" class="img-thumb" style="cursor:pointer" onclick="showImgPreview('../<?php echo htmlspecialchars($rec['check_out_photo']); ?>')">
                                         <?php endif; ?>
                                     </td>
                                     <td>
                                         <?php
                                         $locs = [];
-                                        if (!empty($rec['check_in_location'])) {
+                                        if ($rec && !empty($rec['check_in_location'])) {
                                             $loc = explode(',', $rec['check_in_location']);
                                             if(count($loc) == 2) {
                                                 $lat = trim($loc[0]);
@@ -119,7 +134,7 @@ $records = $stmt->fetchAll();
                                                 $locs[] = '<a href="'.htmlspecialchars($url).'" target="_blank">চেক-ইন</a>';
                                             }
                                         }
-                                        if (!empty($rec['check_out_location'])) {
+                                        if ($rec && !empty($rec['check_out_location'])) {
                                             $loc = explode(',', $rec['check_out_location']);
                                             if(count($loc) == 2) {
                                                 $lat = trim($loc[0]);
@@ -132,7 +147,7 @@ $records = $stmt->fetchAll();
                                         ?>
                                     </td>
                                 </tr>
-                                <?php endforeach; ?>
+                                <?php } ?>
                             </tbody>
                         </table>
                     </div>
