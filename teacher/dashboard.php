@@ -318,11 +318,11 @@ if (empty($chart_labels)) {
                         </div>
                         <div class="col-md-4 text-right">
                             <div class="btn-group">
-                                <a href="<?php echo ADMIN_URL; ?>attendance.php" class="btn btn-light">
-                                    <i class="fas fa-clipboard-check mr-1"></i> আজকের উপস্থিতি নিন
+                                <a href="<?php echo BASE_URL; ?>teacher/teacher_attendance.php" class="btn btn-light">
+                                    <i class="fas fa-clipboard-check mr-1"></i> আপনার নিজের উপস্থিতি দিন
                                 </a>
-                                <a href="<?php echo ADMIN_URL; ?>exam.php" class="btn btn-light ml-2">
-                                    <i class="fas fa-book mr-1"></i> পরীক্ষা যোগ করুন
+                                <a href="<?php echo ADMIN_URL; ?>attendance.php" class="btn btn-light ml-2">
+                                    <i class="fas fa-book mr-1"></i> শিক্ষার্থীর আজকের উপস্থিতি নিন
                                 </a>
                             </div>
                         </div>
