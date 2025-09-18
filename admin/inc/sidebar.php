@@ -171,6 +171,11 @@
                                 <p>মাসিক উপস্থিতি</p>
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/teacher_attendance_report.php" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>শিক্ষক উপস্থিতি রিপোর্ট</p>
+                            </a>
 
                     </ul>
                 </li>
