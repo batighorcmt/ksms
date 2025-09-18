@@ -29,6 +29,59 @@ $record = $stmt->fetch();
     <link href="https://fonts.maateen.me/solaiman-lipi/font.css" rel="stylesheet">
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+        :root {
+            --primary-color: #4e73df;
+            --secondary-color: #6f42c1;
+            --success-color: #1cc88a;
+        }
+        body {
+            font-family: SolaimanLipi, Arial, sans-serif;
+            background-color: #f8f9fc;
+        }
+        .card {
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+            border: none;
+            border-radius: 10px;
+        }
+        .card-header {
+            border-radius: 10px 10px 0 0 !important;
+            font-weight: 700;
+        }
+        .btn-primary {
+            background-color: var(--primary-color);
+            border: none;
+        }
+        .btn-primary:hover {
+            background-color: darken(var(--primary-color), 10%);
+        }
+        .btn-success {
+            background-color: var(--success-color);
+            border: none;
+        }
+        .btn-success:hover {
+            background-color: darken(var(--success-color), 10%);
+        }
+        .btn-danger {
+            background-color: #e74a3b;
+            border: none;
+        }
+        .btn-danger:hover {
+            background-color: darken(#e74a3b, 10%);
+        }
+        .text-primary {
+            color: var(--primary-color) !important;
+        }
+        .text-success {
+            color: var(--success-color) !important;
+        }
+        .text-secondary {
+            color: var(--secondary-color) !important;
+        }
+
+        .main-sidebar, .nav-link { font-family: 'SolaimanLipi', 'Source Sans Pro', sans-serif; }
+        .table th, .table td { vertical-align: middle; }
+    </style>
 
 <?php include '../admin/inc/header.php'; ?>
 <?php include 'inc/sidebar.php'; ?>

@@ -330,7 +330,13 @@ if ($is_print) {
 <body class="hold-transition sidebar-mini">
 <div class="wrapper">
     <?php include 'inc/header.php'; ?>
-    <?php include 'inc/sidebar.php'; ?>
+    <?php
+    if (hasRole(['super_admin'])) {
+        include 'inc/sidebar.php';
+    } elseif (hasRole(['teacher'])) {
+        include '../teacher/inc/sidebar.php';
+    }
+    ?>
     <div class="content-wrapper">
         <div class="content-header">
             <div class="container-fluid">

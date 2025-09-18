@@ -196,7 +196,13 @@ if (isset($_GET['delete'])) {
     <!-- /.navbar -->
 
     <!-- Main Sidebar Container -->
-    <?php include 'inc/sidebar.php'; ?>
+    <?php
+    if (hasRole(['super_admin'])) {
+        include 'inc/sidebar.php';
+    } elseif (hasRole(['teacher'])) {
+        include '../teacher/inc/sidebar.php';
+    }
+    ?>
 
     <!-- Content Wrapper. Contains page content -->
     <div class="content-wrapper">
