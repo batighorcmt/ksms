@@ -40,10 +40,27 @@ $subs = $pdo->prepare("
 ");
 $subs->execute([$exam_id]);
 $exam_subjects = $subs->fetchAll();
-
-// ...existing code...
 ?>
-
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>মার্ক এন্ট্রি</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.maateen.me/solaiman-lipi/font.css" rel="stylesheet">
+  <style>
+    body { font-family: SolaimanLipi, Arial, sans-serif; }
+    .card { border-radius: 10px; }
+    .table th, .table td { vertical-align: middle; }
+  </style>
+</head>
+<body>
+<?php 
+include '../admin/inc/header.php'; 
+include '../admin/inc/sidebar.php'; 
+?>
 <div class="content-wrapper p-3">
   <section class="content-header">
     <h1>Exam Details: <?= htmlspecialchars($exam['name']) ?></h1>
@@ -124,3 +141,5 @@ $exam_subjects = $subs->fetchAll();
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
 <style>@media print {.no-print{display:none!important;}}</style>
 <?php ob_end_flush(); ?>
+</body>
+</html>
