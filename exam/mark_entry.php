@@ -3,8 +3,8 @@ require_once '../config.php';
 if (!isAuthenticated() || !hasRole(['teacher'])) redirect('../login.php');
 $teacher_id = $_SESSION['user_id'];
 
-// Exams list for teacher's classes
-$exams = $pdo->prepare("SELECT e.*, c.name as class_name, s.name as section_name, t.name as type_name FROM exams e JOIN classes c ON e.class_id=c.id LEFT JOIN sections s ON e.section_id=s.id JOIN exam_types t ON e.exam_type_id=t.id WHERE c.class_teacher_id=?");
+// Exams list for teacher's classes (section_id may not exist in exams table)
+$exams = $pdo->prepare("SELECT e.*, c.name as class_name, t.name as type_name FROM exams e JOIN classes c ON e.class_id=c.id JOIN exam_types t ON e.exam_type_id=t.id WHERE c.class_teacher_id=?");
 $exams->execute([$teacher_id]);
 $exams = $exams->fetchAll();
 
@@ -91,7 +91,7 @@ if ($selected_class_id && $selected_section_id && $exam_subject) {
         <label class="mr-2">পরীক্ষা:</label>
         <select name="exam_id" class="form-control mr-3" onchange="this.form.submit()">
           <?php foreach($exams as $ex): ?>
-            <option value="<?= $ex['id'] ?>" <?= $ex['id']==$exam_id?'selected':'' ?>><?= htmlspecialchars($ex['name']) ?> (<?= htmlspecialchars($ex['class_name']) ?><?= $ex['section_name'] ? ' - '.htmlspecialchars($ex['section_name']) : '' ?>)</option>
+            <option value="<?= $ex['id'] ?>" <?= $ex['id']==$exam_id?'selected':'' ?>><?= htmlspecialchars($ex['name']) ?> (<?= htmlspecialchars($ex['class_name']) ?>)</option>
           <?php endforeach; ?>
         </select>
         <label class="mr-2">শ্রেণি:</label>
