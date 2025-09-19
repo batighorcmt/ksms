@@ -10,7 +10,7 @@ $date = isset($_GET['date']) ? $_GET['date'] : date('Y-m-d');
 $teacher_id = isset($_GET['teacher_id']) ? intval($_GET['teacher_id']) : '';
 
 // Fetch teachers
-$teachers = $pdo->query("SELECT id, full_name FROM users WHERE role='teacher' ORDER BY full_name ASC")->fetchAll();
+$teachers = $pdo->query("SELECT id, full_name FROM users WHERE role='teacher' AND status='active' ORDER BY full_name ASC")->fetchAll();
 
 
 // Build attendance map for the selected date
