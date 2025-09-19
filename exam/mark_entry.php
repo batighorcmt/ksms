@@ -3,7 +3,7 @@ require_once '../config.php';
 if (!isAuthenticated() || !hasRole(['teacher'])) redirect('../login.php');
 $teacher_id = $_SESSION['user_id'];
 
-// Exams list for teacher's classes (section_id may not exist in exams table)
+// Exams list for teacher's classes
 $exams = $pdo->prepare("SELECT e.*, c.name as class_name, t.name as type_name FROM exams e JOIN classes c ON e.class_id=c.id JOIN exam_types t ON e.exam_type_id=t.id WHERE c.class_teacher_id=?");
 $exams->execute([$teacher_id]);
 $exams = $exams->fetchAll();
@@ -24,17 +24,17 @@ if ($selected_class_id) {
 
 $selected_section_id = isset($_GET['section_id']) ? intval($_GET['section_id']) : ($sections[0]['id'] ?? 0);
 
-// Subjects for this teacher in selected class/section
+// Subjects for this teacher in selected class/section from routines table
 $subjects = [];
 if ($selected_class_id && $selected_section_id) {
-  $subjects_stmt = $pdo->prepare("SELECT s.* FROM class_subjects cs JOIN subjects s ON cs.subject_id=s.id WHERE cs.class_id=? AND cs.section_id=? AND cs.teacher_id=?");
+  $subjects_stmt = $pdo->prepare("SELECT s.* FROM routines r JOIN subjects s ON r.subject_id=s.id WHERE r.class_id=? AND r.section_id=? AND r.teacher_id=? GROUP BY s.id");
   $subjects_stmt->execute([$selected_class_id, $selected_section_id, $teacher_id]);
   $subjects = $subjects_stmt->fetchAll();
 }
 
 $selected_subject_id = isset($_GET['subject_id']) ? intval($_GET['subject_id']) : ($subjects[0]['id'] ?? 0);
 
-// Find exam for this class/section
+// Find exam for this class
 $exam_id = isset($_GET['exam_id']) ? intval($_GET['exam_id']) : ($exams[0]['id'] ?? 0);
 $exam = null;
 foreach ($exams as $ex) {
@@ -114,10 +114,10 @@ if ($selected_class_id && $selected_section_id && $exam_subject) {
         </select>
       </form>
 
-      <?php if ($selected_subject_id && !$exam_subject): ?>
-        <div class="alert alert-danger">এই বিষয়টি এই পরীক্ষার জন্য যুক্ত করা হয়নি। অনুগ্রহ করে পরীক্ষার সেটিংসে বিষয়টি যুক্ত করুন।</div>
-      <?php elseif ($selected_subject_id && !$subjects): ?>
+      <?php if ($selected_subject_id && !$subjects): ?>
         <div class="alert alert-warning">আপনার রুটিনে এই বিষয়টি নেই।</div>
+      <?php elseif ($selected_subject_id && !$exam_subject): ?>
+        <div class="alert alert-danger">এই বিষয়টি এই পরীক্ষার জন্য যুক্ত করা হয়নি। অনুগ্রহ করে পরীক্ষার সেটিংসে বিষয়টি যুক্ত করুন।</div>
       <?php elseif ($exam_subject && $students): ?>
       <div class="card"><div class="card-body table-responsive">
         <table class="table table-sm table-bordered">
