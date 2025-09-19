@@ -2,8 +2,6 @@
 ob_start();
 require_once '../config.php';
 if (!isAuthenticated() || !hasRole(['super_admin'])) redirect('../login.php');
-include '../admin/inc/header.php';
-include '../admin/inc/sidebar.php';
 
 $exam_id = intval($_GET['id'] ?? 0);
 if (!$exam_id) {
@@ -134,7 +132,7 @@ include '../admin/inc/sidebar.php';
     </div>
   </section>
 </div>
-
+ 
 <?php include '../admin/inc/footer.php'; ?>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
