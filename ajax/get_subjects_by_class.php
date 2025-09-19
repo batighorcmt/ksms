@@ -7,7 +7,13 @@ if (!isAuthenticated() || !hasRole(['super_admin'])) {
 }
 $class_id = intval($_GET['class_id'] ?? 0);
 if ($class_id > 0) {
-    $stmt = $pdo->prepare("SELECT s.id, s.name FROM subjects s INNER JOIN class_subjects cs ON cs.subject_id = s.id WHERE cs.class_id = ? ORDER BY s.numaric_value ASC");
+    // Try to order by numeric_value if exists, else fallback to name
+    $orderBy = 's.name ASC';
+    $columns = $pdo->query("SHOW COLUMNS FROM subjects LIKE 'numeric_value'")->fetch();
+    if ($columns) {
+        $orderBy = 's.numeric_value ASC';
+    }
+    $stmt = $pdo->prepare("SELECT s.id, s.name FROM subjects s INNER JOIN class_subjects cs ON cs.subject_id = s.id WHERE cs.class_id = ? AND s.status = 'active' ORDER BY $orderBy");
     $stmt->execute([$class_id]);
     $subjects = $stmt->fetchAll(PDO::FETCH_ASSOC);
     echo json_encode($subjects, JSON_UNESCAPED_UNICODE);
