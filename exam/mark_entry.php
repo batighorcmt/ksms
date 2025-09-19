@@ -30,9 +30,16 @@ if ($class_id) {
 
 $subjects = [];
 if ($class_id && $section_id) {
+  // Try to get subjects from routines (teacher's routine)
   $subjects_stmt = $pdo->prepare("SELECT s.* FROM routines r JOIN subjects s ON r.subject_id=s.id WHERE r.class_id=? AND r.section_id=? AND r.teacher_id=? GROUP BY s.id ORDER BY s.name");
   $subjects_stmt->execute([$class_id, $section_id, $teacher_id]);
   $subjects = $subjects_stmt->fetchAll();
+  // If not found, fallback to class_subjects (class-section wise)
+  if (empty($subjects)) {
+    $subjects_stmt2 = $pdo->prepare("SELECT s.* FROM class_subjects cs JOIN subjects s ON cs.subject_id=s.id WHERE cs.class_id=? AND cs.section_id=? GROUP BY s.id ORDER BY s.name");
+    $subjects_stmt2->execute([$class_id, $section_id]);
+    $subjects = $subjects_stmt2->fetchAll();
+  }
 }
 
 /* Validation */
