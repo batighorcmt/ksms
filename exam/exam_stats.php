@@ -66,10 +66,7 @@ foreach ($students as $stu) {
     }
 }
 
-include '../admin/inc/header.php';
-include '../admin/inc/sidebar.php';
-?>
-<!DOCTYPE html>
+?><!DOCTYPE html>
 <html lang="bn">
 <head>
   <meta charset="utf-8">
@@ -87,6 +84,8 @@ include '../admin/inc/sidebar.php';
   </style>
 </head>
 <body>
+<?php include '../admin/inc/header.php'; ?>
+<?php include '../admin/inc/sidebar.php'; ?>
 <div class="content-wrapper p-3">
   <section class="content-header"><h1>Exam Statistics - <?= htmlspecialchars($exam['name']) ?></h1></section>
   <section class="content">
