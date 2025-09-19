@@ -1,3 +1,4 @@
+
 <?php
 require_once '../config.php';
 if (!isAuthenticated()) redirect('../login.php');
@@ -8,14 +9,60 @@ if(!$exam_id) { echo "Invalid"; exit; }
 $exam = $pdo->prepare("SELECT e.*, c.name class_name, t.name type_name FROM exams e JOIN classes c ON e.class_id=c.id JOIN exam_types t ON e.exam_type_id=t.id WHERE e.id=?");
 $exam->execute([$exam_id]); $exam = $exam->fetch();
 
-$subjects = $pdo->prepare("SELECT es.*, sub.name subject_name FROM exam_subjects es JOIN subjects sub ON es.subject_id=sub.id WHERE es.exam_id=?");
+$subjects = $pdo->prepare("SELECT es.*, sub.name subject_name, es.full_mark, es.pass_mark FROM exam_subjects es JOIN subjects sub ON es.subject_id=sub.id WHERE es.exam_id=?");
 $subjects->execute([$exam_id]); $subjects = $subjects->fetchAll();
 
-$tab = $pdo->prepare("SELECT tc.*, s.first_name, s.last_name, s.roll_number FROM tabulation_cache tc JOIN students s ON tc.student_id=s.id WHERE tc.exam_id=? ORDER BY tc.position ASC, tc.total_marks DESC");
-$tab->execute([$exam_id]); $tabulation = $tab->fetchAll();
+// Get all students for this class
+$students = $pdo->prepare("SELECT * FROM students WHERE class_id=? AND status='active' ORDER BY roll_number ASC");
+$students->execute([$exam['class_id']]);
+$students = $students->fetchAll();
+
+// Build tabulation from marks table
+$tabulation = [];
+foreach ($students as $stu) {
+    $total = 0;
+    $subjects_passed = 0;
+    $subjects_failed = 0;
+    $marks = [];
+    $all_passed = true;
+    foreach ($subjects as $s) {
+        $m = $pdo->prepare("SELECT obtained_marks FROM marks WHERE exam_subject_id=? AND student_id=?");
+        $m->execute([$s['id'], $stu['id']]);
+        $mr = $m->fetch();
+        $obt = $mr ? floatval($mr['obtained_marks']) : 0;
+        $marks[] = $obt;
+        $total += $obt;
+        if ($obt >= floatval($s['pass_mark'])) {
+            $subjects_passed++;
+        } else {
+            $subjects_failed++;
+            $all_passed = false;
+        }
+    }
+    $tabulation[] = [
+        'roll_number' => $stu['roll_number'],
+        'first_name' => $stu['first_name'],
+        'last_name' => $stu['last_name'],
+        'marks' => $marks,
+        'total_marks' => $total,
+        'subjects_passed' => $subjects_passed,
+        'subjects_failed' => $subjects_failed,
+        'result_status' => $all_passed ? 'PASSED' : 'FAILED',
+    ];
+}
+
+// Sort by total_marks desc
+usort($tabulation, function($a, $b) {
+    return $b['total_marks'] <=> $a['total_marks'];
+});
+// Assign position
+foreach ($tabulation as $i => &$row) {
+    $row['position'] = $i+1;
+}
+unset($row);
 
 include '../admin/inc/header.php';
-include 'inc/sidebar.php';
+include '../admin/inc/sidebar.php';
 ?>
 <div class="content-wrapper p-3">
   <section class="content-header"><h1>Tabulation - <?= htmlspecialchars($exam['name']) ?></h1></section>
@@ -28,20 +75,13 @@ include 'inc/sidebar.php';
           <th>Total</th><th>Passed Subjects</th><th>Failed Subjects</th><th>Result</th></tr>
         </thead>
         <tbody>
-          <?php foreach($tabulation as $row): 
-              // for each subject show marks from marks table
-            ?>
+          <?php foreach($tabulation as $row): ?>
             <tr>
               <td><?= $row['position'] ?></td>
               <td><?= $row['roll_number'] ?></td>
               <td><?= htmlspecialchars($row['first_name'].' '.$row['last_name']) ?></td>
-              <?php foreach($subjects as $s):
-                $m = $pdo->prepare("SELECT obtained_marks FROM marks WHERE exam_subject_id=? AND student_id=?");
-                $m->execute([$s['id'],$row['student_id']]);
-                $mr = $m->fetch();
-                $obt = $mr ? $mr['obtained_marks'] : 0;
-              ?>
-              <td><?= $obt ?></td>
+              <?php foreach($row['marks'] as $obt): ?>
+                <td><?= $obt ?></td>
               <?php endforeach; ?>
               <td><?= $row['total_marks'] ?></td>
               <td><?= $row['subjects_passed'] ?></td>
