@@ -72,8 +72,8 @@ $rules = $pdo->query("SELECT * FROM exam_result_rules ORDER BY id DESC")->fetchA
 </head>
 <body class="hold-transition sidebar-mini">
 <div class="wrapper">
-  <?php include '../inc/header.php'; ?>
-  <?php include '../inc/sidebar.php'; ?>
+  <?php include 'inc/header.php'; ?>
+  <?php include 'inc/sidebar.php'; ?>
 
   <div class="content-wrapper">
     <section class="content-header"><div class="container-fluid"><h1>পরীক্ষা সেটিংস</h1></div></section>
@@ -270,7 +270,7 @@ $rules = $pdo->query("SELECT * FROM exam_result_rules ORDER BY id DESC")->fetchA
       </div>
     </section>
   </div>
-  <?php include '../inc/footer.php'; ?>
+  <?php include 'inc/footer.php'; ?>
 </div>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
