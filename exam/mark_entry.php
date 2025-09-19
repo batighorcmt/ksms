@@ -195,11 +195,20 @@ if ($exam_id && $class_id && $section_id && $subject_id) {
 $(function(){
   $('.mark-input').on('change', function(){
     const el = $(this);
+    const val = parseFloat(el.val());
+    const min = parseFloat(el.attr('min'));
+    const max = parseFloat(el.attr('max'));
+    if (isNaN(val) || val < min || val > max) {
+      alert('Mark must be between ' + min + ' and ' + max + '.');
+      el.val('');
+      el.focus();
+      return;
+    }
     $.post('ajax_save_mark.php', {
       exam_id: el.data('exam'),
       sub_id: el.data('sub'),
       stu_id: el.data('stu'),
-      val: el.val()
+      val: val
     }, function(res){
       if(res.success){
         el.addClass('is-valid'); setTimeout(()=>el.removeClass('is-valid'),1200);
