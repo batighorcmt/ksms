@@ -3,7 +3,7 @@ require_once '../config.php';
 if (!isAuthenticated() || !hasRole(['teacher'])) redirect('../login.php');
 $teacher_id = $_SESSION['user_id'];
 
-/* সব পরীক্ষা */
+/* 🔹 সব পরীক্ষা */
 $exams = $pdo->query("
     SELECT e.*, c.name as class_name, t.name as type_name
     FROM exams e
@@ -12,37 +12,38 @@ $exams = $pdo->query("
     ORDER BY e.id DESC
 ")->fetchAll();
 
-/* সব ক্লাস */
+/* 🔹 সব ক্লাস */
 $classes = $pdo->query("SELECT * FROM classes ORDER BY numeric_value ASC")->fetchAll();
 
-/* Form input */
+/* 🔹 Form Input */
 $exam_id    = intval($_GET['exam_id'] ?? 0);
 $class_id   = intval($_GET['class_id'] ?? 0);
 $section_id = intval($_GET['section_id'] ?? 0);
 $subject_id = intval($_GET['subject_id'] ?? 0);
 
+/* 🔹 নির্বাচিত ক্লাসের শাখা */
 $sections = [];
 if ($class_id) {
-    $sections = $pdo->prepare("SELECT * FROM sections WHERE class_id=? ORDER BY name");
-    $sections->execute([$class_id]);
-    $sections = $sections->fetchAll();
+    $sections_stmt = $pdo->prepare("SELECT * FROM sections WHERE class_id=? ORDER BY name");
+    $sections_stmt->execute([$class_id]);
+    $sections = $sections_stmt->fetchAll();
 }
 
+/* 🔹 নির্বাচিত ক্লাসের বিষয় (routines টেবিল থেকে) */
 $subjects = [];
-if ($class_id && $section_id) {
-  // Try to get subjects from routines (teacher's routine)
-  $subjects_stmt = $pdo->prepare("SELECT s.* FROM routines r JOIN subjects s ON r.subject_id=s.id WHERE r.class_id=? AND r.section_id=? AND r.teacher_id=? GROUP BY s.id ORDER BY s.name");
-  $subjects_stmt->execute([$class_id, $section_id, $teacher_id]);
-  $subjects = $subjects_stmt->fetchAll();
-  // If not found, fallback to class_subjects (class-section wise)
-  if (empty($subjects)) {
-    $subjects_stmt2 = $pdo->prepare("SELECT s.* FROM class_subjects cs JOIN subjects s ON cs.subject_id=s.id WHERE cs.class_id=? AND cs.section_id=? GROUP BY s.id ORDER BY s.name");
-    $subjects_stmt2->execute([$class_id, $section_id]);
-    $subjects = $subjects_stmt2->fetchAll();
-  }
+if ($class_id) {
+    $subjects_stmt = $pdo->prepare("
+        SELECT DISTINCT s.id, s.name
+        FROM routines r
+        JOIN subjects s ON r.subject_id=s.id
+        WHERE r.class_id=?
+        ORDER BY s.name
+    ");
+    $subjects_stmt->execute([$class_id]);
+    $subjects = $subjects_stmt->fetchAll();
 }
 
-/* Validation */
+/* 🔹 পরীক্ষা ডাটা */
 $exam = $exam_id ? $pdo->query("SELECT * FROM exams WHERE id=$exam_id")->fetch() : null;
 $exam_subject = null;
 $students = [];
@@ -55,7 +56,11 @@ if ($exam_id && $class_id && $section_id && $subject_id) {
 
     if ($exam_subject) {
         // শিক্ষার্থী লোড
-        $students_stmt = $pdo->prepare("SELECT * FROM students WHERE class_id=? AND section_id=? AND status='active' ORDER BY roll_number ASC");
+        $students_stmt = $pdo->prepare("
+            SELECT * FROM students 
+            WHERE class_id=? AND section_id=? AND status='active' 
+            ORDER BY roll_number ASC
+        ");
         $students_stmt->execute([$class_id, $section_id]);
         $students = $students_stmt->fetchAll();
     }
@@ -83,7 +88,7 @@ if ($exam_id && $class_id && $section_id && $subject_id) {
   <section class="content-header"><h1>মার্ক এন্ট্রি</h1></section>
   <section class="content">
     <div class="container-fluid">
-      
+
       <!-- Search Form -->
       <div class="card mb-3">
         <div class="card-header bg-primary text-white">সার্চ করুন</div>
@@ -184,8 +189,8 @@ if ($exam_id && $class_id && $section_id && $subject_id) {
 
 <?php include '../admin/inc/footer.php'; ?>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 $(function(){
   $('.mark-input').on('change', function(){
