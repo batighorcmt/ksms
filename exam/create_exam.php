@@ -1,12 +1,14 @@
 <?php
 require_once '../config.php';
-if (!isAuthenticated() || !hasRole(['super_admin','teacher'])) {
-    redirect('../login.php');
+
+if (!isAuthenticated() || !hasRole(['super_admin'])) {
+  redirect('../login.php');
 }
+
 
 $classes = $pdo->query("SELECT * FROM classes WHERE status='active' ORDER BY numeric_value ASC")->fetchAll();
 $types   = $pdo->query("SELECT * FROM exam_types WHERE status='active'")->fetchAll();
-$subjects= $pdo->query("SELECT * FROM subjects WHERE status='active'")->fetchAll();
+// Subjects will be loaded by AJAX based on class selection
 
 $errors = [];
 $edit_id = intval($_GET['edit'] ?? 0);
@@ -88,72 +90,89 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
 }
 
 include '../admin/inc/header.php';
-include 'inc/sidebar.php';
+include '../admin/inc/sidebar.php';
 ?>
-<div class="content-wrapper p-3">
-  <section class="content-header">
-    <h1><?= $edit_id ? "Edit Exam" : "Create Exam" ?></h1>
-  </section>
-  <section class="content">
-    <div class="container-fluid">
-      <?php if(!empty($errors)): ?><div class="alert alert-danger"><?=implode('<br>',$errors)?></div><?php endif; ?>
-      <div class="card"><div class="card-body">
-        <form method="post" id="examForm">
-          <div class="row">
-            <div class="col-md-6">
-              <label>Exam Name</label>
-              <input name="name" class="form-control" required value="<?=htmlspecialchars($exam['name'] ?? '')?>">
-            </div>
-            <div class="col-md-3">
-              <label>Academic Year</label>
-              <input name="academic_year" class="form-control" value="<?=htmlspecialchars($exam['academic_year'] ?? '')?>">
-            </div>
-            <div class="col-md-3">
-              <label>Class</label>
-              <select name="class_id" class="form-control" required>
-                <option value="">--select--</option>
-                <?php foreach($classes as $c): ?>
-                  <option value="<?=$c['id']?>" <?=($exam['class_id']??'')==$c['id']?'selected':''?>><?=$c['name']?></option>
-                <?php endforeach; ?>
-              </select>
-            </div>
-            <div class="col-md-4 mt-2">
-              <label>Exam Type</label>
-              <select name="exam_type_id" class="form-control" required>
-                <option value="">--select--</option>
-                <?php foreach($types as $t): ?>
-                  <option value="<?=$t['id']?>" <?=($exam['exam_type_id']??'')==$t['id']?'selected':''?>><?=$t['name']?></option>
-                <?php endforeach; ?>
-              </select>
-            </div>
-            <div class="col-md-4 mt-2">
-              <label>Result Release Date</label>
-              <input type="date" name="result_release_date" class="form-control" value="<?=htmlspecialchars($exam['result_release_date'] ?? '')?>">
-            </div>
-          </div>
 
-          <hr>
-          <h5>Subjects (subject-wise schedule & marks)</h5>
-          <div id="subjectsWrap"></div>
-          <div class="mt-2"><button class="btn btn-sm btn-secondary" type="button" id="addSubjectBtn">+ Add Subject</button></div>
-
-          <div class="mt-3">
-            <button class="btn btn-primary"><?= $edit_id ? "Update Exam" : "Create Exam" ?></button>
-            <a class="btn btn-default" href="../exam/exam_list.php">Cancel</a>
-          </div>
-        </form>
-      </div></div>
-    </div>
-  </section>
+<div class="content-wrapper">
+    <section class="content">
+        <div class="container-fluid py-4">
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                            <h3 class="card-title"><?= $edit_id ? "Edit Exam" : "Create Exam" ?></h3>
+                            <a href="exam_list.php" class="btn btn-light btn-sm">
+                                <i class="fas fa-arrow-left mr-1"></i> Exam List
+                            </a>
+                        </div>
+                        <div class="card-body">
+                            <?php if(!empty($errors)): ?>
+                                <div class="alert alert-danger">
+                                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">&times;</button>
+                                    <h5><i class="icon fas fa-exclamation-triangle"></i> Error!</h5>
+                                    <ul><?php foreach($errors as $e) echo "<li>".htmlspecialchars($e)."</li>"; ?></ul>
+                                </div>
+                            <?php endif; ?>
+                            <form method="post" id="examForm">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label>Exam Name</label>
+                                        <input name="name" class="form-control" required value="<?=htmlspecialchars($exam['name'] ?? '')?>">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label>Academic Year</label>
+                                        <input name="academic_year" class="form-control" value="<?=htmlspecialchars($exam['academic_year'] ?? '')?>">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label>Class</label>
+                                        <select name="class_id" id="class_id" class="form-control" required>
+                                            <option value="">--select--</option>
+                                            <?php foreach($classes as $c): ?>
+                                                <option value="<?=$c['id']?>" <?=($exam['class_id']??'')==$c['id']?'selected':''?>><?=$c['name']?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4 mt-2">
+                                        <label>Exam Type</label>
+                                        <select name="exam_type_id" class="form-control" required>
+                                            <option value="">--select--</option>
+                                            <?php foreach($types as $t): ?>
+                                                <option value="<?=$t['id']?>" <?=($exam['exam_type_id']??'')==$t['id']?'selected':''?>><?=$t['name']?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4 mt-2">
+                                        <label>Result Release Date</label>
+                                        <input type="date" name="result_release_date" class="form-control" value="<?=htmlspecialchars($exam['result_release_date'] ?? '')?>">
+                                    </div>
+                                </div>
+                                <hr>
+                                <h5>Subjects (subject-wise schedule & marks)</h5>
+                                <div id="subjectsWrap"></div>
+                                <div class="mt-2"><button class="btn btn-sm btn-secondary" type="button" id="addSubjectBtn">+ Add Subject</button></div>
+                                <div class="mt-3">
+                                    <button class="btn btn-primary"><?= $edit_id ? "Update Exam" : "Create Exam" ?></button>
+                                    <a class="btn btn-default" href="exam_list.php">Cancel</a>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
 </div>
 
 <?php include '../admin/inc/footer.php'; ?>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
 <script>
-const subjects = <?= json_encode($subjects) ?>;
+// Subjects will be loaded by AJAX based on class selection
+let allSubjects = [];
 function makeRow(item={}) {
-  const sel = subjects.map(s=>`<option value="${s.id}" ${item.subject_id==s.id?'selected':''}>${s.name}</option>`).join('');
+  const sel = allSubjects.map(s=>`<option value="${s.id}" ${item.subject_id==s.id?'selected':''}>${s.name}</option>`).join('');
   return $(`
   <div class="subject-row row g-2 align-items-end mb-2">
     <div class="col-md-4"><label>Subject</label><select name="subject_id[]" class="form-control" required><option value="">--select--</option>${sel}</select></div>
@@ -165,19 +184,46 @@ function makeRow(item={}) {
   </div>`);
 }
 
+function loadSubjects(classId, cb) {
+  if (!classId) {
+    allSubjects = [];
+    $('#subjectsWrap').empty();
+    return;
+  }
+  $.get('../ajax/get_subjects_by_class.php', {class_id: classId}, function(res) {
+    try {
+      allSubjects = JSON.parse(res);
+    } catch(e) { allSubjects = []; }
+    $('#subjectsWrap').empty();
+    if (cb) cb();
+  });
+}
+
 $(function(){
-  $('#addSubjectBtn').on('click', ()=>$('#subjectsWrap').append(makeRow()));
+  // On class change, load subjects
+  $('#class_id').on('change', function(){
+    let cid = $(this).val();
+    loadSubjects(cid, function(){
+      // Add a default row after loading
+      $('#addSubjectBtn').trigger('click');
+    });
+  });
+
+  // Add subject row
+  $('#addSubjectBtn').on('click', function(){
+    if (allSubjects.length === 0) return;
+    $('#subjectsWrap').append(makeRow());
+  });
   $(document).on('click', '.removeRow', function(){ $(this).closest('.subject-row').remove(); });
 
-  // যদি edit mode হয় তাহলে পুরনো subjects লোড করে দেখাবো
-  <?php if($edit_id && !empty($exam_subjects)): ?>
-    const oldSubs = <?= json_encode($exam_subjects) ?>;
-    oldSubs.forEach(s => $('#subjectsWrap').append(makeRow(s)));
-  <?php else: ?>
-    // নতুন হলে ডিফল্ট একটি row
-    $('#addSubjectBtn').click();
+  // If edit mode, load subjects for the class and populate
+  <?php if($edit_id && !empty($exam_subjects) && !empty($exam['class_id'])): ?>
+    loadSubjects(<?=json_encode($exam['class_id'])?>, function(){
+      const oldSubs = <?= json_encode($exam_subjects) ?>;
+      oldSubs.forEach(s => $('#subjectsWrap').append(makeRow(s)));
+    });
   <?php endif; ?>
 });
 </script>
 </body>
-</html> 
+</html>
