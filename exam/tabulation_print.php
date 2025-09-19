@@ -69,8 +69,8 @@ unset($row);
 
 // Bangla number conversion helper
 function bn($number) {
-    $en = array('0','1','2','3','4','5','6','7','8','9','.');
-    $bn = array('০','১','২','৩','৪','৫','৬','৭','৮','৯','।');
+    $en = array('0','1','2','3','4','5','6','7','8','9');
+    $bn = array('০','১','২','৩','৪','৫','৬','৭','৮','৯');
     return str_replace($en, $bn, $number);
 }
 
