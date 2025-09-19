@@ -4,7 +4,7 @@ if (!isAuthenticated() || !hasRole(['teacher'])) redirect('../login.php');
 $teacher_id = $_SESSION['user_id'];
 
 // Exams list for teacher's classes
-$exams = $pdo->prepare("SELECT e.*, c.name as class_name, t.name as type_name FROM exams e JOIN classes c ON e.class_id=c.id JOIN exam_types t ON e.exam_type_id=t.id WHERE c.class_teacher_id=?");
+$exams = $pdo->prepare("SELECT e.*, c.name as class_name, t.name as type_name FROM exams e JOIN classes c ON e.class_id=c.id JOIN exam_types t ON e.exam_type_id=t.id ORDER BY e.id DESC");
 $exams->execute([$teacher_id]);
 $exams = $exams->fetchAll();
 
@@ -80,8 +80,8 @@ if ($selected_class_id && $selected_section_id && $exam_subject) {
   </style>
 </head>
 <body>
-<?php include '../admin/inc/header.php'; ?>
-<?php include 'inc/sidebar.php'; ?>
+<?php include '../admin/inc/header.php';
+      include '../teacher/inc/sidebar.php'; ?>
 
 <div class="content-wrapper p-3">
   <section class="content-header"><h1>মার্ক এন্ট্রি</h1></section>
