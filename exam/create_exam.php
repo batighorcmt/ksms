@@ -1,26 +1,75 @@
+
+<!doctype html>
+<html lang="bn">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>পরীক্ষা তৈরি করুন</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- AdminLTE style -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
+    <link href="https://fonts.maateen.me/solaiman-lipi/font.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #4e73df;
+            --secondary-color: #6f42c1;
+            --success-color: #1cc88a;
+        }
+        body {
+            font-family: SolaimanLipi, Arial, sans-serif;
+            background-color: #f8f9fc;
+        }
+        .card {
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+            border: none;
+            border-radius: 10px;
+        }
+        .card-header {
+            border-radius: 10px 10px 0 0 !important;
+            font-weight: 700;
+        }
+        .form-control, .form-select {
+            border-radius: 6px;
+            padding: 10px 15px;
+            border: 1px solid #d1d3e2;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(78, 115, 223, 0.25);
+        }
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+            border-radius: 6px;
+            padding: 10px 20px;
+            font-weight: 600;
+        }
+        .btn-primary:hover {
+            background-color: #3a5fc8;
+            border-color: #3a5fc8;
+        }
+    </style>
+</head>
+<body class="hold-transition sidebar-mini">
 <?php
 require_once '../config.php';
-
 if (!isAuthenticated() || !hasRole(['super_admin'])) {
   redirect('../login.php');
 }
-
-
 $classes = $pdo->query("SELECT * FROM classes WHERE status='active' ORDER BY numeric_value ASC")->fetchAll();
 $types   = $pdo->query("SELECT * FROM exam_types WHERE status='active'")->fetchAll();
-// Subjects will be loaded by AJAX based on class selection
-
 $errors = [];
 $edit_id = intval($_GET['edit'] ?? 0);
 $exam    = null;
 $exam_subjects = [];
-
-// যদি এডিট মোড হয়
 if ($edit_id) {
     $stmt = $pdo->prepare("SELECT * FROM exams WHERE id=?");
     $stmt->execute([$edit_id]);
     $exam = $stmt->fetch();
-
     if ($exam) {
         $stmt2 = $pdo->prepare("SELECT * FROM exam_subjects WHERE exam_id=?");
         $stmt2->execute([$edit_id]);
@@ -29,45 +78,32 @@ if ($edit_id) {
         $errors[] = "Exam not found!";
     }
 }
-
 if ($_SERVER['REQUEST_METHOD']==='POST') {
     $name   = trim($_POST['name'] ?? '');
     $year   = trim($_POST['academic_year'] ?? '');
     $class_id = intval($_POST['class_id'] ?? 0);
     $exam_type_id = intval($_POST['exam_type_id'] ?? 0);
     $result_release_date = $_POST['result_release_date'] ?: null;
-
     if ($name==='' || $class_id==0 || $exam_type_id==0) $errors[]='নাম, শ্রেণি ও পরীক্ষার ধরন প্রয়োজন।';
-
     $sub_ids    = $_POST['subject_id'] ?? [];
     $full_marks = $_POST['full_mark'] ?? [];
     $pass_marks = $_POST['pass_mark'] ?? [];
     $exam_dates = $_POST['exam_date'] ?? [];
     $exam_times = $_POST['exam_time'] ?? [];
-
     if (empty($sub_ids)) $errors[] = 'কমপক্ষে একটি বিষয় নির্বাচন করুন।';
-
     if (empty($errors)) {
         try {
             $pdo->beginTransaction();
-
             if ($edit_id) {
-                // UPDATE
                 $upd = $pdo->prepare("UPDATE exams SET name=?, academic_year=?, class_id=?, exam_type_id=?, result_release_date=?, updated_at=NOW() WHERE id=?");
                 $upd->execute([$name, $year, $class_id, $exam_type_id, $result_release_date, $edit_id]);
-
-                // পুরনো subjects ডিলিট
                 $pdo->prepare("DELETE FROM exam_subjects WHERE exam_id=?")->execute([$edit_id]);
-
                 $exam_id = $edit_id;
             } else {
-                // INSERT
                 $ins = $pdo->prepare("INSERT INTO exams (name, academic_year, class_id, exam_type_id, exam_date, exam_time, result_release_date, created_by) VALUES (?,?,?,?,?,?,?,?)");
                 $ins->execute([$name, $year, $class_id, $exam_type_id, null, null, $result_release_date, $_SESSION['user_id']]);
                 $exam_id = $pdo->lastInsertId();
             }
-
-            // subject insert
             $es = $pdo->prepare("INSERT INTO exam_subjects (exam_id, subject_id, exam_date, exam_time, full_mark, pass_mark) VALUES (?,?,?,?,?,?)");
             foreach ($sub_ids as $i => $sid) {
                 $s  = intval($sid);
@@ -77,7 +113,6 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
                 $et = $exam_times[$i] ?: null;
                 $es->execute([$exam_id, $s, $ed, $et, $fm, $pm]);
             }
-
             $pdo->commit();
             $_SESSION['success'] = $edit_id ? 'Exam updated successfully.' : 'Exam created successfully.';
             header("Location: ../exam/exam_list.php");
@@ -88,7 +123,6 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
         }
     }
 }
-
 include '../admin/inc/header.php';
 include '../admin/inc/sidebar.php';
 ?>
