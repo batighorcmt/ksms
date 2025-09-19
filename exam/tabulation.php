@@ -47,7 +47,7 @@ foreach ($students as $stu) {
         'total_marks' => $total,
         'subjects_passed' => $subjects_passed,
         'subjects_failed' => $subjects_failed,
-        'result_status' => $all_passed ? 'PASSED' : 'FAILED',
+        'result_status' => $all_passed ? 'পাশ' : 'ফেল',
     ];
 }
 
@@ -81,28 +81,36 @@ unset($row);
 include '../admin/inc/header.php';
 include '../admin/inc/sidebar.php';
 ?>
+<?php
+// Bangla number conversion helper
+function bn($number) {
+    $en = array('0','1','2','3','4','5','6','7','8','9','.');
+    $bn = array('০','১','২','৩','৪','৫','৬','৭','৮','৯','।');
+    return str_replace($en, $bn, $number);
+}
+?>
 <div class="content-wrapper p-3">
   <section class="content-header"><h1>Tabulation - <?= htmlspecialchars($exam['name']) ?></h1></section>
   <section class="content">
     <div class="card"><div class="card-body table-responsive">
       <table class="table table-bordered table-sm">
         <thead>
-          <tr><th>Pos</th><th>Roll</th><th>Name</th>
+          <tr><th>মেধাক্রম</th><th>রোল নং</th><th>নাম</th>
           <?php foreach($subjects as $s): ?><th><?=htmlspecialchars($s['subject_name'])?></th><?php endforeach; ?>
-          <th>Total</th><th>Passed Subjects</th><th>Failed Subjects</th><th>Result</th></tr>
+          <th>মোট</th><th>পাস করা বিষয়</th><th>ফেল হওয়া বিষয়</th><th>ফলাফল</th></tr>
         </thead>
         <tbody>
           <?php foreach($tabulation as $row): ?>
             <tr>
-              <td><?= $row['position'] ?></td>
-              <td><?= $row['roll_number'] ?></td>
+              <td><?= bn($row['position']) ?></td>
+              <td><?= bn($row['roll_number']) ?></td>
               <td><?= htmlspecialchars($row['first_name'].' '.$row['last_name']) ?></td>
               <?php foreach($row['marks'] as $obt): ?>
-                <td><?= $obt ?></td>
+                <td><?= bn(number_format($obt,2)) ?></td>
               <?php endforeach; ?>
-              <td><?= $row['total_marks'] ?></td>
-              <td><?= $row['subjects_passed'] ?></td>
-              <td><?= $row['subjects_failed'] ?></td>
+              <td><?= bn(number_format($row['total_marks'],2)) ?></td>
+              <td><?= bn($row['subjects_passed']) ?></td>
+              <td><?= bn($row['subjects_failed']) ?></td>
               <td><?= strtoupper($row['result_status']) ?></td>
             </tr>
           <?php endforeach; ?>
@@ -111,10 +119,14 @@ include '../admin/inc/sidebar.php';
     </div></div>
   </section>
 </div>
+<div class="no-print" style="margin:18px 0;text-align:center;">
+  <button onclick="window.print()" class="btn btn-primary"><i class="fa fa-print"></i> প্রিন্ট করুন</button>
+</div>
 <?php include '../admin/inc/footer.php'; ?>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
+<style>@media print {.no-print{display:none!important;}}</style>
 </body>
 </html>
 <?php ob_end_flush(); ?>
