@@ -14,8 +14,16 @@ if(!$exam_id) { echo "Invalid"; exit; }
 $exam = $pdo->prepare("SELECT e.*, c.name class_name, t.name type_name FROM exams e JOIN classes c ON e.class_id=c.id JOIN exam_types t ON e.exam_type_id=t.id WHERE e.id=?");
 $exam->execute([$exam_id]); $exam = $exam->fetch();
 
-$subjects = $pdo->prepare("SELECT es.*, sub.name subject_name, es.full_mark, es.pass_mark FROM exam_subjects es JOIN subjects sub ON es.subject_id=sub.id WHERE es.exam_id=?");
-$subjects->execute([$exam_id]); $subjects = $subjects->fetchAll();
+$subjects = $pdo->prepare("
+    SELECT es.*, sub.name subject_name, es.full_mark, es.pass_mark
+    FROM exam_subjects es
+    JOIN subjects sub ON es.subject_id=sub.id
+    JOIN class_subjects cs ON cs.subject_id = es.subject_id AND cs.class_id = ?
+    WHERE es.exam_id=?
+    ORDER BY cs.sort_order ASC, cs.id ASC
+");
+$subjects->execute([$exam['class_id'], $exam_id]);
+$subjects = $subjects->fetchAll();
 
 // Get all students for this class
 $students = $pdo->prepare("SELECT * FROM students WHERE class_id=? AND status='active' ORDER BY roll_number ASC");
