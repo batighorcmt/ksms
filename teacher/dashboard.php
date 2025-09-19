@@ -97,17 +97,16 @@ $total_students = $pdo->prepare("
 $total_students->execute([$teacher_id, $teacher_id]);
 $total_students = $total_students->fetch()['total'];
 
-// শিক্ষকের জন্য সাম্প্রতিক পরীক্ষার ফলাফল
+// শিক্ষকের জন্য সাম্প্রতিক পরীক্ষার ফলাফল (section_id exams টেবিলে নেই, তাই শুধুমাত্র class অনুযায়ী দেখান)
 $recent_exams = $pdo->prepare("
-    SELECT e.*, c.name as class_name, sec.name as section_name
+    SELECT e.*, c.name as class_name
     FROM exams e
     JOIN classes c ON e.class_id = c.id
-    JOIN sections sec ON e.section_id = sec.id
-    WHERE c.class_teacher_id = ? OR sec.section_teacher_id = ?
+    WHERE c.class_teacher_id = ?
     ORDER BY e.exam_date DESC
     LIMIT 5
 ");
-$recent_exams->execute([$teacher_id, $teacher_id]);
+$recent_exams->execute([$teacher_id]);
 $recent_exams_data = $recent_exams->fetchAll();
 
 // সপ্তাহের দিন অনুযায়ী উপস্থিতি ডেটা (চার্টের জন্য)
@@ -522,7 +521,7 @@ if (empty($chart_labels)) {
                                             <?php foreach($recent_exams_data as $exam): ?>
                                             <tr>
                                                 <td><?php echo $exam['name']; ?></td>
-                                                <td><?php echo $exam['class_name'] . ' (' . $exam['section_name'] . ')'; ?></td>
+                                                <td><?php echo $exam['class_name']; ?></td>
                                                 <td><?php echo date('d/m/Y', strtotime($exam['exam_date'])); ?></td>
                                                 <td><?php echo $exam['total_marks']; ?></td>
                                             </tr>
