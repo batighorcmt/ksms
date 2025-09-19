@@ -15,7 +15,7 @@ $subjects = $pdo->prepare("
   JOIN subjects sub ON es.subject_id=sub.id
   JOIN class_subjects cs ON cs.subject_id = es.subject_id AND cs.class_id = ?
   WHERE es.exam_id=?
-  ORDER BY cs.sort_order ASC, cs.id ASC
+  ORDER BY cs.numeric_value ASC, cs.id ASC
 ");
 $subjects->execute([$exam['class_id'], $exam_id]);
 $subjects = $subjects->fetchAll();
