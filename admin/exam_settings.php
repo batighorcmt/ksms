@@ -65,6 +65,7 @@ $rules = $pdo->query("SELECT * FROM exam_result_rules ORDER BY id DESC")->fetchA
 <head>
   <meta charset="utf-8">
   <title>পরীক্ষা সেটিংস</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link href="https://fonts.maateen.me/solaiman-lipi/font.css" rel="stylesheet">
