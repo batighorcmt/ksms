@@ -221,18 +221,33 @@ function makeRow(item={}) {
 }
 
 function loadSubjects(classId, cb) {
-  if (!classId) {
-    allSubjects = [];
-    $('#subjectsWrap').empty();
-    return;
-  }
-  $.get('../ajax/get_subjects_by_class.php', {class_id: classId}, function(res) {
-    try {
-      allSubjects = JSON.parse(res);
-    } catch(e) { allSubjects = []; }
-    $('#subjectsWrap').empty();
-    if (cb) cb();
-  });
+    if (!classId) {
+        allSubjects = [];
+        $('#subjectsWrap').empty();
+        return;
+    }
+    $.ajax({
+        url: '../ajax/get_subjects_by_class.php',
+        method: 'GET',
+        data: {class_id: classId},
+        dataType: 'json',
+        success: function(res) {
+            allSubjects = Array.isArray(res) ? res : [];
+            $('#subjectsWrap').empty();
+            if (cb) cb();
+            // Debug: log subjects
+            console.log('Subjects loaded:', allSubjects);
+            if (allSubjects.length === 0) {
+                $('#subjectsWrap').append('<div class="alert alert-warning">এই শ্রেণির জন্য কোনো বিষয় পাওয়া যায়নি।</div>');
+            }
+        },
+        error: function(xhr, status, err) {
+            allSubjects = [];
+            $('#subjectsWrap').empty();
+            $('#subjectsWrap').append('<div class="alert alert-danger">বিষয় লোড করতে সমস্যা হয়েছে!</div>');
+            console.error('AJAX error:', status, err);
+        }
+    });
 }
 
 $(function(){
@@ -246,10 +261,13 @@ $(function(){
   });
 
   // Add subject row
-  $('#addSubjectBtn').on('click', function(){
-    if (allSubjects.length === 0) return;
-    $('#subjectsWrap').append(makeRow());
-  });
+    $('#addSubjectBtn').on('click', function(){
+        if (allSubjects.length === 0) {
+            $('#subjectsWrap').append('<div class="alert alert-warning">বিষয় পাওয়া যায়নি।</div>');
+            return;
+        }
+        $('#subjectsWrap').append(makeRow());
+    });
   $(document).on('click', '.removeRow', function(){ $(this).closest('.subject-row').remove(); });
 
   // If edit mode, load subjects for the class and populate
