@@ -1,7 +1,7 @@
-
 <?php
+ob_start();
 require_once '../config.php';
-if (!isAuthenticated()) redirect('../login.php');
+if (!isAuthenticated() || !hasRole(['super_admin'])) redirect('../login.php');
 
 $exam_id = intval($_GET['exam_id'] ?? 0);
 if(!$exam_id) { echo "Invalid"; exit; }
@@ -60,7 +60,24 @@ foreach ($tabulation as $i => &$row) {
     $row['position'] = $i+1;
 }
 unset($row);
-
+?>
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>মার্ক এন্ট্রি</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.maateen.me/solaiman-lipi/font.css" rel="stylesheet">
+  <style>
+    body { font-family: SolaimanLipi, Arial, sans-serif; }
+    .card { border-radius: 10px; }
+    .table th, .table td { vertical-align: middle; }
+  </style>
+</head>
+<body>
+<?php
 include '../admin/inc/header.php';
 include '../admin/inc/sidebar.php';
 ?>
@@ -95,3 +112,9 @@ include '../admin/inc/sidebar.php';
   </section>
 </div>
 <?php include '../admin/inc/footer.php'; ?>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+<?php ob_end_flush(); ?>
