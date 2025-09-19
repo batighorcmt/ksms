@@ -1,8 +1,9 @@
 <?php
+ob_start();
 require_once '../config.php';
-if (!isAuthenticated() || !hasRole(['super_admin','teacher'])) {
-    redirect('../login.php');
-}
+if (!isAuthenticated() || !hasRole(['super_admin'])) redirect('../login.php');
+include '../admin/inc/header.php';
+include '../admin/inc/sidebar.php';
 
 $exam_id = intval($_GET['id'] ?? 0);
 if (!$exam_id) {
@@ -40,8 +41,7 @@ $subs = $pdo->prepare("
 $subs->execute([$exam_id]);
 $exam_subjects = $subs->fetchAll();
 
-include '../admin/inc/header.php';
-include 'inc/sidebar.php';
+// ...existing code...
 ?>
 
 <div class="content-wrapper p-3">
@@ -120,3 +120,7 @@ include 'inc/sidebar.php';
 
 <?php include '../admin/inc/footer.php'; ?>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
+<style>@media print {.no-print{display:none!important;}}</style>
+<?php ob_end_flush(); ?>

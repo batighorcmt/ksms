@@ -1,6 +1,9 @@
 <?php
+ob_start();
 require_once '../config.php';
-if (!isAuthenticated()) redirect('../login.php');
+if (!isAuthenticated() || !hasRole(['super_admin'])) redirect('../login.php');
+include '../admin/inc/header.php';
+include '../admin/inc/sidebar.php';
 
 $exams = $pdo->query("
   SELECT e.*, c.name as class_name, t.name as type_name
@@ -10,8 +13,7 @@ $exams = $pdo->query("
   ORDER BY e.exam_date DESC, e.id DESC
 ")->fetchAll();
 
-include '../admin/inc/header.php';
-include 'inc/sidebar.php';
+// ...existing code...
 ?>
 <div class="content-wrapper p-3">
   <section class="content-header"><h1>Exam List</h1></section>
@@ -52,3 +54,8 @@ include 'inc/sidebar.php';
   </section>
 </div>
 <?php include '../admin/inc/footer.php'; ?>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
+<style>@media print {.no-print{display:none!important;}}</style>
+<?php ob_end_flush(); ?>

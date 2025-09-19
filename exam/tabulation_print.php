@@ -1,12 +1,9 @@
+
 <?php
 require_once '../config.php';
-require_once '../admin/print_common.php';
-
-// Only super_admin can print tabulation
-if (!isAuthenticated() || !hasRole(['super_admin'])) {
-    header('location: ../login.php');
-    exit();
-}
+if (!isAuthenticated() || !hasRole(['super_admin'])) redirect('../login.php');
+include '../admin/inc/header.php';
+include '../admin/inc/sidebar.php';
 
 $exam_id = intval($_GET['exam_id'] ?? 0);
 if(!$exam_id) { echo "Invalid"; exit; }
@@ -93,39 +90,27 @@ $inst_logo = !empty($school_info['logo']) ? (BASE_URL . 'uploads/logo/' . $schoo
 
 $class_section = 'শ্রেণি: ' . htmlspecialchars($exam['class_name']);
 
-?><!doctype html>
+?><!DOCTYPE html>
 <html lang="bn">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>প্রিন্ট টেবুলেশন - <?php echo htmlspecialchars($exam['name']); ?></title>
-<link href="https://fonts.maateen.me/solaiman-lipi/font.css" rel="stylesheet">
-<style>
-body { font-family: 'SolaimanLipi', sans-serif; color:#222; }
-.container { max-width: 1100px; margin: 18px auto; }
-.header { display:flex; align-items:center; gap:16px; margin-bottom:8px; }
-.logo { width:90px; height:90px; flex:0 0 90px; }
-.header-center { text-align:center; flex:1; }
-.inst-name { font-size:1.5rem; font-weight:700; margin-bottom:4px; }
-.inst-meta { font-size:0.95rem; color:#444; }
-.print-meta { margin-top:6px; font-size:0.9rem; color:#555 }
-.table { width:100%; border-collapse: collapse; margin-top:18px; font-size:0.95rem; }
-.table th, .table td { border:1px solid #e0e0e0; padding:10px; vertical-align:top; }
-.table thead th { background:linear-gradient(180deg,#f8fafc,#eef2ff); border-bottom:2px solid #d1d5ff; }
-.table tbody tr:nth-child(odd) { background:#fbfbff }
-.subject { font-weight:600; color:#1f2937 }
-.teacher { color:#374151 }
-.time { color:#6b7280; font-size:0.9rem }
-.section-note { color:#0f172a; font-size:0.85rem }
-.no-data { text-align:center; color:#6b7280; padding:18px }
-.no-print { margin-top:12px; text-align:center }
-@media print { .no-print { display:none } body { margin:0 } }
-</style>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>মার্ক এন্ট্রি</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.maateen.me/solaiman-lipi/font.css" rel="stylesheet">
+    <style>
+        body { font-family: SolaimanLipi, Arial, sans-serif; }
+        .card { border-radius: 10px; }
+        .table th, .table td { vertical-align: middle; }
+    </style>
 </head>
 <body>
-<div class="container">
-    <?php echo print_header($pdo, $class_section . ' | পরীক্ষা: ' . htmlspecialchars($exam['name'])); ?>
-    <table class="table">
+<div class="content-wrapper p-3">
+    <section class="content-header"><h1>Tabulation - <?= htmlspecialchars($exam['name']) ?></h1></section>
+    <section class="content">
+    <div class="card"><div class="card-body table-responsive">
+    <table class="table table-bordered table-sm">
         <thead>
             <tr>
                 <th>মেধাক্রম</th>
@@ -155,11 +140,13 @@ body { font-family: 'SolaimanLipi', sans-serif; color:#222; }
             <?php endforeach; ?>
         </tbody>
     </table>
-    <?php echo print_footer(); ?>
-    <div class="no-print" style="margin-top:12px; text-align:center;">
-        <button onclick="window.print()">প্রিন্ট করুন</button>
-        <a href="tabulation.php?exam_id=<?php echo $exam_id; ?>">বাতিল</a>
-    </div>
+    </div></div>
+    </section>
 </div>
+<?php include '../admin/inc/footer.php'; ?>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
+<style>@media print {.no-print{display:none!important;}}</style>
 </body>
 </html>
