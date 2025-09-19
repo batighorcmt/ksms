@@ -25,20 +25,21 @@ foreach ($students as $stu) {
     $subjects_failed = 0;
     $marks = [];
     $all_passed = true;
-    foreach ($subjects as $s) {
-        $m = $pdo->prepare("SELECT obtained_marks FROM marks WHERE exam_subject_id=? AND student_id=?");
-        $m->execute([$s['id'], $stu['id']]);
-        $mr = $m->fetch();
-        $obt = $mr ? floatval($mr['obtained_marks']) : 0;
-        $marks[] = $obt;
-        $total += $obt;
-        if ($obt >= floatval($s['pass_mark'])) {
-            $subjects_passed++;
-        } else {
-            $subjects_failed++;
-            $all_passed = false;
-        }
+  foreach ($subjects as $s) {
+    $m = $pdo->prepare("SELECT obtained_marks FROM marks WHERE exam_subject_id=? AND student_id=?");
+    $m->execute([$s['id'], $stu['id']]);
+    $mr = $m->fetch();
+    $obt = $mr ? floatval($mr['obtained_marks']) : 0.00;
+    $obt = number_format($obt, 2, '.', ''); // always float with 2 decimals as string
+    $marks[] = $obt;
+    $total += (float)$obt;
+    if ((float)$obt >= floatval($s['pass_mark'])) {
+      $subjects_passed++;
+    } else {
+      $subjects_failed++;
+      $all_passed = false;
     }
+  }
     $tabulation[] = [
         'roll_number' => $stu['roll_number'],
         'first_name' => $stu['first_name'],
@@ -106,7 +107,7 @@ function bn($number) {
               <td><?= bn($row['roll_number']) ?></td>
               <td><?= htmlspecialchars($row['first_name'].' '.$row['last_name']) ?></td>
               <?php foreach($row['marks'] as $obt): ?>
-                <td><?= bn(number_format($obt,2)) ?></td>
+                <td><?= bn(number_format((float)$obt,2)) ?></td>
               <?php endforeach; ?>
               <td><?= bn(number_format($row['total_marks'],2)) ?></td>
               <td><?= bn($row['subjects_passed']) ?></td>
@@ -120,7 +121,7 @@ function bn($number) {
   </section>
 </div>
 <div class="no-print" style="margin:18px 0;text-align:center;">
-  <button onclick="window.print()" class="btn btn-primary"><i class="fa fa-print"></i> প্রিন্ট করুন</button>
+  <a href="tabulation_print.php?exam_id=<?= $exam_id ?>" target="_blank" class="btn btn-primary"><i class="fa fa-print"></i> প্রিন্ট করুন</a>
 </div>
 <?php include '../admin/inc/footer.php'; ?>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>

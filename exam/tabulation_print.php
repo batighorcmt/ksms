@@ -34,10 +34,11 @@ foreach ($students as $stu) {
         $m = $pdo->prepare("SELECT obtained_marks FROM marks WHERE exam_subject_id=? AND student_id=?");
         $m->execute([$s['id'], $stu['id']]);
         $mr = $m->fetch();
-        $obt = $mr ? floatval($mr['obtained_marks']) : 0;
+        $obt = $mr ? floatval($mr['obtained_marks']) : 0.00;
+        $obt = number_format($obt, 2, '.', ''); // always float with 2 decimals as string
         $marks[] = $obt;
-        $total += $obt;
-        if ($obt >= floatval($s['pass_mark'])) {
+        $total += (float)$obt;
+        if ((float)$obt >= floatval($s['pass_mark'])) {
             $subjects_passed++;
         } else {
             $subjects_failed++;
@@ -136,7 +137,7 @@ body { font-family: 'SolaimanLipi', sans-serif; color:#222; }
                     <td><?php echo bn($row['roll_number']); ?></td>
                     <td><?php echo htmlspecialchars($row['first_name'].' '.$row['last_name']); ?></td>
                     <?php foreach($row['marks'] as $obt): ?>
-                        <td><?php echo bn(number_format($obt,2)); ?></td>
+                        <td><?php echo bn(number_format((float)$obt,2)); ?></td>
                     <?php endforeach; ?>
                     <td><?php echo bn(number_format($row['total_marks'],2)); ?></td>
                     <td><?php echo bn($row['subjects_passed']); ?></td>
