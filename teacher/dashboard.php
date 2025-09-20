@@ -6,6 +6,9 @@ if (!isAuthenticated() || !hasRole(['teacher'])) {
     redirect('login.php');
 }
 
+// লোকাল টাইমজোন সেট করুন (বাংলাদেশ)
+date_default_timezone_set('Asia/Dhaka');
+
 // বর্তমান শিক্ষকের তথ্য
 $teacher_id = $_SESSION['user_id'];
 
