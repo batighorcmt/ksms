@@ -83,7 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
         // --- SMS Template and Log Setup ---
         // Get students with mobile numbers
         $student_map = [];
-        $student_stmt = $pdo->prepare("SELECT id, first_name, last_name, roll_number, mobile FROM students WHERE class_id = ?" . ($section_id ? " AND section_id = ?" : "") . " AND status='active'");
+        $student_stmt = $pdo->prepare("SELECT id, first_name, last_name, roll_number, mobile_number FROM students WHERE class_id = ?" . ($section_id ? " AND section_id = ?" : "") . " AND status='active'");
         $student_params = [$class_id];
         if ($section_id) $student_params[] = $section_id;
         $student_stmt->execute($student_params);
