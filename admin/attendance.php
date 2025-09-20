@@ -1,3 +1,5 @@
+// Include SMS API function
+require_once __DIR__ . '/inc/sms_api.php';
 <?php
 require_once '../config.php';
 
@@ -76,27 +78,115 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
         $result = $check_stmt->fetch();
         $is_existing_record = ($result['count'] > 0);
 
+        // --- SMS Template and Log Setup ---
+        // Get students with mobile numbers
+        $student_map = [];
+        $student_stmt = $pdo->prepare("SELECT id, first_name, last_name, roll_number, mobile FROM students WHERE class_id = ?" . ($section_id ? " AND section_id = ?" : "") . " AND status='active'");
+        $student_params = [$class_id];
+        if ($section_id) $student_params[] = $section_id;
+        $student_stmt->execute($student_params);
+        foreach ($student_stmt->fetchAll() as $stu) {
+            $student_map[$stu['id']] = $stu;
+        }
+
+        // Get SMS templates for each status
+        $sms_templates = [];
+        $tpl_stmt = $pdo->query("SELECT * FROM sms_templates");
+        foreach ($tpl_stmt->fetchAll() as $tpl) {
+            if (mb_stripos($tpl['title'], 'অনুপস্থিত') !== false || mb_stripos($tpl['title'], 'Absent') !== false) {
+                $sms_templates['absent'] = $tpl['content'];
+            } elseif (mb_stripos($tpl['title'], 'Late') !== false || mb_stripos($tpl['title'], 'দেরি') !== false) {
+                $sms_templates['late'] = $tpl['content'];
+            } elseif (mb_stripos($tpl['title'], 'Present') !== false || mb_stripos($tpl['title'], 'উপস্থিতি') !== false) {
+                $sms_templates['present'] = $tpl['content'];
+            }
+        }
+
+        // Prepare SMS log table if not exists
+        $pdo->exec("CREATE TABLE IF NOT EXISTS sms_logs (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            student_id INT,
+            mobile VARCHAR(20),
+            message TEXT,
+            status VARCHAR(20),
+            sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            type VARCHAR(50) DEFAULT 'attendance',
+            prev_status VARCHAR(20) DEFAULT NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
         try {
             $pdo->beginTransaction();
 
             if ($is_existing_record) {
-                // Update existing attendance records
+                // Get previous attendance for all students
+                $prev_stmt = $pdo->prepare("SELECT student_id, status FROM attendance WHERE class_id = ? AND date = ?" . ($section_id ? " AND section_id = ?" : ""));
+                $prev_params = [$class_id, $date];
+                if ($section_id) $prev_params[] = $section_id;
+                $prev_stmt->execute($prev_params);
+                $prev_status_map = [];
+                foreach ($prev_stmt->fetchAll() as $row) {
+                    $prev_status_map[$row['student_id']] = $row['status'];
+                }
+
+                // Update existing attendance records and send SMS if status changed
                 foreach ($_POST['attendance'] as $student_id => $data) {
                     $status = $data['status'] ?? '';
                     $remarks = $data['remarks'] ?? '';
+                    $prev_status = $prev_status_map[$student_id] ?? '';
 
                     $update_stmt = $pdo->prepare("\n                        UPDATE attendance \n                        SET status = ?, remarks = ?, updated_at = CURRENT_TIMESTAMP \n                        WHERE student_id = ? AND class_id = ? AND section_id = ? AND date = ?\n                    ");
                     $update_stmt->execute([$status, $remarks, $student_id, $class_id, $section_id, $date]);
+
+                    // Only send SMS if status changed
+                    if ($status !== $prev_status && isset($student_map[$student_id]) && !empty($student_map[$student_id]['mobile'])) {
+                        $sms_body = $sms_templates[$status] ?? '';
+                        if ($sms_body) {
+                            $msg = $sms_body;
+                            $msg = str_replace([
+                                '{student_name}', '{roll}', '{date}', '{status}', '{class}', '{section}'
+                            ], [
+                                $student_map[$student_id]['first_name'] . ' ' . $student_map[$student_id]['last_name'],
+                                $student_map[$student_id]['roll_number'],
+                                $date,
+                                $status,
+                                $classes[array_search($class_id, array_column($classes, 'id'))]['name'] ?? '',
+                                $sections ? ($section_id ? (array_values(array_filter($sections, function($s){return $s['id']==$section_id;}))[0]['name'] ?? '') : '') : ''
+                            ], $msg);
+                            send_sms($student_map[$student_id]['mobile'], $msg);
+                            $log_stmt = $pdo->prepare("INSERT INTO sms_logs (student_id, mobile, message, status, prev_status) VALUES (?, ?, ?, ?, ?)");
+                            $log_stmt->execute([$student_id, $student_map[$student_id]['mobile'], $msg, $status, $prev_status]);
+                        }
+                    }
                 }
                 $_SESSION['success'] = "উপস্থিতি সফলভাবে আপডেট করা হয়েছে!";
             } else {
-                // Insert new attendance records
-                $attendance_stmt = $pdo->prepare("\n                    INSERT INTO attendance (student_id, class_id, section_id, date, status, remarks, recorded_by)\n                    VALUES (?, ?, ?, ?, ?, ?, ?)\n                ");
+                // Insert new attendance records and send SMS to absentees only
+                $attendance_stmt = $pdo->prepare("INSERT INTO attendance (student_id, class_id, section_id, date, status, remarks, recorded_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)");
                 $recorded_by = $_SESSION['user_id'];
                 foreach ($_POST['attendance'] as $student_id => $data) {
                     $status = $data['status'] ?? '';
                     $remarks = $data['remarks'] ?? '';
                     $attendance_stmt->execute([$student_id, $class_id, $section_id, $date, $status, $remarks, $recorded_by]);
+                    if ($status === 'absent' && isset($student_map[$student_id]) && !empty($student_map[$student_id]['mobile'])) {
+                        $sms_body = $sms_templates['absent'] ?? '';
+                        if ($sms_body) {
+                            $msg = $sms_body;
+                            $msg = str_replace([
+                                '{student_name}', '{roll}', '{date}', '{status}', '{class}', '{section}'
+                            ], [
+                                $student_map[$student_id]['first_name'] . ' ' . $student_map[$student_id]['last_name'],
+                                $student_map[$student_id]['roll_number'],
+                                $date,
+                                $status,
+                                $classes[array_search($class_id, array_column($classes, 'id'))]['name'] ?? '',
+                                $sections ? ($section_id ? (array_values(array_filter($sections, function($s){return $s['id']==$section_id;}))[0]['name'] ?? '') : '') : ''
+                            ], $msg);
+                            send_sms($student_map[$student_id]['mobile'], $msg);
+                            $log_stmt = $pdo->prepare("INSERT INTO sms_logs (student_id, mobile, message, status) VALUES (?, ?, ?, ?)");
+                            $log_stmt->execute([$student_id, $student_map[$student_id]['mobile'], $msg, $status]);
+                        }
+                    }
                 }
                 $_SESSION['success'] = "উপস্থিতি সফলভাবে রেকর্ড করা হয়েছে!";
             }
