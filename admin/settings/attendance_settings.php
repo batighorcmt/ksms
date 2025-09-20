@@ -52,9 +52,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div class="wrapper">
     <?php include '../inc/header.php'; ?>
     <?php include '../inc/sidebar.php'; ?>
-    <div class="content-wrapper p-3">
+    <div class="content-wrapper">
         <section class="content-header">
-            <h1><i class="fas fa-cog"></i> শিক্ষক হাজিরা সেটিংস</h1>
+            <div class="container-fluid">
+                <div class="row mb-2">
+                    <div class="col-sm-6">
+                        <h1 class="m-0"><i class="fas fa-cog"></i> শিক্ষক হাজিরা সেটিংস</h1>
+                    </div>
+                </div>
+            </div>
         </section>
         <section class="content">
             <div class="container-fluid" style="max-width:500px;">
