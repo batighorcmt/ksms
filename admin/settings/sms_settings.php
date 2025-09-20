@@ -39,10 +39,10 @@ if (isset($_POST['save_api'])) {
 // SMS templates CRUD
 if (isset($_POST['add_template'])) {
     $title = trim($_POST['template_title'] ?? '');
-    $body = trim($_POST['template_body'] ?? '');
-    if ($title && $body) {
-        $stmt = $pdo->prepare("INSERT INTO sms_templates (title, body) VALUES (?, ?)");
-        $stmt->execute([$title, $body]);
+    $content = trim($_POST['template_body'] ?? '');
+    if ($title && $content) {
+        $stmt = $pdo->prepare("INSERT INTO sms_templates (title, content) VALUES (?, ?)");
+        $stmt->execute([$title, $content]);
         $_SESSION['success'] = 'Template added!';
     }
     header('Location: sms_settings.php#templates');
@@ -51,10 +51,10 @@ if (isset($_POST['add_template'])) {
 if (isset($_POST['edit_template'])) {
     $id = intval($_POST['template_id']);
     $title = trim($_POST['template_title'] ?? '');
-    $body = trim($_POST['template_body'] ?? '');
-    if ($id && $title && $body) {
-        $stmt = $pdo->prepare("UPDATE sms_templates SET title=?, body=? WHERE id=?");
-        $stmt->execute([$title, $body, $id]);
+    $content = trim($_POST['template_body'] ?? '');
+    if ($id && $title && $content) {
+        $stmt = $pdo->prepare("UPDATE sms_templates SET title=?, content=? WHERE id=?");
+        $stmt->execute([$title, $content, $id]);
         $_SESSION['success'] = 'Template updated!';
     }
     header('Location: sms_settings.php#templates');
@@ -158,12 +158,12 @@ $templates = $pdo->query("SELECT * FROM sms_templates ORDER BY id DESC")->fetchA
                                                             <?php foreach($templates as $t): ?>
                                                             <tr>
                                                                 <td><?= htmlspecialchars($t['title'] ?? '') ?></td>
-                                                                <td><pre style="white-space:pre-wrap;word-break:break-all;"><?= htmlspecialchars((string)($t['body'] ?? '')) ?></pre></td>
+                                                                <td><pre style="white-space:pre-wrap;word-break:break-all;"><?= htmlspecialchars((string)($t['content'] ?? '')) ?></pre></td>
                                                                 <td>
                                                                     <button class="btn btn-warning btn-sm edit-btn" 
                                                                         data-id="<?= $t['id'] ?>" 
                                                                         data-title="<?= htmlspecialchars($t['title'] ?? '',ENT_QUOTES) ?>" 
-                                                                        data-body="<?= htmlspecialchars((string)($t['body'] ?? ''),ENT_QUOTES) ?>"
+                                                                        data-body="<?= htmlspecialchars((string)($t['content'] ?? ''),ENT_QUOTES) ?>"
                                                                         data-toggle="modal" data-target="#editTemplateModal">
                                                                         <i class="fa fa-edit"></i>
                                                                     </button>
@@ -200,7 +200,11 @@ $templates = $pdo->query("SELECT * FROM sms_templates ORDER BY id DESC")->fetchA
                                                                 <div class="form-group">
                                                                     <label>Body</label>
                                                                     <textarea name="template_body" class="form-control" rows="4" required></textarea>
-                                                                    <small class="form-text text-muted">You can use variables like {name}, {code}, etc.</small>
+                                                                    <small class="form-text text-muted">
+                                                                        You can use variables like:<br>
+                                                                        <code>{student_name}</code>, <code>{date}</code>, <code>{status}</code>, <code>{school_name}</code>, <code>{amount}</code>, <code>{month}</code>, <code>{exam_name}</code>, <code>{exam_date}</code>, <code>{code}</code>, etc.<br>
+                                                                        These will be replaced dynamically when sending SMS.
+                                                                    </small>
                                                                 </div>
                                                             </div>
                                                             <div class="modal-footer">
@@ -231,7 +235,11 @@ $templates = $pdo->query("SELECT * FROM sms_templates ORDER BY id DESC")->fetchA
                                                                 <div class="form-group">
                                                                     <label>Body</label>
                                                                     <textarea name="template_body" id="editTemplateBody" class="form-control" rows="4" required></textarea>
-                                                                    <small class="form-text text-muted">You can use variables like {name}, {code}, etc.</small>
+                                                                    <small class="form-text text-muted">
+                                                                        You can use variables like:<br>
+                                                                        <code>{student_name}</code>, <code>{date}</code>, <code>{status}</code>, <code>{school_name}</code>, <code>{amount}</code>, <code>{month}</code>, <code>{exam_name}</code>, <code>{exam_date}</code>, <code>{code}</code>, etc.<br>
+                                                                        These will be replaced dynamically when sending SMS.
+                                                                    </small>
                                                                 </div>
                                                             </div>
                                                             <div class="modal-footer">
