@@ -157,13 +157,13 @@ $templates = $pdo->query("SELECT * FROM sms_templates ORDER BY id DESC")->fetchA
                                                         <tbody>
                                                             <?php foreach($templates as $t): ?>
                                                             <tr>
-                                                                <td><?= htmlspecialchars($t['title']) ?></td>
-                                                                <td><pre style="white-space:pre-wrap;word-break:break-all;"><?= htmlspecialchars($t['body']) ?></pre></td>
+                                                                <td><?= htmlspecialchars($t['title'] ?? '') ?></td>
+                                                                <td><pre style="white-space:pre-wrap;word-break:break-all;"><?= htmlspecialchars((string)($t['body'] ?? '')) ?></pre></td>
                                                                 <td>
                                                                     <button class="btn btn-warning btn-sm edit-btn" 
                                                                         data-id="<?= $t['id'] ?>" 
-                                                                        data-title="<?= htmlspecialchars($t['title'],ENT_QUOTES) ?>" 
-                                                                        data-body="<?= htmlspecialchars($t['body'],ENT_QUOTES) ?>"
+                                                                        data-title="<?= htmlspecialchars($t['title'] ?? '',ENT_QUOTES) ?>" 
+                                                                        data-body="<?= htmlspecialchars((string)($t['body'] ?? ''),ENT_QUOTES) ?>"
                                                                         data-toggle="modal" data-target="#editTemplateModal">
                                                                         <i class="fa fa-edit"></i>
                                                                     </button>
