@@ -140,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
                     $update_stmt->execute([$status, $remarks, $student_id, $class_id, $section_id, $date]);
 
                     // Only send SMS if status changed
-                    if ($status !== $prev_status && isset($student_map[$student_id]) && !empty($student_map[$student_id]['mobile'])) {
+                    if ($status !== $prev_status && isset($student_map[$student_id]) && !empty($student_map[$student_id]['mobile_number'])) {
                         $sms_body = $sms_templates[$status] ?? '';
                         if ($sms_body) {
                             $msg = $sms_body;
@@ -154,9 +154,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
                                 $classes[array_search($class_id, array_column($classes, 'id'))]['name'] ?? '',
                                 $sections ? ($section_id ? (array_values(array_filter($sections, function($s){return $s['id']==$section_id;}))[0]['name'] ?? '') : '') : ''
                             ], $msg);
-                            send_sms($student_map[$student_id]['mobile'], $msg);
+                            send_sms($student_map[$student_id]['mobile_number'], $msg);
                             $log_stmt = $pdo->prepare("INSERT INTO sms_logs (student_id, mobile, message, status, prev_status) VALUES (?, ?, ?, ?, ?)");
-                            $log_stmt->execute([$student_id, $student_map[$student_id]['mobile'], $msg, $status, $prev_status]);
+                            $log_stmt->execute([$student_id, $student_map[$student_id]['mobile_number'], $msg, $status, $prev_status]);
                         }
                     }
                 }
@@ -170,7 +170,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
                     $status = $data['status'] ?? '';
                     $remarks = $data['remarks'] ?? '';
                     $attendance_stmt->execute([$student_id, $class_id, $section_id, $date, $status, $remarks, $recorded_by]);
-                    if ($status === 'absent' && isset($student_map[$student_id]) && !empty($student_map[$student_id]['mobile'])) {
+                    if ($status === 'absent' && isset($student_map[$student_id]) && !empty($student_map[$student_id]['mobile_number'])) {
                         $sms_body = $sms_templates['absent'] ?? '';
                         if ($sms_body) {
                             $msg = $sms_body;
@@ -184,9 +184,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
                                 $classes[array_search($class_id, array_column($classes, 'id'))]['name'] ?? '',
                                 $sections ? ($section_id ? (array_values(array_filter($sections, function($s){return $s['id']==$section_id;}))[0]['name'] ?? '') : '') : ''
                             ], $msg);
-                            send_sms($student_map[$student_id]['mobile'], $msg);
+                            send_sms($student_map[$student_id]['mobile_number'], $msg);
                             $log_stmt = $pdo->prepare("INSERT INTO sms_logs (student_id, mobile, message, status) VALUES (?, ?, ?, ?)");
-                            $log_stmt->execute([$student_id, $student_map[$student_id]['mobile'], $msg, $status]);
+                            $log_stmt->execute([$student_id, $student_map[$student_id]['mobile_number'], $msg, $status]);
                         }
                     }
                 }
