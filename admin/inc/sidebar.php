@@ -253,6 +253,13 @@
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>হাজিরা সেটিংস</p>
                             </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/settings/sms_settings.php" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>এসএমএস সেটিংস</p>
+                            </a>
+                        </li>
                     </ul>
                 </li>
                 <li class="nav-item mt-3">
