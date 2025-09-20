@@ -1,3 +1,4 @@
+<?php
 // --- SMS Sending Function ---
 function send_sms($to, $message) {
     global $pdo;
@@ -27,12 +28,10 @@ function send_sms($to, $message) {
     // Optionally, log $response or $err
     return $response && !$err;
 }
-<?php
 require_once '../../config.php';
 if (!isAuthenticated() || !hasRole(['super_admin'])) {
     redirect('../../login.php');
 }
-
 // API settings
 $default_api_url = '';
 $default_api_key = '';
@@ -111,6 +110,7 @@ if ($pdo->query("SHOW TABLES LIKE 'sms_templates'")->rowCount() == 0) {
 }
 $templates = $pdo->query("SELECT * FROM sms_templates ORDER BY id DESC")->fetchAll();
 ?>
+
 <!DOCTYPE html>
 <html lang="bn">
 <head>
