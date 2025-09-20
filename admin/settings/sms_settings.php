@@ -97,9 +97,6 @@ $templates = $pdo->query("SELECT * FROM sms_templates ORDER BY id DESC")->fetchA
 <div class="wrapper">
     <?php include '../inc/header.php'; ?>
     <?php include '../inc/sidebar.php'; ?>
-    <div class="content-wrapper">
-        <section class="content-header">
-            <div class="container-fluid">
                     <div class="content-wrapper">
                             <section class="content-header">
                                     <div class="container-fluid">
