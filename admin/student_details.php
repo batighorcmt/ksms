@@ -391,6 +391,8 @@ $fee_payments_data = $fee_payments->fetchAll();
                                                                 elseif ($m >= 70) echo '<span class="badge badge-primary">A</span>';
                                                                 elseif ($m >= 60) echo '<span class="badge badge-info">A-</span>';
                                                                 elseif ($m >= 50) echo '<span class="badge badge-warning">B</span>';
+                                                                elseif ($m >= 40) echo '<span class="badge badge-warning">C</span>';
+                                                                elseif ($m >= 33) echo '<span class="badge badge-warning">D</span>';
                                                                 else echo '<span class="badge badge-danger">F</span>';
                                                             ?>
                                                         </td>
