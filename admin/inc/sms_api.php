@@ -29,7 +29,16 @@ function send_sms($to, $message) {
     // Log API response for debugging
     $logfile = __DIR__ . '/sms_api.log';
     $logdata = date('Y-m-d H:i:s') . " | To: $to | Msg: $message | URL: $url | Response: $response | Error: $err\n";
-    file_put_contents($logfile, $logdata, FILE_APPEND);
+    // Try to create the log file if not exists
+    if (!file_exists($logfile)) {
+        @touch($logfile);
+        @chmod($logfile, 0666);
+    }
+    // Write log, suppress error if unable
+    if (@file_put_contents($logfile, $logdata, FILE_APPEND) === false) {
+        // Optionally, you can handle logging failure here (e.g., send to error_log)
+        error_log('Unable to write to sms_api.log in ' . __DIR__);
+    }
     // Check API response for success (bulksmsbd returns JSON with 'response_code' or 'success')
     $success = false;
     if ($err) {

@@ -530,13 +530,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_sms_all'])) {
                                         </div>
                                     </div>
                                 </form>
-<!-- Send SMS to All Students Button -->
-<form method="POST" action="" class="mb-3">
+<!-- Send SMS by Status Dropdown -->
+<form method="POST" action="" class="mb-3 form-inline">
     <input type="hidden" name="class_id" value="<?php echo $selected_class; ?>">
     <input type="hidden" name="section_id" value="<?php echo $selected_section; ?>">
     <input type="hidden" name="date" value="<?php echo $selected_date; ?>">
-    <button type="submit" name="send_sms_all" class="btn btn-info" onclick="return confirm('সব শিক্ষার্থীকে SMS পাঠাতে চান?');">
-        <i class="fas fa-sms"></i> সকল শিক্ষার্থীকে SMS পাঠান
+    <label for="sms_status" class="mr-2 font-weight-bold">SMS পাঠান (স্ট্যাটাস অনুযায়ী):</label>
+    <select name="sms_status" id="sms_status" class="form-control mr-2" required>
+        <option value="present">উপস্থিত</option>
+        <option value="absent">অনুপস্থিত</option>
+        <option value="late">দেরি</option>
+    </select>
+    <button type="submit" name="send_sms_by_status" class="btn btn-info" onclick="return confirm('নির্বাচিত স্ট্যাটাসের শিক্ষার্থীকে SMS পাঠাতে চান?');">
+        <i class="fas fa-sms"></i> SMS পাঠান
     </button>
 </form>
 
@@ -636,17 +642,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_sms_all'])) {
                                                                 <label for="late_<?php echo $student_id; ?>" class="radio-label">
                                                                     <i class="fas fa-clock"></i>
                                                                 </label>
-                                                            </td>
-
-                                                            <td>
-                                                                <input type="text" class="form-control form-control-sm" name="attendance[<?php echo $student_id; ?>][remarks]" value="<?php echo $current_remarks; ?>" placeholder="মন্তব্য">
-                                                            </td>
-                                                        </tr>
-                                                    <?php endforeach; ?>
+                                                            <?php endforeach; ?>
+                                                        <?php endif; ?>
                                                 </tbody>
                                             </table>
                                         </div>
-
                                         <!-- Bottom Submit Button -->
                                         <div class="sticky-submit text-right mt-2">
                                             <button type="submit" name="mark_attendance" class="btn btn-success btn-sm-compact">
@@ -708,10 +708,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_sms_all'])) {
             var presentCount = $('input[value="present"]:checked').length;
             var absentCount = $('input[value="absent"]:checked').length;
             var lateCount = $('input[value="late"]:checked').length;
-            
             // Remove active class from all header buttons
             $('.btn-attendance-header').removeClass('active-present active-absent active-late');
-
             // If all students have the same status, activate the corresponding header button
             if (totalStudents > 0) {
                 if (presentCount === totalStudents) {
@@ -727,7 +725,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_sms_all'])) {
         // Handle "select all" buttons
         $('.btn-attendance-header').click(function() {
             var statusToSelect = $(this).data('status');
-            
             // Loop through all radio buttons and select the correct one
             $('input[name^="attendance["][type="radio"]').each(function() {
                 if ($(this).val() === statusToSelect) {
