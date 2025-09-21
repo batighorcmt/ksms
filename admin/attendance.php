@@ -151,10 +151,24 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['view_attendance'])) {
 
     if (!$allowed) {
         $_SESSION['error'] = "আপনার এই ক্লাস/শাখার উপস্থিতি দেখার/নেওয়ার অনুমতি নেই।";
-        // Ensure no students/attendance data is shown
+        // Ensure no attendance data is shown
         $attendance_data = [];
-        $students = [];
         $is_existing_record = false;
+        // But still fetch students list for the selected class and section
+        $student_query = "
+            SELECT id, first_name, last_name, roll_number 
+            FROM students 
+            WHERE class_id = ? AND status='active'
+        ";
+        $student_params = [$selected_class];
+        if ($selected_section !== null) {
+            $student_query .= " AND section_id = ?";
+            $student_params[] = $selected_section;
+        }
+        $student_query .= " ORDER BY roll_number ASC";
+        $student_stmt = $pdo->prepare($student_query);
+        $student_stmt->execute($student_params);
+        $students = $student_stmt->fetchAll();
     } else {
         // Check if attendance already exists for this date, class, and optional section
         $check_query = "SELECT COUNT(*) as count FROM attendance WHERE class_id = ? AND date = ?";
@@ -188,7 +202,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['view_attendance'])) {
             $attendance_data = $attendance_stmt->fetchAll();
         }
 
-        // Get students list for the selected class and optional section
+        // Always get students list for the selected class and optional section
         $student_query = "
             SELECT id, first_name, last_name, roll_number 
             FROM students 
