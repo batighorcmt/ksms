@@ -180,10 +180,24 @@
                     </ul>
                 </li>
                 <li class="nav-item">
-                    <a href="<?php echo BASE_URL; ?>admin/exam.php" class="nav-link">
+                    <a href="#" class="nav-link">
                         <i class="nav-icon fas fa-book"></i>
-                        <p>পরীক্ষা ব্যবস্থাপনা</p>
+                        <p>পরীক্ষা ব্যবস্থাপনা <i class="right fas fa-angle-left"></i></p>
                     </a>
+                    <ul class="nav nav-treeview">
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>exam/exam_list.php" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>পরীক্ষার তালিকা</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>exam/create_exam.php" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>নতুন পরীক্ষা তৈরি</p>
+                            </a>
+                        </li>
+                    </ul>
                 </li>
                 <li class="nav-item">
                     <a href="<?php echo BASE_URL; ?>admin/fees.php" class="nav-link">
@@ -232,6 +246,18 @@
                             <a href="<?php echo BASE_URL; ?>admin/settings.php" class="nav-link">
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>সাধারণ সেটিংস</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/settings/attendance_settings.php" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>হাজিরা সেটিংস</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/settings/sms_settings.php" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>এসএমএস সেটিংস</p>
                             </a>
                         </li>
                     </ul>
