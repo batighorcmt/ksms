@@ -216,6 +216,87 @@ if ($selected_class) {
     $sections = $section_stmt->fetchAll();
 }
 ?>
+<?php
+// সকল শিক্ষার্থীকে SMS পাঠানোর জন্য
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_sms_all'])) {
+    $class_id = intval($_POST['class_id']);
+    $section_id = !empty($_POST['section_id']) ? intval($_POST['section_id']) : null;
+    $date = $_POST['date'];
+
+    // শিক্ষার্থীর উপস্থিতি ও তথ্য লোড করুন
+    $stmt = $pdo->prepare("SELECT a.student_id, a.status, s.first_name, s.last_name, s.roll_number, s.mobile_number
+        FROM attendance a
+        JOIN students s ON a.student_id = s.id
+        WHERE a.class_id = ? AND a.date = ?" . ($section_id ? " AND a.section_id = ?" : "") . " AND s.status = 'active'");
+    $params = [$class_id, $date];
+    if ($section_id) $params[] = $section_id;
+    $stmt->execute($params);
+    $students = $stmt->fetchAll();
+
+    // টেমপ্লেট লোড
+    $tpl_stmt = $pdo->query("SELECT * FROM sms_templates");
+    $sms_templates = [];
+    foreach ($tpl_stmt->fetchAll() as $tpl) {
+        if (mb_stripos($tpl['title'], 'অনুপস্থিত') !== false || mb_stripos($tpl['title'], 'Absent') !== false) {
+            $sms_templates['absent'] = $tpl['content'];
+        } elseif (mb_stripos($tpl['title'], 'Late') !== false || mb_stripos($tpl['title'], 'দেরি') !== false) {
+            $sms_templates['late'] = $tpl['content'];
+        } elseif (mb_stripos($tpl['title'], 'Present') !== false || mb_stripos($tpl['title'], 'উপস্থিতি') !== false) {
+            $sms_templates['present'] = $tpl['content'];
+        }
+    }
+
+    // ক্লাস ও শাখার নাম
+    $class_name = $classes[array_search($class_id, array_column($classes, 'id'))]['name'] ?? '';
+    $section_name = '';
+    if ($section_id) {
+        $sec_name_stmt = $pdo->prepare("SELECT name FROM sections WHERE id = ?");
+        $sec_name_stmt->execute([$section_id]);
+        $section_data = $sec_name_stmt->fetch();
+        if ($section_data) {
+            $section_name = $section_data['name'];
+        }
+    }
+
+    $sent_count = 0;
+    foreach ($students as $stu) {
+        $status = $stu['status'];
+        $sms_body = $sms_templates[$status] ?? '';
+        if ($sms_body && !empty($stu['mobile_number'])) {
+            $msg = str_replace(
+                ['{student_name}', '{roll}', '{date}', '{status}', '{class}', '{section}'],
+                [
+                    $stu['first_name'] . ' ' . $stu['last_name'],
+                    $stu['roll_number'],
+                    $date,
+                    $status,
+                    $class_name,
+                    $section_name
+                ],
+                $sms_body
+            );
+            // SMS পাঠান
+            if (function_exists('send_sms')) {
+                $sms_sent = send_sms($stu['mobile_number'], $msg);
+            }
+            // লগ করুন
+            $log_stmt = $pdo->prepare("INSERT INTO sms_logs (student_id, mobile, message, status, sent_by) VALUES (?, ?, ?, ?, ?)");
+            $log_stmt->execute([
+                $stu['student_id'],
+                $stu['mobile_number'],
+                $msg,
+                $status,
+                $_SESSION['user_id']
+            ]);
+            $sent_count++;
+        }
+    }
+    $_SESSION['success'] = "মোট {$sent_count} জন শিক্ষার্থীকে SMS পাঠানো হয়েছে!";
+    header("Location: attendance.php?class_id=$class_id&section_id=$section_id&date=$date&view_attendance=1");
+    exit;
+}
+?>
+
 
 <!DOCTYPE html>
 <html lang="bn">
@@ -449,6 +530,15 @@ if ($selected_class) {
                                         </div>
                                     </div>
                                 </form>
+<!-- Send SMS to All Students Button -->
+<form method="POST" action="" class="mb-3">
+    <input type="hidden" name="class_id" value="<?php echo $selected_class; ?>">
+    <input type="hidden" name="section_id" value="<?php echo $selected_section; ?>">
+    <input type="hidden" name="date" value="<?php echo $selected_date; ?>">
+    <button type="submit" name="send_sms_all" class="btn btn-info" onclick="return confirm('সব শিক্ষার্থীকে SMS পাঠাতে চান?');">
+        <i class="fas fa-sms"></i> সকল শিক্ষার্থীকে SMS পাঠান
+    </button>
+</form>
 
                                 <?php if(!empty($students) || !empty($attendance_data)): ?>
                                     <hr>
