@@ -133,16 +133,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
 
                 // Update existing attendance records and send SMS if status changed
                 foreach ($_POST['attendance'] as $student_id => $data) {
+                    // Always set $selected_section for SMS template
+                    $selected_section = $section_id ?? null;
                     if (!isset($section_id)) {
                         $section_id = $selected_section ?? null;
                     }
-                    // Ensure $selected_section is set for SMS template replacement
                     $selected_section = $section_id;
                     $status = $data['status'] ?? '';
                     $remarks = $data['remarks'] ?? '';
                     $prev_status = $prev_status_map[$student_id] ?? '';
 
-                    // FIX: section_id null হলে শর্ত বাদ দিয়ে আপডেট করা
+                    // Update attendance as before
                     if ($section_id !== null) {
                         $update_stmt = $pdo->prepare("
                             UPDATE attendance 
@@ -159,11 +160,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
                         $update_stmt->execute([$status, $remarks, $student_id, $class_id, $date]);
                     }
 
-                    // Only send SMS if status changed
-                    if ($status !== $prev_status && isset($student_map[$student_id]) && !empty($student_map[$student_id]['mobile_number'])) {
-                        $sms_body = $sms_templates[$status] ?? '';
+                    // Only send SMS if student is marked absent (and status changed to absent)
+                    if ($status === 'absent' && $status !== $prev_status && isset($student_map[$student_id]) && !empty($student_map[$student_id]['mobile_number'])) {
+                        $sms_body = $sms_templates['absent'] ?? '';
                         if ($sms_body) {
-                            global $selected_section;
                             $msg = $sms_body;
                             $msg = str_replace([
                                 '{student_name}', '{roll}', '{date}', '{status}', '{class}', '{section}'
