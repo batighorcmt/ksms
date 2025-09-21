@@ -172,58 +172,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_attendance'])) {
 
                 $sent_count = 0;
                 $sent_to_numbers = [];
-                $pairs = [];
-                $logs = [];
                 foreach ($rows as $r) {
                     $status = $r['status'];
                     $template = isset($sms_templates[$status]) ? $sms_templates[$status] : '';
                     $mobile = trim(isset($r['mobile_number']) ? $r['mobile_number'] : '');
+                    // Basic normalization: strip spaces and non-digits
                     $mobile = preg_replace('/[^0-9]/', '', $mobile);
-                    if ($mobile === '' || $template === '') { continue; }
+                    if ($mobile === '') { continue; }
+                    // Skip duplicate sends to same number in this run
                     if (isset($sent_to_numbers[$mobile])) { continue; }
-                    $msg = str_replace(
-                        ['{student_name}', '{roll}', '{date}', '{status}', '{class}', '{section}'],
-                        [
-                            trim((isset($r['first_name']) ? $r['first_name'] : '') . ' ' . (isset($r['last_name']) ? $r['last_name'] : '')),
-                            (isset($r['roll_number']) ? $r['roll_number'] : ''),
-                            $date,
-                            $status,
-                            $class_name,
-                            $section_name
-                        ],
-                        $template
-                    );
-                    $pairs[] = ['to' => $mobile, 'message' => $msg];
-                    $logs[] = [
-                        'student_id' => $r['student_id'],
-                        'mobile'     => $mobile,
-                        'message'    => $msg,
-                        'status'     => $status,
-                    ];
-                    $sent_to_numbers[$mobile] = true;
-                }
-
-                if (!empty($pairs)) {
-                    // Send in chunks to avoid oversized payloads (e.g., 100 per request)
-                    $chunkSize = 100;
-                    $log_stmt = $pdo->prepare("INSERT INTO sms_logs (student_id, mobile, message, status, sent_by) VALUES (?, ?, ?, ?, ?)");
-                    for ($i = 0; $i < count($pairs); $i += $chunkSize) {
-                        $pairsChunk = array_slice($pairs, $i, $chunkSize);
-                        $logsChunk  = array_slice($logs,  $i, $chunkSize);
-                        $ok = send_sms_many($pairsChunk);
-                        // Log each row regardless of success/failure
-                        foreach ($logsChunk as $L) {
-                            $log_stmt->execute([
-                                $L['student_id'],
-                                $L['mobile'],
-                                $L['message'],
-                                $L['status'],
-                                (isset($_SESSION['user_id']) ? $_SESSION['user_id'] : null)
-                            ]);
+                    if ($template && $mobile !== '') {
+                        $msg = str_replace(
+                            ['{student_name}', '{roll}', '{date}', '{status}', '{class}', '{section}'],
+                            [
+                                trim((isset($r['first_name']) ? $r['first_name'] : '') . ' ' . (isset($r['last_name']) ? $r['last_name'] : '')),
+                                (isset($r['roll_number']) ? $r['roll_number'] : ''),
+                                $date,
+                                $status,
+                                $class_name,
+                                $section_name
+                            ],
+                            $template
+                        );
+                        $ok = send_sms($mobile, $msg);
+                        // Retry once if failed
+                        if (!$ok) {
+                            usleep(300000); // 0.3s
+                            $ok = send_sms($mobile, $msg);
                         }
-                        if ($ok) { $sent_count += count($pairsChunk); }
-                        // Gentle throttle between chunks
-                        usleep(300000); // 0.3s
+                        // Log regardless of success/failure; 'status' column stores attendance status here
+                        $log_stmt = $pdo->prepare("INSERT INTO sms_logs (student_id, mobile, message, status, sent_by) VALUES (?, ?, ?, ?, ?)");
+                        $log_stmt->execute([
+                            $r['student_id'],
+                            $mobile,
+                            $msg,
+                            $status,
+                            (isset($_SESSION['user_id']) ? $_SESSION['user_id'] : null)
+                        ]);
+                        if ($ok) { $sent_count++; }
+                        $sent_to_numbers[$mobile] = true;
+                        // Gentle throttle to avoid provider rate-limits
+                        usleep(250000); // 0.25s
                     }
                 }
                 if ($sent_count > 0) {
