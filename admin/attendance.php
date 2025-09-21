@@ -56,6 +56,7 @@ $current_date = date('Y-m-d');
 $classes = $pdo->query("SELECT * FROM classes WHERE status='active' ORDER BY numeric_value ASC")->fetchAll();
 
 // Initialize variables
+
 $selected_class = '';
 $selected_section = '';
 $selected_date = $current_date;
@@ -64,6 +65,57 @@ $students = [];
 $is_existing_record = false;
 $sections = [];
 $allowed = false;
+
+// Load students and attendance data if class, section, and date are selected (GET or POST)
+if ((($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['class_id'], $_GET['section_id'], $_GET['date'])) ||
+     ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['class_id'], $_POST['section_id'], $_POST['date'])))
+    && (($_SERVER['REQUEST_METHOD'] === 'GET' && $_GET['class_id'] !== '' && $_GET['section_id'] !== '') ||
+        ($_SERVER['REQUEST_METHOD'] === 'POST' && $_POST['class_id'] !== '' && $_POST['section_id'] !== ''))
+) {
+    $class_id = intval($_GET['class_id'] ?? $_POST['class_id']);
+    $section_id = intval($_GET['section_id'] ?? $_POST['section_id']);
+    $selected_class = $class_id;
+    $selected_section = $section_id;
+    $selected_date = $_GET['date'] ?? $_POST['date'] ?? $current_date;
+
+    // Load sections for the selected class
+    $section_stmt = $pdo->prepare("SELECT * FROM sections WHERE class_id = ?");
+    $section_stmt->execute([$class_id]);
+    $sections = $section_stmt->fetchAll();
+
+    // Load students for the selected class and section
+    $student_stmt = $pdo->prepare("SELECT * FROM students WHERE class_id = ? AND section_id = ? AND status='active' ORDER BY roll_number ASC");
+    $student_stmt->execute([$class_id, $section_id]);
+    $students = $student_stmt->fetchAll();
+
+    // Load attendance data for the selected date, class, and section
+    $att_stmt = $pdo->prepare("SELECT * FROM attendance WHERE class_id = ? AND section_id = ? AND date = ?");
+    $att_stmt->execute([$class_id, $section_id, $selected_date]);
+    $attendance_data = $att_stmt->fetchAll();
+
+    // Permission check for GET/POST
+    $allowed = hasRole(['super_admin']);
+    if (!$allowed && isset($_SESSION['user_id'])) {
+        $user_id = $_SESSION['user_id'];
+        $col = null;
+        try {
+            $cols = $pdo->query("SHOW COLUMNS FROM sections")->fetchAll(PDO::FETCH_COLUMN);
+            if (in_array('section_teacher_id', $cols)) {
+                $col = 'section_teacher_id';
+            } elseif (in_array('teacher_id', $cols)) {
+                $col = 'teacher_id';
+            }
+        } catch (Exception $ex) {}
+        if ($col) {
+            $sec_stmt = $pdo->prepare("SELECT `" . $col . "` AS t FROM sections WHERE id = ? LIMIT 1");
+            $sec_stmt->execute([$section_id]);
+            $sec = $sec_stmt->fetch();
+            if ($sec && intval($sec['t']) === intval($user_id)) {
+                $allowed = true;
+            }
+        }
+    }
+}
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
