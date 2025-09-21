@@ -1,4 +1,3 @@
-
 <?php
 // attendance.php
 require_once __DIR__ . '/inc/sms_api.php';
