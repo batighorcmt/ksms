@@ -3,11 +3,20 @@ require_once '../../config.php';
 if (!isAuthenticated() || !hasRole(['super_admin'])) {
     redirect('../../login.php');
 }
+
 // API settings
 $default_api_url = '';
 $default_api_key = '';
 $default_sender_id = '';
 $default_masking = '';
+
+// Attendance SMS settings (default values)
+$attendance_sms_settings = [
+    'sms_attendance_present' => '0',
+    'sms_attendance_absent' => '1',
+    'sms_attendance_late' => '1',
+    'sms_attendance_half_day' => '0'
+];
 
 // Try to load from DB (settings table)
 $settings = $pdo->query("SELECT * FROM settings WHERE `key` LIKE 'sms_%'")->fetchAll();
@@ -16,6 +25,11 @@ foreach ($settings as $row) {
     if ($row['key'] === 'sms_api_key') $default_api_key = $row['value'];
     if ($row['key'] === 'sms_sender_id') $default_sender_id = $row['value'];
     if ($row['key'] === 'sms_masking') $default_masking = $row['value'];
+    
+    // Load attendance SMS settings
+    if (array_key_exists($row['key'], $attendance_sms_settings)) {
+        $attendance_sms_settings[$row['key']] = $row['value'];
+    }
 }
 
 // Handle API settings form
@@ -32,6 +46,25 @@ if (isset($_POST['save_api'])) {
     $save->execute([$api_url, $api_key, $sender_id, $masking]);
     $_SESSION['success'] = 'API settings updated!';
     header('Location: sms_settings.php');
+    exit;
+}
+
+// Handle attendance SMS settings form
+if (isset($_POST['save_attendance_sms'])) {
+    $present = isset($_POST['sms_attendance_present']) ? '1' : '0';
+    $absent = isset($_POST['sms_attendance_absent']) ? '1' : '0';
+    $late = isset($_POST['sms_attendance_late']) ? '1' : '0';
+    $half_day = isset($_POST['sms_attendance_half_day']) ? '1' : '0';
+    
+    $save = $pdo->prepare("REPLACE INTO settings (`key`, `value`) VALUES
+        ('sms_attendance_present', ?),
+        ('sms_attendance_absent', ?),
+        ('sms_attendance_late', ?),
+        ('sms_attendance_half_day', ?)");
+    $save->execute([$present, $absent, $late, $half_day]);
+    
+    $_SESSION['success'] = 'Attendance SMS settings updated!';
+    header('Location: sms_settings.php#attendance');
     exit;
 }
 
@@ -75,7 +108,7 @@ if ($pdo->query("SHOW TABLES LIKE 'sms_templates'")->rowCount() == 0) {
     $pdo->exec("CREATE TABLE IF NOT EXISTS sms_templates (
         id INT AUTO_INCREMENT PRIMARY KEY,
         title VARCHAR(100) NOT NULL,
-        body TEXT NOT NULL,
+        content TEXT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
@@ -117,6 +150,9 @@ $templates = $pdo->query("SELECT * FROM sms_templates ORDER BY id DESC")->fetchA
                                                     <a class="nav-link active" id="api-tab" data-toggle="tab" href="#api" role="tab">API Settings</a>
                                                 </li>
                                                 <li class="nav-item">
+                                                    <a class="nav-link" id="attendance-tab" data-toggle="tab" href="#attendance" role="tab">Attendance SMS</a>
+                                                </li>
+                                                <li class="nav-item">
                                                     <a class="nav-link" id="templates-tab" data-toggle="tab" href="#templates" role="tab">SMS Templates</a>
                                                 </li>
                                             </ul>
@@ -143,6 +179,37 @@ $templates = $pdo->query("SELECT * FROM sms_templates ORDER BY id DESC")->fetchA
                                                             </div>
                                                             <button type="submit" name="save_api" class="btn btn-primary btn-block"><i class="fas fa-save"></i> Save API Settings</button>
                                                     </form>
+                                                </div>
+                                                <div class="tab-pane fade" id="attendance" role="tabpanel">
+                                                    <div class="card p-4">
+                                                        <h5 class="mb-3">Attendance SMS Settings</h5>
+                                                        <p class="text-muted mb-4">Select which attendance statuses should trigger SMS notifications to parents/guardians.</p>
+                                                        
+                                                        <form method="post">
+                                                            <div class="form-group">
+                                                                <div class="custom-control custom-switch mb-3">
+                                                                    <input type="checkbox" class="custom-control-input" id="smsPresent" name="sms_attendance_present" value="1" <?php echo $attendance_sms_settings['sms_attendance_present'] == '1' ? 'checked' : ''; ?>>
+                                                                    <label class="custom-control-label" for="smsPresent">Send SMS for <span class="badge badge-success">Present</span> status</label>
+                                                                </div>
+                                                                
+                                                                <div class="custom-control custom-switch mb-3">
+                                                                    <input type="checkbox" class="custom-control-input" id="smsAbsent" name="sms_attendance_absent" value="1" <?php echo $attendance_sms_settings['sms_attendance_absent'] == '1' ? 'checked' : ''; ?>>
+                                                                    <label class="custom-control-label" for="smsAbsent">Send SMS for <span class="badge badge-danger">Absent</span> status</label>
+                                                                </div>
+                                                                
+                                                                <div class="custom-control custom-switch mb-3">
+                                                                    <input type="checkbox" class="custom-control-input" id="smsLate" name="sms_attendance_late" value="1" <?php echo $attendance_sms_settings['sms_attendance_late'] == '1' ? 'checked' : ''; ?>>
+                                                                    <label class="custom-control-label" for="smsLate">Send SMS for <span class="badge badge-warning">Late</span> status</label>
+                                                                </div>
+                                                                
+                                                                <div class="custom-control custom-switch mb-3">
+                                                                    <input type="checkbox" class="custom-control-input" id="smsHalfDay" name="sms_attendance_half_day" value="1" <?php echo $attendance_sms_settings['sms_attendance_half_day'] == '1' ? 'checked' : ''; ?>>
+                                                                    <label class="custom-control-label" for="smsHalfDay">Send SMS for <span class="badge badge-info">Half Day</span> status</label>
+                                                                </div>
+                                                            </div>
+                                                            <button type="submit" name="save_attendance_sms" class="btn btn-primary btn-block"><i class="fas fa-save"></i> Save Attendance SMS Settings</button>
+                                                        </form>
+                                                    </div>
                                                 </div>
                                                 <div class="tab-pane fade" id="templates" role="tabpanel">
                                                     <div class="d-flex justify-content-between align-items-center mb-2">
