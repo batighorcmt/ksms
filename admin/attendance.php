@@ -133,6 +133,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
 
                 // Update existing attendance records and send SMS if status changed
                 foreach ($_POST['attendance'] as $student_id => $data) {
+                    if (!isset($section_id)) {
+                        $section_id = $selected_section ?? null;
+                    }
+                    // Ensure $selected_section is set for SMS template replacement
+                    $selected_section = $section_id;
                     $status = $data['status'] ?? '';
                     $remarks = $data['remarks'] ?? '';
                     $prev_status = $prev_status_map[$student_id] ?? '';
@@ -158,6 +163,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
                     if ($status !== $prev_status && isset($student_map[$student_id]) && !empty($student_map[$student_id]['mobile_number'])) {
                         $sms_body = $sms_templates[$status] ?? '';
                         if ($sms_body) {
+                            global $selected_section;
                             $msg = $sms_body;
                             $msg = str_replace([
                                 '{student_name}', '{roll}', '{date}', '{status}', '{class}', '{section}'
@@ -167,7 +173,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
                                 $date,
                                 $status,
                                 $classes[array_search($class_id, array_column($classes, 'id'))]['name'] ?? '',
-                                $sections ? ($section_id ? (array_values(array_filter($sections, function($s){return $s['id']==$section_id;}))[0]['name'] ?? '') : '') : ''
+                                $sections ? ($selected_section ? (array_values(array_filter($sections, function($s){return $s['id']==$selected_section;}))[0]['name'] ?? '') : '') : ''
                             ], $msg);
                             send_sms($student_map[$student_id]['mobile_number'], $msg);
                             $log_stmt = $pdo->prepare("INSERT INTO sms_logs (student_id, mobile, message, status, prev_status) VALUES (?, ?, ?, ?, ?)");
@@ -201,7 +207,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
         $selected_date = $date;
     }
 }
-<<<<<<< HEAD
 
 // Handle view attendance request
 if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['view_attendance'])) {
@@ -318,8 +323,6 @@ if ($selected_class) {
     $section_stmt->execute([$selected_class]);
     $sections = $section_stmt->fetchAll();
 }
-=======
->>>>>>> 0e54b322d01378c53d0e8b0c59fae017d748335f
 ?>
 
 <!DOCTYPE html>
