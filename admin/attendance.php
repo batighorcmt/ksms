@@ -1,5 +1,7 @@
+
 <?php
 // attendance.php
+require_once __DIR__ . '/inc/sms_api.php';
 require_once '../config.php';
 
 // Authentication check
