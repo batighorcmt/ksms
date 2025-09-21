@@ -1,5 +1,6 @@
 <?php
 require_once '../config.php';
+require_once __DIR__ . '/inc/sms_api.php'; // Include SMS functionality
 
 // Authentication check
 if (!isAuthenticated() || !hasRole(['super_admin', 'teacher'])) {
@@ -20,39 +21,68 @@ $selected_date = $current_date;
 $attendance_data = [];
 $students = [];
 $is_existing_record = false;
+$allowed = false;
+
+// Get SMS settings to determine which statuses should trigger messages
+$sms_settings = [];
+try {
+    $sms_settings_stmt = $pdo->query("SELECT `key`, value FROM settings WHERE `key` LIKE 'sms_%'");
+    $sms_settings = $sms_settings_stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+} catch (Exception $e) {
+    // If settings table doesn't exist or doesn't have the required fields
+    error_log("Error fetching SMS settings: " . $e->getMessage());
+}
+
+// Get SMS templates
+$sms_templates = [];
+try {
+    $tpl_stmt = $pdo->query("SELECT * FROM sms_templates");
+    foreach ($tpl_stmt->fetchAll() as $tpl) {
+        if (mb_stripos($tpl['title'], 'অনুপস্থিত') !== false || mb_stripos($tpl['title'], 'Absent') !== false) {
+            $sms_templates['absent'] = $tpl['content'];
+        } elseif (mb_stripos($tpl['title'], 'Late') !== false || mb_stripos($tpl['title'], 'দেরি') !== false) {
+            $sms_templates['late'] = $tpl['content'];
+        } elseif (mb_stripos($tpl['title'], 'Present') !== false || mb_stripos($tpl['title'], 'উপস্থিতি') !== false) {
+            $sms_templates['present'] = $tpl['content'];
+        } elseif (mb_stripos($tpl['title'], 'Half Day') !== false || mb_stripos($tpl['title'], 'অর্ধদিবস') !== false) {
+            $sms_templates['half_day'] = $tpl['content'];
+        }
+    }
+} catch (Exception $e) {
+    error_log("Error fetching SMS templates: " . $e->getMessage());
+}
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
     $class_id = intval($_POST['class_id']);
-    $section_id = !empty($_POST['section_id']) ? intval($_POST['section_id']) : null;
+    $section_id = intval($_POST['section_id']); // Section is now mandatory
     $date = $_POST['date'];
+    
     // Permission check: only super_admin or the teacher assigned to the section may record attendance
     $allowed = false;
     if (hasRole(['super_admin'])) {
         $allowed = true;
     } else {
         $user_id = $_SESSION['user_id'] ?? 0;
-        if ($section_id !== null) {
-            // Detect which column stores the section teacher id and use it safely
-            $col = null;
-            try {
-                $cols = $pdo->query("SHOW COLUMNS FROM sections")->fetchAll(PDO::FETCH_COLUMN);
-                if (in_array('section_teacher_id', $cols)) {
-                    $col = 'section_teacher_id';
-                } elseif (in_array('teacher_id', $cols)) {
-                    $col = 'teacher_id';
-                }
-            } catch (Exception $ex) {
-                // ignore and leave $col null
+        // Detect which column stores the section teacher id
+        $col = null;
+        try {
+            $cols = $pdo->query("SHOW COLUMNS FROM sections")->fetchAll(PDO::FETCH_COLUMN);
+            if (in_array('section_teacher_id', $cols)) {
+                $col = 'section_teacher_id';
+            } elseif (in_array('teacher_id', $cols)) {
+                $col = 'teacher_id';
             }
+        } catch (Exception $ex) {
+            // ignore and leave $col null
+        }
 
-            if ($col) {
-                $sec_stmt = $pdo->prepare("SELECT `" . $col . "` AS t FROM sections WHERE id = ? LIMIT 1");
-                $sec_stmt->execute([$section_id]);
-                $sec = $sec_stmt->fetch();
-                if ($sec && intval($sec['t']) === intval($user_id)) {
-                    $allowed = true;
-                }
+        if ($col) {
+            $sec_stmt = $pdo->prepare("SELECT `" . $col . "` AS t FROM sections WHERE id = ? LIMIT 1");
+            $sec_stmt->execute([$section_id]);
+            $sec = $sec_stmt->fetch();
+            if ($sec && intval($sec['t']) === intval($user_id)) {
+                $allowed = true;
             }
         }
     }
@@ -64,39 +94,135 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
         $selected_section = $section_id;
         $selected_date = $date;
     } else {
-        // Check if attendance already exists for this date, class, and optional section
-        $check_query = "SELECT COUNT(*) as count FROM attendance WHERE class_id = ? AND date = ?";
-        $params = [$class_id, $date];
-        if ($section_id !== null) {
-            $check_query .= " AND section_id = ?";
-            $params[] = $section_id;
-        }
-        $check_stmt = $pdo->prepare($check_query);
-        $check_stmt->execute($params);
+        // Check if attendance already exists for this date, class, and section
+        $check_stmt = $pdo->prepare("SELECT COUNT(*) as count FROM attendance WHERE class_id = ? AND section_id = ? AND date = ?");
+        $check_stmt->execute([$class_id, $section_id, $date]);
         $result = $check_stmt->fetch();
         $is_existing_record = ($result['count'] > 0);
+
+        // Get students with their mobile numbers
+        $student_map = [];
+        $student_stmt = $pdo->prepare("SELECT id, first_name, last_name, roll_number, mobile_number FROM students WHERE class_id = ? AND section_id = ? AND status='active'");
+        $student_stmt->execute([$class_id, $section_id]);
+        foreach ($student_stmt->fetchAll() as $stu) {
+            $student_map[$stu['id']] = $stu;
+        }
+
+        // Get class and section names for SMS
+        $class_name = '';
+        $section_name = '';
+        foreach ($classes as $class) {
+            if ($class['id'] == $class_id) {
+                $class_name = $class['name'];
+                break;
+            }
+        }
+        
+        $sec_name_stmt = $pdo->prepare("SELECT name FROM sections WHERE id = ?");
+        $sec_name_stmt->execute([$section_id]);
+        $section_data = $sec_name_stmt->fetch();
+        if ($section_data) {
+            $section_name = $section_data['name'];
+        }
 
         try {
             $pdo->beginTransaction();
 
             if ($is_existing_record) {
+                // Get previous attendance for all students
+                $prev_stmt = $pdo->prepare("SELECT student_id, status FROM attendance WHERE class_id = ? AND section_id = ? AND date = ?");
+                $prev_stmt->execute([$class_id, $section_id, $date]);
+                $prev_status_map = [];
+                foreach ($prev_stmt->fetchAll() as $row) {
+                    $prev_status_map[$row['student_id']] = $row['status'];
+                }
+
                 // Update existing attendance records
                 foreach ($_POST['attendance'] as $student_id => $data) {
                     $status = $data['status'] ?? '';
                     $remarks = $data['remarks'] ?? '';
+                    $prev_status = $prev_status_map[$student_id] ?? '';
 
-                    $update_stmt = $pdo->prepare("\n                        UPDATE attendance \n                        SET status = ?, remarks = ?, updated_at = CURRENT_TIMESTAMP \n                        WHERE student_id = ? AND class_id = ? AND section_id = ? AND date = ?\n                    ");
+                    $update_stmt = $pdo->prepare("UPDATE attendance SET status = ?, remarks = ?, updated_at = CURRENT_TIMESTAMP WHERE student_id = ? AND class_id = ? AND section_id = ? AND date = ?");
                     $update_stmt->execute([$status, $remarks, $student_id, $class_id, $section_id, $date]);
+
+                    // Send SMS if status changed and SMS is enabled for this status
+                    if ($status !== $prev_status && isset($student_map[$student_id]) && !empty($student_map[$student_id]['mobile_number'])) {
+                        $sms_setting_key = 'sms_' . $status;
+                        if (isset($sms_settings[$sms_setting_key]) && $sms_settings[$sms_setting_key] == '1') {
+                            $sms_body = $sms_templates[$status] ?? '';
+                            if ($sms_body) {
+                                $msg = str_replace([
+                                    '{student_name}', '{roll}', '{date}', '{status}', '{class}', '{section}'
+                                ], [
+                                    $student_map[$student_id]['first_name'] . ' ' . $student_map[$student_id]['last_name'],
+                                    $student_map[$student_id]['roll_number'],
+                                    $date,
+                                    $status,
+                                    $class_name,
+                                    $section_name
+                                ], $sms_body);
+                                
+                                // Send SMS
+                                $sms_result = send_sms($student_map[$student_id]['mobile_number'], $msg);
+                                
+                                // Log SMS
+                                $log_stmt = $pdo->prepare("INSERT INTO sms_logs (student_id, mobile, message, status, prev_status, sent_by) VALUES (?, ?, ?, ?, ?, ?)");
+                                $log_stmt->execute([
+                                    $student_id, 
+                                    $student_map[$student_id]['mobile_number'], 
+                                    $msg, 
+                                    $sms_result ? 'sent' : 'failed', 
+                                    $prev_status,
+                                    $_SESSION['user_id']
+                                ]);
+                            }
+                        }
+                    }
                 }
                 $_SESSION['success'] = "উপস্থিতি সফলভাবে আপডেট করা হয়েছে!";
             } else {
                 // Insert new attendance records
-                $attendance_stmt = $pdo->prepare("\n                    INSERT INTO attendance (student_id, class_id, section_id, date, status, remarks, recorded_by)\n                    VALUES (?, ?, ?, ?, ?, ?, ?)\n                ");
+                $attendance_stmt = $pdo->prepare("INSERT INTO attendance (student_id, class_id, section_id, date, status, remarks, recorded_by) VALUES (?, ?, ?, ?, ?, ?, ?)");
                 $recorded_by = $_SESSION['user_id'];
+                
                 foreach ($_POST['attendance'] as $student_id => $data) {
                     $status = $data['status'] ?? '';
                     $remarks = $data['remarks'] ?? '';
                     $attendance_stmt->execute([$student_id, $class_id, $section_id, $date, $status, $remarks, $recorded_by]);
+                    
+                    // Send SMS for new attendance if SMS is enabled for this status
+                    if (isset($student_map[$student_id]) && !empty($student_map[$student_id]['mobile_number'])) {
+                        $sms_setting_key = 'sms_' . $status;
+                        if (isset($sms_settings[$sms_setting_key]) && $sms_settings[$sms_setting_key] == '1') {
+                            $sms_body = $sms_templates[$status] ?? '';
+                            if ($sms_body) {
+                                $msg = str_replace([
+                                    '{student_name}', '{roll}', '{date}', '{status}', '{class}', '{section}'
+                                ], [
+                                    $student_map[$student_id]['first_name'] . ' ' . $student_map[$student_id]['last_name'],
+                                    $student_map[$student_id]['roll_number'],
+                                    $date,
+                                    $status,
+                                    $class_name,
+                                    $section_name
+                                ], $sms_body);
+                                
+                                // Send SMS
+                                $sms_result = send_sms($student_map[$student_id]['mobile_number'], $msg);
+                                
+                                // Log SMS
+                                $log_stmt = $pdo->prepare("INSERT INTO sms_logs (student_id, mobile, message, status, sent_by) VALUES (?, ?, ?, ?, ?)");
+                                $log_stmt->execute([
+                                    $student_id, 
+                                    $student_map[$student_id]['mobile_number'], 
+                                    $msg, 
+                                    $sms_result ? 'sent' : 'failed',
+                                    $_SESSION['user_id']
+                                ]);
+                            }
+                        }
+                    }
                 }
                 $_SESSION['success'] = "উপস্থিতি সফলভাবে রেকর্ড করা হয়েছে!";
             }
@@ -117,35 +243,34 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
 // Handle view attendance request
 if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['view_attendance'])) {
     $selected_class = intval($_GET['class_id']);
-    $selected_section = !empty($_GET['section_id']) ? intval($_GET['section_id']) : null;
+    $selected_section = intval($_GET['section_id']); // Section is now mandatory
     $selected_date = $_GET['date'];
+    
     // Permission check: only super_admin or the section's assigned teacher may view/take attendance
     $allowed = false;
     if (hasRole(['super_admin'])) {
         $allowed = true;
     } else {
         $user_id = $_SESSION['user_id'] ?? 0;
-        if ($selected_section !== null) {
-            // detect the right column
-            $col = null;
-            try {
-                $cols = $pdo->query("SHOW COLUMNS FROM sections")->fetchAll(PDO::FETCH_COLUMN);
-                if (in_array('section_teacher_id', $cols)) {
-                    $col = 'section_teacher_id';
-                } elseif (in_array('teacher_id', $cols)) {
-                    $col = 'teacher_id';
-                }
-            } catch (Exception $ex) {
-                // ignore
+        // detect the right column
+        $col = null;
+        try {
+            $cols = $pdo->query("SHOW COLUMNS FROM sections")->fetchAll(PDO::FETCH_COLUMN);
+            if (in_array('section_teacher_id', $cols)) {
+                $col = 'section_teacher_id';
+            } elseif (in_array('teacher_id', $cols)) {
+                $col = 'teacher_id';
             }
+        } catch (Exception $ex) {
+            // ignore
+        }
 
-            if ($col) {
-                $sec_stmt = $pdo->prepare("SELECT `" . $col . "` AS t FROM sections WHERE id = ? LIMIT 1");
-                $sec_stmt->execute([$selected_section]);
-                $sec = $sec_stmt->fetch();
-                if ($sec && intval($sec['t']) === intval($user_id)) {
-                    $allowed = true;
-                }
+        if ($col) {
+            $sec_stmt = $pdo->prepare("SELECT `" . $col . "` AS t FROM sections WHERE id = ? LIMIT 1");
+            $sec_stmt->execute([$selected_section]);
+            $sec = $sec_stmt->fetch();
+            if ($sec && intval($sec['t']) === intval($user_id)) {
+                $allowed = true;
             }
         }
     }
@@ -157,56 +282,26 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['view_attendance'])) {
         $students = [];
         $is_existing_record = false;
     } else {
-        // Check if attendance already exists for this date, class, and optional section
-        $check_query = "SELECT COUNT(*) as count FROM attendance WHERE class_id = ? AND date = ?";
-        $params = [$selected_class, $selected_date];
-        if ($selected_section !== null) {
-            $check_query .= " AND section_id = ?";
-            $params[] = $selected_section;
-        }
-        $check_stmt = $pdo->prepare($check_query);
-        $check_stmt->execute($params);
+        // Check if attendance already exists for this date, class, and section
+        $check_stmt = $pdo->prepare("SELECT COUNT(*) as count FROM attendance WHERE class_id = ? AND section_id = ? AND date = ?");
+        $check_stmt->execute([$selected_class, $selected_section, $selected_date]);
         $result = $check_stmt->fetch();
         $is_existing_record = ($result['count'] > 0);
 
-        // Get attendance data for the selected date, class, and optional section
+        // Get attendance data for the selected date, class, and section
         $attendance_data = [];
         if ($is_existing_record) {
-            $attendance_query = "
-                SELECT a.*, s.first_name, s.last_name, s.roll_number 
-                FROM attendance a 
-                JOIN students s ON a.student_id = s.id 
-                WHERE a.class_id = ? AND a.date = ?
-            ";
-            $attendance_params = [$selected_class, $selected_date];
-            if ($selected_section !== null) {
-                $attendance_query .= " AND a.section_id = ?";
-                $attendance_params[] = $selected_section;
-            }
-            $attendance_query .= " ORDER BY s.roll_number ASC";
-            $attendance_stmt = $pdo->prepare($attendance_query);
-            $attendance_stmt->execute($attendance_params);
+            $attendance_stmt = $pdo->prepare("SELECT a.*, s.first_name, s.last_name, s.roll_number FROM attendance a JOIN students s ON a.student_id = s.id WHERE a.class_id = ? AND a.section_id = ? AND a.date = ? ORDER BY s.roll_number ASC");
+            $attendance_stmt->execute([$selected_class, $selected_section, $selected_date]);
             $attendance_data = $attendance_stmt->fetchAll();
         }
 
-        // Get students list for the selected class and optional section
-        $student_query = "
-            SELECT id, first_name, last_name, roll_number 
-            FROM students 
-            WHERE class_id = ? AND status='active'
-        ";
-        $student_params = [$selected_class];
-        if ($selected_section !== null) {
-            $student_query .= " AND section_id = ?";
-            $student_params[] = $selected_section;
-        }
-        $student_query .= " ORDER BY roll_number ASC";
-        $student_stmt = $pdo->prepare($student_query);
-        $student_stmt->execute($student_params);
+        // Get students list for the selected class and section
+        $student_stmt = $pdo->prepare("SELECT id, first_name, last_name, roll_number FROM students WHERE class_id = ? AND section_id = ? AND status='active' ORDER BY roll_number ASC");
+        $student_stmt->execute([$selected_class, $selected_section]);
         $students = $student_stmt->fetchAll();
     }
-
-    }
+}
 
 // Get sections based on selected class
 $sections = [];
@@ -216,87 +311,6 @@ if ($selected_class) {
     $sections = $section_stmt->fetchAll();
 }
 ?>
-<?php
-// সকল শিক্ষার্থীকে SMS পাঠানোর জন্য
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_sms_all'])) {
-    $class_id = intval($_POST['class_id']);
-    $section_id = !empty($_POST['section_id']) ? intval($_POST['section_id']) : null;
-    $date = $_POST['date'];
-
-    // শিক্ষার্থীর উপস্থিতি ও তথ্য লোড করুন
-    $stmt = $pdo->prepare("SELECT a.student_id, a.status, s.first_name, s.last_name, s.roll_number, s.mobile_number
-        FROM attendance a
-        JOIN students s ON a.student_id = s.id
-        WHERE a.class_id = ? AND a.date = ?" . ($section_id ? " AND a.section_id = ?" : "") . " AND s.status = 'active'");
-    $params = [$class_id, $date];
-    if ($section_id) $params[] = $section_id;
-    $stmt->execute($params);
-    $students = $stmt->fetchAll();
-
-    // টেমপ্লেট লোড
-    $tpl_stmt = $pdo->query("SELECT * FROM sms_templates");
-    $sms_templates = [];
-    foreach ($tpl_stmt->fetchAll() as $tpl) {
-        if (mb_stripos($tpl['title'], 'অনুপস্থিত') !== false || mb_stripos($tpl['title'], 'Absent') !== false) {
-            $sms_templates['absent'] = $tpl['content'];
-        } elseif (mb_stripos($tpl['title'], 'Late') !== false || mb_stripos($tpl['title'], 'দেরি') !== false) {
-            $sms_templates['late'] = $tpl['content'];
-        } elseif (mb_stripos($tpl['title'], 'Present') !== false || mb_stripos($tpl['title'], 'উপস্থিতি') !== false) {
-            $sms_templates['present'] = $tpl['content'];
-        }
-    }
-
-    // ক্লাস ও শাখার নাম
-    $class_name = $classes[array_search($class_id, array_column($classes, 'id'))]['name'] ?? '';
-    $section_name = '';
-    if ($section_id) {
-        $sec_name_stmt = $pdo->prepare("SELECT name FROM sections WHERE id = ?");
-        $sec_name_stmt->execute([$section_id]);
-        $section_data = $sec_name_stmt->fetch();
-        if ($section_data) {
-            $section_name = $section_data['name'];
-        }
-    }
-
-    $sent_count = 0;
-    foreach ($students as $stu) {
-        $status = $stu['status'];
-        $sms_body = $sms_templates[$status] ?? '';
-        if ($sms_body && !empty($stu['mobile_number'])) {
-            $msg = str_replace(
-                ['{student_name}', '{roll}', '{date}', '{status}', '{class}', '{section}'],
-                [
-                    $stu['first_name'] . ' ' . $stu['last_name'],
-                    $stu['roll_number'],
-                    $date,
-                    $status,
-                    $class_name,
-                    $section_name
-                ],
-                $sms_body
-            );
-            // SMS পাঠান
-            if (function_exists('send_sms')) {
-                $sms_sent = send_sms($stu['mobile_number'], $msg);
-            }
-            // লগ করুন
-            $log_stmt = $pdo->prepare("INSERT INTO sms_logs (student_id, mobile, message, status, sent_by) VALUES (?, ?, ?, ?, ?)");
-            $log_stmt->execute([
-                $stu['student_id'],
-                $stu['mobile_number'],
-                $msg,
-                $status,
-                $_SESSION['user_id']
-            ]);
-            $sent_count++;
-        }
-    }
-    $_SESSION['success'] = "মোট {$sent_count} জন শিক্ষার্থীকে SMS পাঠানো হয়েছে!";
-    header("Location: attendance.php?class_id=$class_id&section_id=$section_id&date=$date&view_attendance=1");
-    exit;
-}
-?>
-
 
 <!DOCTYPE html>
 <html lang="bn">
@@ -357,12 +371,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_sms_all'])) {
             transition: all 0.3s;
             margin: 0 auto;
             font-size: 18px;
-            background-color: #e9ecef; /* Light gray background */
-            color: #6c757d;            /* Gray icon color */
-            border: 2px solid #6c757d; /* Gray border */
+            background-color: #e9ecef;
+            color: #6c757d;
+            border: 2px solid #6c757d;
         }
         
-        /* Only change colors when the radio button is checked */
         .radio-present input[type="radio"]:checked + .radio-label {
             background-color: #28a745;
             color: white;
@@ -377,6 +390,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_sms_all'])) {
             background-color: #ffc107;
             color: white;
             border-color: #ffc107;
+        }
+        .radio-half_day input[type="radio"]:checked + .radio-label {
+            background-color: #17a2b8;
+            color: white;
+            border-color: #17a2b8;
         }
         
         input[type="radio"] {
@@ -422,6 +440,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_sms_all'])) {
         .btn-attendance-header.active-late {
             background-color: #ffc107;
             color: white;
+        }
+        .btn-attendance-header.active-half_day {
+            background-color: #17a2b8;
+            color: white;
+        }
+        .required-field::after {
+            content: " *";
+            color: red;
         }
     </style>
 </head>
@@ -491,7 +517,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_sms_all'])) {
                                     <div class="row">
                                         <div class="col-md-3">
                                             <div class="form-group">
-                                                <label for="class_id">ক্লাস নির্বাচন করুন</label>
+                                                <label for="class_id" class="required-field">ক্লাস নির্বাচন করুন</label>
                                                 <select class="form-control" id="class_id" name="class_id" required>
                                                     <option value="">নির্বাচন করুন</option>
                                                     <?php foreach($classes as $class): ?>
@@ -504,9 +530,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_sms_all'])) {
                                         </div>
                                         <div class="col-md-3">
                                             <div class="form-group">
-                                                <label for="section_id">শাখা নির্বাচন করুন (ঐচ্ছিক)</label>
-                                                <select class="form-control" id="section_id" name="section_id">
-                                                    <option value="">সকল শাখা</option>
+                                                <label for="section_id" class="required-field">শাখা নির্বাচন করুন</label>
+                                                <select class="form-control" id="section_id" name="section_id" required>
+                                                    <option value="">শাখা নির্বাচন করুন</option>
                                                     <?php foreach($sections as $section): ?>
                                                         <option value="<?php echo $section['id']; ?>" <?php echo ($selected_section == $section['id']) ? 'selected' : ''; ?>>
                                                             <?php echo $section['name']; ?>
@@ -517,7 +543,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_sms_all'])) {
                                         </div>
                                         <div class="col-md-3">
                                             <div class="form-group">
-                                                <label for="date">তারিখ</label>
+                                                <label for="date" class="required-field">তারিখ</label>
                                                 <input type="date" class="form-control" id="date" name="date" value="<?php echo $selected_date; ?>" required>
                                             </div>
                                         </div>
@@ -530,23 +556,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_sms_all'])) {
                                         </div>
                                     </div>
                                 </form>
-<!-- Send SMS by Status Dropdown -->
-<form method="POST" action="" class="mb-3 form-inline">
-    <input type="hidden" name="class_id" value="<?php echo $selected_class; ?>">
-    <input type="hidden" name="section_id" value="<?php echo $selected_section; ?>">
-    <input type="hidden" name="date" value="<?php echo $selected_date; ?>">
-    <label for="sms_status" class="mr-2 font-weight-bold">SMS পাঠান (স্ট্যাটাস অনুযায়ী):</label>
-    <select name="sms_status" id="sms_status" class="form-control mr-2" required>
-        <option value="present">উপস্থিত</option>
-        <option value="absent">অনুপস্থিত</option>
-        <option value="late">দেরি</option>
-    </select>
-    <button type="submit" name="send_sms_by_status" class="btn btn-info" onclick="return confirm('নির্বাচিত স্ট্যাটাসের শিক্ষার্থীকে SMS পাঠাতে চান?');">
-        <i class="fas fa-sms"></i> SMS পাঠান
-    </button>
-</form>
 
-                                <?php if(!empty($students) || !empty($attendance_data)): ?>
+                                <?php if($allowed && (!empty($students) || !empty($attendance_data))): ?>
                                     <hr>
 
                                     <?php if($is_existing_record): ?>
@@ -578,7 +589,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_sms_all'])) {
                                                     <tr>
                                                         <th width="60">রোল</th>
                                                         <th>শিক্ষার্থীর নাম</th>
-                                                        <!-- New Attendance Header Buttons -->
+                                                        <!-- Attendance Header Buttons -->
                                                         <th class="radio-cell">
                                                             <button type="button" class="btn btn-attendance-header" data-status="present" id="select-all-present">
                                                                 <i class="fas fa-check-circle"></i><br>Present
@@ -594,6 +605,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_sms_all'])) {
                                                                 <i class="fas fa-clock"></i><br>Late
                                                             </button>
                                                         </th>
+                                                        <th class="radio-cell">
+                                                            <button type="button" class="btn btn-attendance-header" data-status="half_day" id="select-all-half_day">
+                                                                <i class="fas fa-hourglass-half"></i><br>Half Day
+                                                            </button>
+                                                        </th>
                                                         <th width="200">মন্তব্য</th>
                                                     </tr>
                                                 </thead>
@@ -606,16 +622,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_sms_all'])) {
 
                                                         foreach($students as $student): 
                                                             $student_id = $student['id'];
-                                                            $current_status = ''; // Default to no status for new records
+                                                            $current_status = '';
                                                             $current_remarks = '';
 
-                                                            // Find existing attendance record for this student
                                                             if (isset($record_map[$student_id])) {
                                                                 $record = $record_map[$student_id];
                                                                 $current_status = $record['status'];
                                                                 $current_remarks = $record['remarks'];
                                                             }
-                                                        ?>
+                                                    ?>
                                                         <tr>
                                                             <td><?php echo $student['roll_number']; ?></td>
                                                             <td class="student-name"><?php echo $student['first_name'] . ' ' . $student['last_name']; ?></td>
@@ -642,11 +657,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_sms_all'])) {
                                                                 <label for="late_<?php echo $student_id; ?>" class="radio-label">
                                                                     <i class="fas fa-clock"></i>
                                                                 </label>
-                                                            <?php endforeach; ?>
-                                                        <?php endif; ?>
+                                                            </td>
+
+                                                            <!-- Half Day Radio -->
+                                                            <td class="radio-half_day">
+                                                                <input type="radio" name="attendance[<?php echo $student_id; ?>][status]" id="half_day_<?php echo $student_id; ?>" value="half_day" <?php echo ($current_status == 'half_day') ? 'checked' : ''; ?>>
+                                                                <label for="half_day_<?php echo $student_id; ?>" class="radio-label">
+                                                                    <i class="fas fa-hourglass-half"></i>
+                                                                </label>
+                                                            </td>
+
+                                                            <td>
+                                                                <input type="text" class="form-control form-control-sm" name="attendance[<?php echo $student_id; ?>][remarks]" value="<?php echo $current_remarks; ?>" placeholder="মন্তব্য">
+                                                            </td>
+                                                        </tr>
+                                                    <?php endforeach; ?>
                                                 </tbody>
                                             </table>
                                         </div>
+
                                         <!-- Bottom Submit Button -->
                                         <div class="sticky-submit text-right mt-2">
                                             <button type="submit" name="mark_attendance" class="btn btn-success btn-sm-compact">
@@ -654,7 +683,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_sms_all'])) {
                                             </button>
                                         </div>
                                     </form>
-                                <?php elseif($selected_class): ?>
+                                <?php elseif($selected_class && $selected_section): ?>
                                     <div class="alert alert-info text-center">
                                         <i class="fas fa-info-circle"></i> এই ক্লাস এবং শাখায় কোনো শিক্ষার্থী নেই।
                                     </div>
@@ -664,16 +693,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_sms_all'])) {
                     </div>
                 </div>
             </div>
-            <!-- /.container-fluid -->
         </section>
-        <!-- /.content -->
     </div>
-    <!-- /.content-wrapper -->
 
     <!-- Main Footer -->
     <?php include 'inc/footer.php'; ?>
 </div>
-<!-- ./wrapper -->
 
 <!-- REQUIRED SCRIPTS -->
 <!-- jQuery -->
@@ -694,11 +719,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_sms_all'])) {
                     type: 'GET',
                     data: {class_id: class_id},
                     success: function(data) {
-                        $('#section_id').html('<option value="">সকল শাখা</option>' + data);
+                        $('#section_id').html(data);
                     }
                 });
             } else {
-                $('#section_id').html('<option value="">সকল শাখা</option>');
+                $('#section_id').html('<option value="">শাখা নির্বাচন করুন</option>');
             }
         });
 
@@ -708,8 +733,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_sms_all'])) {
             var presentCount = $('input[value="present"]:checked').length;
             var absentCount = $('input[value="absent"]:checked').length;
             var lateCount = $('input[value="late"]:checked').length;
+            var halfDayCount = $('input[value="half_day"]:checked').length;
+            
             // Remove active class from all header buttons
-            $('.btn-attendance-header').removeClass('active-present active-absent active-late');
+            $('.btn-attendance-header').removeClass('active-present active-absent active-late active-half_day');
+
             // If all students have the same status, activate the corresponding header button
             if (totalStudents > 0) {
                 if (presentCount === totalStudents) {
@@ -718,6 +746,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_sms_all'])) {
                     $('#select-all-absent').addClass('active-absent');
                 } else if (lateCount === totalStudents) {
                     $('#select-all-late').addClass('active-late');
+                } else if (halfDayCount === totalStudents) {
+                    $('#select-all-half_day').addClass('active-half_day');
                 }
             }
         }
@@ -725,6 +755,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_sms_all'])) {
         // Handle "select all" buttons
         $('.btn-attendance-header').click(function() {
             var statusToSelect = $(this).data('status');
+            
             // Loop through all radio buttons and select the correct one
             $('input[name^="attendance["][type="radio"]').each(function() {
                 if ($(this).val() === statusToSelect) {
@@ -733,7 +764,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_sms_all'])) {
                     $(this).prop('checked', false);
                 }
             });
-            updateHeaderButtons(); // Update header buttons after a bulk selection
+            updateHeaderButtons();
         });
 
         // Update header button status whenever a single radio button is clicked
