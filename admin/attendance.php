@@ -70,7 +70,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
     $class_id = intval($_POST['class_id']);
     if (empty($_POST['section_id'])) {
         $_SESSION['error'] = "শাখা নির্বাচন করা আবশ্যক।";
-        // Preserve selected values so user sees the same selection
         $selected_class = $class_id;
         $selected_section = '';
         $selected_date = $_POST['date'];
@@ -85,7 +84,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
         } else {
             $user_id = $_SESSION['user_id'] ?? 0;
             if ($section_id !== null) {
-                // Detect which column stores the section teacher id and use it safely
                 $col = null;
                 try {
                     $cols = $pdo->query("SHOW COLUMNS FROM sections")->fetchAll(PDO::FETCH_COLUMN);
@@ -94,10 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
                     } elseif (in_array('teacher_id', $cols)) {
                         $col = 'teacher_id';
                     }
-                } catch (Exception $ex) {
-                    // ignore and leave $col null
-                }
-
+                } catch (Exception $ex) {}
                 if ($col) {
                     $sec_stmt = $pdo->prepare("SELECT `" . $col . "` AS t FROM sections WHERE id = ? LIMIT 1");
                     $sec_stmt->execute([$section_id]);
@@ -111,12 +106,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
 
         if (!$allowed) {
             $_SESSION['error'] = "আপনার এই ক্লাস/শাখার উপস্থিতি নেওয়ার অনুমতি নেই।";
-            // Preserve selected values so user sees the same selection
             $selected_class = $class_id;
             $selected_section = $section_id;
             $selected_date = $date;
         } else {
-            // Check if attendance already exists for this date, class, and optional section
+            // Check if attendance already exists for this date, class, and section
             $check_query = "SELECT COUNT(*) as count FROM attendance WHERE class_id = ? AND date = ?";
             $params = [$class_id, $date];
             if ($section_id !== null) {
@@ -153,7 +147,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
                     }
                 }
             } catch (Exception $e) {
-                // SMS templates table might not exist
                 error_log("SMS templates table not found: " . $e->getMessage());
             }
 
@@ -176,6 +169,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
             try {
                 $pdo->beginTransaction();
 
+                // Get class and section names for SMS
+                $class_name = '';
+                $section_name = '';
+                foreach ($classes as $cls) {
+                    if ($cls['id'] == $class_id) {
+                        $class_name = $cls['name'];
+                        break;
+                    }
+                }
+                if ($section_id) {
+                    $sec_name_stmt = $pdo->prepare("SELECT name FROM sections WHERE id = ?");
+                    $sec_name_stmt->execute([$section_id]);
+                    $section_data = $sec_name_stmt->fetch();
+                    $section_name = $section_data['name'] ?? '';
+                }
+
                 if ($is_existing_record) {
                     // Get previous attendance for all students
                     $prev_stmt = $pdo->prepare("SELECT student_id, status FROM attendance WHERE class_id = ? AND date = ?" . ($section_id ? " AND section_id = ?" : ""));
@@ -187,32 +196,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
                         $prev_status_map[$row['student_id']] = $row['status'];
                     }
 
-                    // Ensure $selected_section is always defined for SMS template
-                    if (!isset($selected_section)) {
-                        $selected_section = isset($section_id) ? $section_id : null;
-                    }
-                    
-                    // Get class and section names for SMS
-                    $class_name = '';
-                    $section_name = '';
-                    foreach ($classes as $cls) {
-                        if ($cls['id'] == $class_id) {
-                            $class_name = $cls['name'];
-                            break;
-                        }
-                    }
-                    
-                    if ($section_id) {
-                        $sec_name_stmt = $pdo->prepare("SELECT name FROM sections WHERE id = ?");
-                        $sec_name_stmt->execute([$section_id]);
-                        $section_data = $sec_name_stmt->fetch();
-                        $section_name = $section_data['name'] ?? '';
-                    }
-                    
                     // Update existing attendance records and send SMS if status changed
                     foreach ($_POST['attendance'] as $student_id => $data) {
                         $status = $data['status'] ?? '';
                         $remarks = $data['remarks'] ?? '';
+                        $allowed_status = ['present', 'absent', 'late', 'half_day'];
+                        if (!in_array($status, $allowed_status)) $status = 'present';
                         $prev_status = $prev_status_map[$student_id] ?? '';
 
                         // Update attendance
@@ -223,25 +212,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
                         ");
                         $update_stmt->execute([$status, $remarks, $student_id, $class_id, $section_id, $date]);
 
-                        // Only send SMS if student is marked absent (and status changed to absent)
-                        if ($status === 'absent' && $status !== $prev_status && isset($student_map[$student_id]) && !empty($student_map[$student_id]['mobile_number'])) {
-                            $sms_body = $sms_templates['absent'] ?? '';
+                        // Send SMS if status changed and template exists
+                        if ($status !== $prev_status && isset($student_map[$student_id]) && !empty($student_map[$student_id]['mobile_number'])) {
+                            $sms_body = $sms_templates[$status] ?? '';
                             if ($sms_body) {
                                 $msg = $sms_body;
-                                $msg = str_replace([
-                                    '{student_name}', '{roll}', '{date}', '{status}', '{class}', '{section}'
-                                ], [
-                                    $student_map[$student_id]['first_name'] . ' ' . $student_map[$student_id]['last_name'],
-                                    $student_map[$student_id]['roll_number'],
-                                    $date,
-                                    $status,
-                                    $class_name,
-                                    $section_name
-                                ], $msg);
-                                
+                                $msg = str_replace(
+                                    ['{student_name}', '{roll}', '{date}', '{status}', '{class}', '{section}'],
+                                    [
+                                        $student_map[$student_id]['first_name'] . ' ' . $student_map[$student_id]['last_name'],
+                                        $student_map[$student_id]['roll_number'],
+                                        $date,
+                                        $status,
+                                        $class_name,
+                                        $section_name
+                                    ],
+                                    $msg
+                                );
                                 // Send SMS
                                 $sms_result = send_sms($student_map[$student_id]['mobile_number'], $msg);
-                                
                                 // Log SMS
                                 $log_stmt = $pdo->prepare("INSERT INTO sms_logs (student_id, mobile, message, status, prev_status) VALUES (?, ?, ?, ?, ?)");
                                 $log_stmt->execute([$student_id, $student_map[$student_id]['mobile_number'], $msg, $status, $prev_status]);
@@ -250,14 +239,41 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
                     }
                     $_SESSION['success'] = "উপস্থিতি সফলভাবে আপডেট করা হয়েছে!";
                 } else {
-                    // Insert new attendance records
+                    // Insert new attendance records and send SMS for all
                     $attendance_stmt = $pdo->prepare("INSERT INTO attendance (student_id, class_id, section_id, date, status, remarks, recorded_by)
                         VALUES (?, ?, ?, ?, ?, ?, ?)");
                     $recorded_by = $_SESSION['user_id'];
                     foreach ($_POST['attendance'] as $student_id => $data) {
                         $status = $data['status'] ?? '';
                         $remarks = $data['remarks'] ?? '';
+                        $allowed_status = ['present', 'absent', 'late', 'half_day'];
+                        if (!in_array($status, $allowed_status)) $status = 'present';
                         $attendance_stmt->execute([$student_id, $class_id, $section_id, $date, $status, $remarks, $recorded_by]);
+
+                        // Send SMS for all students according to their status
+                        if (isset($student_map[$student_id]) && !empty($student_map[$student_id]['mobile_number'])) {
+                            $sms_body = $sms_templates[$status] ?? '';
+                            if ($sms_body) {
+                                $msg = $sms_body;
+                                $msg = str_replace(
+                                    ['{student_name}', '{roll}', '{date}', '{status}', '{class}', '{section}'],
+                                    [
+                                        $student_map[$student_id]['first_name'] . ' ' . $student_map[$student_id]['last_name'],
+                                        $student_map[$student_id]['roll_number'],
+                                        $date,
+                                        $status,
+                                        $class_name,
+                                        $section_name
+                                    ],
+                                    $msg
+                                );
+                                // Send SMS
+                                $sms_result = send_sms($student_map[$student_id]['mobile_number'], $msg);
+                                // Log SMS
+                                $log_stmt = $pdo->prepare("INSERT INTO sms_logs (student_id, mobile, message, status, prev_status) VALUES (?, ?, ?, ?, ?)");
+                                $log_stmt->execute([$student_id, $student_map[$student_id]['mobile_number'], $msg, $status, null]);
+                            }
+                        }
                     }
                     $_SESSION['success'] = "উপস্থিতি সফলভাবে রেকর্ড করা হয়েছে!";
                 }
@@ -269,128 +285,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
                 error_log("Attendance error: " . $e->getMessage());
             }
 
-            // Set selected values for form
             $selected_class = $class_id;
             $selected_section = $section_id;
             $selected_date = $date;
         }
     }
-}
-
-// Handle view attendance request
-if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['view_attendance'])) {
-    $selected_class = intval($_GET['class_id']);
-    $selected_section = !empty($_GET['section_id']) ? intval($_GET['section_id']) : null;
-    $selected_date = $_GET['date'];
-    
-    // Permission check: only super_admin or the section's assigned teacher may view/take attendance
-    $allowed = false;
-    if (hasRole(['super_admin'])) {
-        $allowed = true;
-    } else {
-        $user_id = $_SESSION['user_id'] ?? 0;
-        if ($selected_section !== null) {
-            // detect the right column
-            $col = null;
-            try {
-                $cols = $pdo->query("SHOW COLUMNS FROM sections")->fetchAll(PDO::FETCH_COLUMN);
-                if (in_array('section_teacher_id', $cols)) {
-                    $col = 'section_teacher_id';
-                } elseif (in_array('teacher_id', $cols)) {
-                    $col = 'teacher_id';
-                }
-            } catch (Exception $ex) {
-                // ignore
-            }
-
-            if ($col) {
-                $sec_stmt = $pdo->prepare("SELECT `" . $col . "` AS t FROM sections WHERE id = ? LIMIT 1");
-                $sec_stmt->execute([$selected_section]);
-                $sec = $sec_stmt->fetch();
-                if ($sec && intval($sec['t']) === intval($user_id)) {
-                    $allowed = true;
-                }
-            }
-        }
-    }
-
-    if (!$allowed) {
-        $_SESSION['error'] = "আপনার এই ক্লাস/শাখার উপস্থিতি দেখার/নেওয়ার অনুমতি নেই।";
-        // Ensure no attendance data is shown
-        $attendance_data = [];
-        $is_existing_record = false;
-        // But still fetch students list for the selected class and section
-        $student_query = "
-            SELECT id, first_name, last_name, roll_number 
-            FROM students 
-            WHERE class_id = ? AND status='active'
-        ";
-        $student_params = [$selected_class];
-        if ($selected_section !== null) {
-            $student_query .= " AND section_id = ?";
-            $student_params[] = $selected_section;
-        }
-        $student_query .= " ORDER BY roll_number ASC";
-        $student_stmt = $pdo->prepare($student_query);
-        $student_stmt->execute($student_params);
-        $students = $student_stmt->fetchAll();
-    } else {
-        // Check if attendance already exists for this date, class, and optional section
-        $check_query = "SELECT COUNT(*) as count FROM attendance WHERE class_id = ? AND date = ?";
-        $params = [$selected_class, $selected_date];
-        if ($selected_section !== null) {
-            $check_query .= " AND section_id = ?";
-            $params[] = $selected_section;
-        }
-        $check_stmt = $pdo->prepare($check_query);
-        $check_stmt->execute($params);
-        $result = $check_stmt->fetch();
-        $is_existing_record = ($result['count'] > 0);
-
-        // Get attendance data for the selected date, class, and optional section
-        $attendance_data = [];
-        if ($is_existing_record) {
-            $attendance_query = "
-                SELECT a.*, s.first_name, s.last_name, s.roll_number 
-                FROM attendance a 
-                JOIN students s ON a.student_id = s.id 
-                WHERE a.class_id = ? AND a.date = ?
-            ";
-            $attendance_params = [$selected_class, $selected_date];
-            if ($selected_section !== null) {
-                $attendance_query .= " AND a.section_id = ?";
-                $attendance_params[] = $selected_section;
-            }
-            $attendance_query .= " ORDER BY s.roll_number ASC";
-            $attendance_stmt = $pdo->prepare($attendance_query);
-            $attendance_stmt->execute($attendance_params);
-            $attendance_data = $attendance_stmt->fetchAll();
-        }
-
-        // Always get students list for the selected class and optional section
-        $student_query = "
-            SELECT id, first_name, last_name, roll_number 
-            FROM students 
-            WHERE class_id = ? AND status='active'
-        ";
-        $student_params = [$selected_class];
-        if ($selected_section !== null) {
-            $student_query .= " AND section_id = ?";
-            $student_params[] = $selected_section;
-        }
-        $student_query .= " ORDER BY roll_number ASC";
-        $student_stmt = $pdo->prepare($student_query);
-        $student_stmt->execute($student_params);
-        $students = $student_stmt->fetchAll();
-    }
-}
-
-// Get sections based on selected class
-$sections = [];
-if ($selected_class) {
-    $section_stmt = $pdo->prepare("SELECT * FROM sections WHERE class_id = ? AND status='active'");
-    $section_stmt->execute([$selected_class]);
-    $sections = $section_stmt->fetchAll();
 }
 ?>
 
