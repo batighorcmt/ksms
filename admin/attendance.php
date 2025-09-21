@@ -29,7 +29,15 @@ $sections = []; // FIX: আগে থেকেই ডিফাইন করে �
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
     $class_id = intval($_POST['class_id']);
-    $section_id = !empty($_POST['section_id']) ? intval($_POST['section_id']) : null;
+    if (empty($_POST['section_id'])) {
+        $_SESSION['error'] = "শাখা নির্বাচন করা আবশ্যক।";
+        // Preserve selected values so user sees the same selection
+        $selected_class = $class_id;
+        $selected_section = '';
+        $selected_date = $_POST['date'];
+        return;
+    }
+    $section_id = intval($_POST['section_id']);
     $date = $_POST['date'];
     // Permission check: only super_admin or the teacher assigned to the section may record attendance
     $allowed = false;
@@ -131,39 +139,37 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
                     $prev_status_map[$row['student_id']] = $row['status'];
                 }
 
+                // Ensure $selected_section is always defined for SMS template
+                if (!isset($selected_section)) {
+                    $selected_section = isset($section_id) ? $section_id : null;
+                }
                 // Update existing attendance records and send SMS if status changed
                 foreach ($_POST['attendance'] as $student_id => $data) {
-                    // Always set $selected_section for SMS template
-                    $selected_section = $section_id ?? null;
-                    if (!isset($section_id)) {
-                        $section_id = $selected_section ?? null;
-                    }
-                    $selected_section = $section_id;
                     $status = $data['status'] ?? '';
                     $remarks = $data['remarks'] ?? '';
                     $prev_status = $prev_status_map[$student_id] ?? '';
 
                     // Update attendance as before
-                    if ($section_id !== null) {
-                        $update_stmt = $pdo->prepare("
-                            UPDATE attendance 
-                            SET status = ?, remarks = ?, updated_at = CURRENT_TIMESTAMP 
-                            WHERE student_id = ? AND class_id = ? AND section_id = ? AND date = ?
-                        ");
-                        $update_stmt->execute([$status, $remarks, $student_id, $class_id, $section_id, $date]);
-                    } else {
-                        $update_stmt = $pdo->prepare("
-                            UPDATE attendance 
-                            SET status = ?, remarks = ?, updated_at = CURRENT_TIMESTAMP 
-                            WHERE student_id = ? AND class_id = ? AND date = ?
-                        ");
-                        $update_stmt->execute([$status, $remarks, $student_id, $class_id, $date]);
-                    }
+                    $update_stmt = $pdo->prepare("
+                        UPDATE attendance 
+                        SET status = ?, remarks = ?, updated_at = CURRENT_TIMESTAMP 
+                        WHERE student_id = ? AND class_id = ? AND section_id = ? AND date = ?
+                    ");
+                    $update_stmt->execute([$status, $remarks, $student_id, $class_id, $section_id, $date]);
 
                     // Only send SMS if student is marked absent (and status changed to absent)
                     if ($status === 'absent' && $status !== $prev_status && isset($student_map[$student_id]) && !empty($student_map[$student_id]['mobile_number'])) {
                         $sms_body = $sms_templates['absent'] ?? '';
                         if ($sms_body) {
+                            $section_name = '';
+                            if ($sections && $section_id) {
+                                foreach ($sections as $sec) {
+                                    if ($sec['id'] == $section_id) {
+                                        $section_name = $sec['name'];
+                                        break;
+                                    }
+                                }
+                            }
                             $msg = $sms_body;
                             $msg = str_replace([
                                 '{student_name}', '{roll}', '{date}', '{status}', '{class}', '{section}'
@@ -173,7 +179,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['mark_attendance'])) {
                                 $date,
                                 $status,
                                 $classes[array_search($class_id, array_column($classes, 'id'))]['name'] ?? '',
-                                $sections ? ($selected_section ? (array_values(array_filter($sections, function($s){return $s['id']==$selected_section;}))[0]['name'] ?? '') : '') : ''
+                                $section_name
                             ], $msg);
                             send_sms($student_map[$student_id]['mobile_number'], $msg);
                             $log_stmt = $pdo->prepare("INSERT INTO sms_logs (student_id, mobile, message, status, prev_status) VALUES (?, ?, ?, ?, ?)");
@@ -532,8 +538,8 @@ if ($selected_class) {
                                         <div class="col-md-3">
                                             <div class="form-group">
                                                 <label for="section_id">শাখা নির্বাচন করুন (ঐচ্ছিক)</label>
-                                                <select class="form-control" id="section_id" name="section_id">
-                                                    <option value="">সকল শাখা</option>
+                                                <select class="form-control" id="section_id" name="section_id" required>
+                                                    <option value="">শাখা নির্বাচন করুন</option>
                                                     <?php foreach($sections as $section): ?>
                                                         <option value="<?php echo $section['id']; ?>" <?php echo ($selected_section == $section['id']) ? 'selected' : ''; ?>>
                                                             <?php echo $section['name']; ?>
@@ -558,7 +564,7 @@ if ($selected_class) {
                                     </div>
                                 </form>
 
-                                <?php if(!empty($students) || !empty($attendance_data)): ?>
+                                <?php if($allowed && (!empty($students) || !empty($attendance_data))): ?>
                                     <hr>
 
                                     <?php if($is_existing_record): ?>
