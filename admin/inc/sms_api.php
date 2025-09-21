@@ -9,11 +9,13 @@ function send_sms($to, $message) {
     $api_key = $settings['sms_api_key'] ?? '';
     $senderid = $settings['sms_sender_id'] ?? '';
     if (!$api_url || !$api_key || !$senderid) return false;
+    // bulksmsbd.net: senderid must be numeric (880...)
+    // API param order: api_key, type, number, senderid, message
     $params = [
         'api_key' => $api_key,
         'type' => 'text',
-        'senderid' => $senderid,
         'number' => $to,
+        'senderid' => $senderid,
         'message' => $message,
     ];
     $url = $api_url . (strpos($api_url, '?') === false ? '?' : '&') . http_build_query($params);
@@ -24,7 +26,29 @@ function send_sms($to, $message) {
     $response = curl_exec($ch);
     $err = curl_error($ch);
     curl_close($ch);
-    // Optionally, log $response or $err
-    return $response && !$err;
+    // Log API response for debugging
+    $logfile = __DIR__ . '/sms_api.log';
+    $logdata = date('Y-m-d H:i:s') . " | To: $to | Msg: $message | URL: $url | Response: $response | Error: $err\n";
+    file_put_contents($logfile, $logdata, FILE_APPEND);
+    // Check API response for success (bulksmsbd returns JSON with 'response_code' or 'success')
+    $success = false;
+    if ($err) {
+        $success = false;
+    } else {
+        // Try to decode JSON
+        $json = json_decode($response, true);
+        if (is_array($json)) {
+            // bulksmsbd: {"response_code":"202","success":"true", ...}
+            if ((isset($json['success']) && $json['success'] === 'true') || (isset($json['response_code']) && $json['response_code'] == '202')) {
+                $success = true;
+            }
+        } else {
+            // fallback: check for "success" in plain text
+            if (stripos($response, 'success') !== false || stripos($response, '202') !== false) {
+                $success = true;
+            }
+        }
+    }
+    return $success;
 }
 }
