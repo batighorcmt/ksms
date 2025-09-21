@@ -49,17 +49,18 @@ $attendance = $pdo->prepare("
 $attendance->execute([$student_id]);
 $attendance_data = $attendance->fetch();
 
-// পরীক্ষার ফলাফল লোড করুন
-$exam_results = $pdo->prepare("
-    SELECT er.*, e.name as exam_name, e.exam_date, sub.name as subject_name
-    FROM exam_results er
-    JOIN exams e ON er.exam_id = e.id
-    JOIN subjects sub ON e.subject_id = sub.id
-    WHERE er.student_id = ?
+// পরীক্ষার ফলাফল (marks টেবিল) লোড করুন
+$marks_stmt = $pdo->prepare("
+    SELECT m.*, e.name AS exam_name, e.exam_date, sub.name AS subject_name
+    FROM marks m
+    JOIN exams e ON m.exam_id = e.id
+    JOIN exam_subjects es ON m.exam_subject_id = es.id
+    LEFT JOIN subjects sub ON es.subject_id = sub.id
+    WHERE m.student_id = ?
     ORDER BY e.exam_date DESC
 ");
-$exam_results->execute([$student_id]);
-$exam_results_data = $exam_results->fetchAll();
+$marks_stmt->execute([$student_id]);
+$marks_data = $marks_stmt->fetchAll();
 
 // ফি পেমেন্ট হিস্ট্রি লোড করুন
 $fee_payments = $pdo->prepare("
@@ -193,7 +194,7 @@ $fee_payments_data = $fee_payments->fetchAll();
                                         <b>শিক্ষার্থী আইডি</b> <a class="float-right"><?php echo $student['student_id']; ?></a>
                                     </li>
                                     <li class="list-group-item">
-                                        <b>ভর্তির তারিখ</b> <a class="float-right"><?php echo date('d/m/Y', strtotime($student['admission_date'])); ?></a>
+                                        <b>ভর্তির তারিখ</b> <a class="float-right"><?php echo !empty($student['admission_date']) ? date('d/m/Y', strtotime($student['admission_date'])) : '-'; ?></a>
                                     </li>
                                     <li class="list-group-item">
                                         <b>স্ট্যাটাস</b> 
@@ -321,7 +322,7 @@ $fee_payments_data = $fee_payments->fetchAll();
                                         <div class="row">
                                             <div class="col-md-6">
                                                 <strong><i class="fas fa-birthday-cake mr-1"></i> জন্ম তারিখ</strong>
-                                                <p class="text-muted"><?php echo date('d/m/Y', strtotime($student['date_of_birth'])); ?></p>
+                                                <p class="text-muted"><?php echo !empty($student['date_of_birth']) ? date('d/m/Y', strtotime($student['date_of_birth'])) : '-'; ?></p>
                                                 <hr>
 
                                                 <strong><i class="fas fa-venus-mars mr-1"></i> লিঙ্গ</strong>
@@ -362,8 +363,10 @@ $fee_payments_data = $fee_payments->fetchAll();
                                     </div>
                                     <!-- /.tab-pane -->
 
+                                    
+
                                     <div class="tab-pane" id="tab_2">
-                                        <?php if(count($exam_results_data) > 0): ?>
+                                        <?php if(count($marks_data) > 0): ?>
                                             <table class="table table-bordered">
                                                 <thead>
                                                     <tr>
@@ -375,24 +378,21 @@ $fee_payments_data = $fee_payments->fetchAll();
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    <?php foreach($exam_results_data as $result): ?>
+                                                    <?php foreach($marks_data as $row): ?>
                                                     <tr>
-                                                        <td><?php echo $result['exam_name']; ?></td>
-                                                        <td><?php echo $result['subject_name']; ?></td>
-                                                        <td><?php echo date('d/m/Y', strtotime($result['exam_date'])); ?></td>
-                                                        <td><?php echo $result['marks_obtained']; ?></td>
+                                                        <td><?php echo $row['exam_name']; ?></td>
+                                                        <td><?php echo $row['subject_name'] ?: '-'; ?></td>
+                                                        <td><?php echo !empty($row['exam_date']) ? date('d/m/Y', strtotime($row['exam_date'])) : '-'; ?></td>
+                                                        <td><?php echo number_format((float)$row['obtained_marks'], 2); ?></td>
                                                         <td>
-                                                            <?php if($result['marks_obtained'] >= 80): ?>
-                                                                <span class="badge badge-success">A+</span>
-                                                            <?php elseif($result['marks_obtained'] >= 70): ?>
-                                                                <span class="badge badge-primary">A</span>
-                                                            <?php elseif($result['marks_obtained'] >= 60): ?>
-                                                                <span class="badge badge-info">A-</span>
-                                                            <?php elseif($result['marks_obtained'] >= 50): ?>
-                                                                <span class="badge badge-warning">B</span>
-                                                            <?php else: ?>
-                                                                <span class="badge badge-danger">F</span>
-                                                            <?php endif; ?>
+                                                            <?php 
+                                                                $m = (float)$row['obtained_marks'];
+                                                                if ($m >= 80) echo '<span class="badge badge-success">A+</span>';
+                                                                elseif ($m >= 70) echo '<span class="badge badge-primary">A</span>';
+                                                                elseif ($m >= 60) echo '<span class="badge badge-info">A-</span>';
+                                                                elseif ($m >= 50) echo '<span class="badge badge-warning">B</span>';
+                                                                else echo '<span class="badge badge-danger">F</span>';
+                                                            ?>
                                                         </td>
                                                     </tr>
                                                     <?php endforeach; ?>
@@ -401,7 +401,7 @@ $fee_payments_data = $fee_payments->fetchAll();
                                         <?php else: ?>
                                             <div class="alert alert-info">
                                                 <h5><i class="icon fas fa-info"></i> তথ্য নেই</h5>
-                                                এই শিক্ষার্থীর কোনো পরীক্ষার ফলাফল পাওয়া যায়নি।
+                                                এই শিক্ষার্থীর কোনো পরীক্ষার নম্বর পাওয়া যায়নি।
                                             </div>
                                         <?php endif; ?>
                                     </div>
@@ -422,9 +422,9 @@ $fee_payments_data = $fee_payments->fetchAll();
                                                 <tbody>
                                                     <?php foreach($fee_payments_data as $payment): ?>
                                                     <tr>
-                                                        <td><?php echo $payment['fee_category']; ?></td>
-                                                        <td><?php echo number_format($payment['amount'], 2); ?> টাকা</td>
-                                                        <td><?php echo date('d/m/Y', strtotime($payment['payment_date'])); ?></td>
+                                                        <td><?php echo $payment["fee_category"]; ?></td>
+                                                        <td><?php echo number_format($payment["amount"], 2); ?> টাকা</td>
+                                                        <td><?php echo !empty($payment["payment_date"]) ? date('d/m/Y', strtotime($payment["payment_date"])) : '-'; ?></td>
                                                         <td>
                                                             <?php 
                                                             if($payment['payment_method'] == 'cash') echo 'নগদ';
@@ -441,6 +441,8 @@ $fee_payments_data = $fee_payments->fetchAll();
                                                                 <span class="badge badge-warning">বকেয়া</span>
                                                             <?php elseif($payment['status'] == 'partial'): ?>
                                                                 <span class="badge badge-info">আংশিক</span>
+                                                            <?php else: ?>
+                                                                <span class="badge badge-secondary"><?php echo htmlspecialchars($payment['status']); ?></span>
                                                             <?php endif; ?>
                                                         </td>
                                                     </tr>

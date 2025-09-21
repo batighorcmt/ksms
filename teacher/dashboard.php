@@ -525,8 +525,14 @@ if (empty($chart_labels)) {
                                             <tr>
                                                 <td><?php echo $exam['name']; ?></td>
                                                 <td><?php echo $exam['class_name']; ?></td>
-                                                <td><?php echo date('d/m/Y', strtotime($exam['exam_date'])); ?></td>
-                                                <td><?php echo $exam['total_marks']; ?></td>
+                                                <td>
+                                                    <?php 
+                                                        echo !empty($exam['exam_date']) 
+                                                            ? date('d/m/Y', strtotime($exam['exam_date'])) 
+                                                            : '-';
+                                                    ?>
+                                                </td>
+                                                <td><?php echo isset($exam['total_marks']) ? $exam['total_marks'] : '-'; ?></td>
                                             </tr>
                                             <?php endforeach; ?>
                                         </tbody>
