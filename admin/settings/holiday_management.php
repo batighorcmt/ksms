@@ -89,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
     }
     
-    header('Location: settings/holiday_management.php');
+    header('Location: holiday_management.php');
     exit;
 }
 
