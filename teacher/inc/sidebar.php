@@ -109,9 +109,9 @@
                     </ul>
                 </li>
                 <li class="nav-item">
-                    <a href="<?php echo BASE_URL; ?>admin/exam.php" class="nav-link">
+                    <a href="<?php echo BASE_URL; ?>exam/mark_entry.php" class="nav-link">
                         <i class="nav-icon fas fa-book"></i>
-                        <p>পরীক্ষা ব্যবস্থাপনা</p>
+                        <p>পরীক্ষার নম্বর প্রদান</p>
                     </a>
                 </li>
                 <li class="nav-item">
