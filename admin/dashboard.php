@@ -2,7 +2,7 @@
 require_once '../config.php';
 
 // Authentication check
-if (!isAuthenticated() || !hasRole(['super_admin', 'teacher'])) {
+if (!isAuthenticated() || !hasRole(['super_admin'])) {
     redirect('../login.php');
 }
 
