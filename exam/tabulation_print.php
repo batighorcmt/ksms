@@ -60,6 +60,7 @@ function bn($number){
  $exam_title = htmlspecialchars($exam['name']);
  $exam_type = htmlspecialchars($exam['type_name'] ?? '');
  $exam_desc_line = $exam_title;
+ $year=date('Y'); // বর্তমান বছর যোগ করা হয়েছে
 ?>
 <!DOCTYPE html>
 <html lang="bn">
@@ -92,7 +93,7 @@ function bn($number){
         <?php if($inst_contact): ?><div class="meta-line"><?= htmlspecialchars($inst_contact) ?></div><?php endif; ?>
         <hr style="margin:8px 0 12px;">
         <h5 style="margin:0;">ট্যাবুলেশন শীট</h5>
-        <div class="meta-line">পরীক্ষা: <?= $exam_desc_line ?> | <?= $class_section ?> </div>
+        <div class="meta-line">পরীক্ষা: <?= $exam_desc_line ?> | <?= $class_section ?> - <?= $year ?></div>
     </div>
     <div class="table-responsive">
         <table class="table table-bordered table-sm">
