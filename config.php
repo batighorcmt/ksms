@@ -1,19 +1,12 @@
 <?php
-// Start output buffering early to prevent 'headers already sent' issues (e.g., BOM / stray spaces)
-if (!ob_get_level()) {
-    ob_start();
-}
-// Start session safely
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+session_start();
 
 // Database configuration - পোর্ট 3307 যোগ করুন
 define('DB_HOST', 'localhost');
-define('DB_PORT', '3307'); // আপনার MySQL পোর্ট
-define('DB_NAME', 'kindergarten_management');
-define('DB_USER', 'root');
-define('DB_PASS', '');
+define('DB_PORT', '3306'); // আপনার MySQL পোর্ট
+define('DB_NAME', 'jorepuku_career');
+define('DB_USER', 'jorepuku_ksms');
+define('DB_PASS', 'Halim%%2025_123');
 
 // Base URL
 define('BASE_URL', 'http://localhost/ksms/');
@@ -47,28 +40,7 @@ function hasRole($allowedRoles) {
 
 // Redirect function
 function redirect($url) {
-    // Normalize target URL
-    $url = trim($url);
-    if (preg_match('#^https?://#i', $url)) {
-        $target = $url; // absolute provided
-    } elseif (str_starts_with($url, '/')) {
-        $target = rtrim(BASE_URL, '/') . $url; // leading slash
-    } elseif (str_starts_with($url, '../')) {
-        // Collapse ../ to base (kept for backward compatibility with existing calls like '../login.php')
-        $target = BASE_URL . ltrim(preg_replace('#^\.\./+#', '', $url), '/');
-    } else {
-        $target = BASE_URL . ltrim($url, '/');
-    }
-
-    if (!headers_sent()) {
-        header('Location: ' . $target, true, 302);
-        exit;
-    }
-    // Fallback if headers already sent
-    echo '<script>window.location.href=' . json_encode($target) . ';</script>';
-    echo '<noscript><meta http-equiv="refresh" content="0;url=' . htmlspecialchars($target, ENT_QUOTES, 'UTF-8') . '"></noscript>';
-    exit;
+    header("Location: " . BASE_URL . $url);
+    exit();
 }
-
-// Flush any buffered output at the end of main script (optional) – caller pages can call ob_end_flush();
 ?>
