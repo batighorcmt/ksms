@@ -1,7 +1,5 @@
 
 <?php
-// Start output buffering to avoid 'headers already sent' issues if BOM/whitespace exists
-ob_start();
 require_once '../config.php';
 if (!isAuthenticated() || !hasRole(['super_admin'])) redirect('../login.php');
 include '../admin/inc/header.php';
@@ -150,7 +148,5 @@ $class_section = 'শ্রেণি: ' . htmlspecialchars($exam['class_name']);
 <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
 <style>@media print {.no-print{display:none!important;}}</style>
-<?php // Flush the output buffer safely
-ob_end_flush(); ?>
 </body>
 </html>
