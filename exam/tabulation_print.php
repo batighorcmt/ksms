@@ -1,4 +1,3 @@
-
 <?php
 require_once '../config.php';
 if (!isAuthenticated() || !hasRole(['super_admin'])) redirect('../login.php');
