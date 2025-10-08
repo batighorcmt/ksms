@@ -15,6 +15,13 @@
             $currentUser = call_user_func('currentUser');
         } elseif (!empty($_SESSION['user'])) {
             $currentUser = $_SESSION['user'];
+        } elseif (!empty($_SESSION['user_id'])) {
+            // fallback: fetch user from DB
+            if (isset($pdo)) {
+                $stmt = $pdo->prepare("SELECT full_name, photo FROM users WHERE id = ?");
+                $stmt->execute([$_SESSION['user_id']]);
+                $currentUser = $stmt->fetch(PDO::FETCH_ASSOC);
+            }
         }
         $userName = 'অ্যাডমিন';
         $userPhoto = 'https://adminlte.io/themes/v3/dist/img/user2-160x160.jpg';
@@ -71,7 +78,7 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="<?php echo BASE_URL; ?>admin/student_attendance.php" class="nav-link">
+                    <a href="<?php echo BASE_URL; ?>admin/attendance.php" class="nav-link">
                         <i class="nav-icon fas fa-file-alt"></i>
                         <p>শিক্ষার্থী হাজিরা গ্রহণ</p>
                     </a>

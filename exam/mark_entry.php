@@ -54,16 +54,19 @@ if ($exam_id && $class_id && $section_id && $subject_id) {
     $stmt->execute([$exam_id, $subject_id]);
     $exam_subject = $stmt->fetch();
 
-    if ($exam_subject) {
-        // শিক্ষার্থী লোড
-        $students_stmt = $pdo->prepare("
-            SELECT * FROM students 
-            WHERE class_id=? AND section_id=? AND status='active' 
-            ORDER BY roll_number ASC
-        ");
-        $students_stmt->execute([$class_id, $section_id]);
-        $students = $students_stmt->fetchAll();
-    }
+  if ($exam_subject) {
+    // শিক্ষার্থী লোড (শুধুমাত্র যাদের subject_assign আছে)
+    $students_stmt = $pdo->prepare("
+      SELECT s.*
+      FROM students s
+      JOIN student_subjects sa ON sa.student_id = s.id
+      WHERE s.class_id = ? AND s.section_id = ? AND s.status = 'active'
+        AND sa.subject_id = ?
+      ORDER BY s.roll_number ASC
+    ");
+    $students_stmt->execute([$class_id, $section_id, $subject_id]);
+    $students = $students_stmt->fetchAll();
+  }
 }
 ?>
 <!DOCTYPE html>

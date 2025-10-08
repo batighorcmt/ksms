@@ -15,6 +15,14 @@
             $currentUser = call_user_func('currentUser');
         } elseif (!empty($_SESSION['user'])) {
             $currentUser = $_SESSION['user'];
+        } elseif (!empty($_SESSION['user_id'])) {
+            // fallback: fetch user from DB
+            $pdo = isset($pdo) ? $pdo : (function_exists('getPDO') ? getPDO() : null);
+            if ($pdo) {
+                $stmt = $pdo->prepare("SELECT full_name, photo FROM users WHERE id = ?");
+                $stmt->execute([$_SESSION['user_id']]);
+                $currentUser = $stmt->fetch(PDO::FETCH_ASSOC);
+            }
         }
         $userName = 'অ্যাডমিন';
         $userPhoto = 'https://adminlte.io/themes/v3/dist/img/user2-160x160.jpg';
@@ -59,17 +67,6 @@
         <nav class="mt-2">
             <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
                 <li class="nav-item">
-                    <a href="<?php echo BASE_URL; ?>admin/homework.php" class="nav-link">
-                        <i class="nav-icon fas fa-book-open"></i>
-                        <p>হোমওয়ার্ক</p>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="<?php echo BASE_URL; ?>admin/lesson_evaluation.php" class="nav-link">
-                        <i class="nav-icon fas fa-clipboard-list"></i>
-                        <p>লেসন ইভুলেশন</p>
-                    </a>
-                </li>
                     <a href="<?php echo BASE_URL; ?>admin/dashboard.php" class="nav-link">
                         <i class="nav-icon fas fa-tachometer-alt"></i>
                         <p>ড্যাশবোর্ড</p>
@@ -174,9 +171,15 @@
                         <li class="nav-item">
                             <a href="<?php echo BASE_URL; ?>admin/teacher_attendance_report.php" class="nav-link">
                                 <i class="far fa-circle nav-icon"></i>
-                                <p>শিক্ষক উপস্থিতি রিপোর্ট</p>
+                                <p>শিক্ষক উপস্থিতি রিপোর্ট (দৈনিক)</p>
                             </a>
-
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/teacher_attendance_monthly.php" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>শিক্ষক উপস্থিতি রিপোর্ট (মাসিক)</p>
+                            </a>
+                        </li>
                     </ul>
                 </li>
                 <li class="nav-item">
@@ -219,6 +222,18 @@
                         </li>
 
                     </ul>
+                </li>
+                <li class="nav-item">
+                    <a href="<?php echo BASE_URL; ?>admin/homework.php" class="nav-link">
+                        <i class="nav-icon fas fa-book-open"></i>
+                        <p>হোমওয়ার্ক</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="<?php echo BASE_URL; ?>admin/lesson_evaluation.php" class="nav-link">
+                        <i class="nav-icon fas fa-clipboard-list"></i>
+                        <p>লেসন ইভুলেশন</p>
+                    </a>
                 </li>
                 
                 <li class="nav-item">

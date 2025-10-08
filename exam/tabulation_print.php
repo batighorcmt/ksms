@@ -25,10 +25,22 @@ foreach ($students as $stu) {
         $m = $pdo->prepare("SELECT obtained_marks FROM marks WHERE exam_subject_id=? AND student_id=?");
         $m->execute([$s['id'], $stu['id']]);
         $mr = $m->fetch();
-        $obt = $mr ? (float)$mr['obtained_marks'] : 0.0;
-        $marks[] = number_format($obt,2,'.','');
-        $total += $obt;
-        if ($obt >= (float)$s['pass_mark']) { $subjects_passed++; } else { $subjects_failed++; $all_passed = false; }
+        if ($mr && $mr['obtained_marks'] !== null) {
+            $obt = (float)$mr['obtained_marks'];
+            $marks[] = [
+                'value' => number_format($obt,2,'.',''),
+                'fail' => ($obt < (float)$s['pass_mark'])
+            ];
+            $total += $obt;
+            if ($obt >= (float)$s['pass_mark']) { $subjects_passed++; } else { $subjects_failed++; $all_passed = false; }
+        } else {
+            $marks[] = [
+                'value' => '-',
+                'fail' => true
+            ];
+            $subjects_failed++;
+            $all_passed = false;
+        }
     }
     $tabulation[] = [
         'roll_number' => $stu['roll_number'],
@@ -115,12 +127,18 @@ function bn($number){
                     <td><?= bn($row['position']); ?></td>
                     <td><?= bn($row['roll_number']); ?></td>
                     <td style="text-align:left;"><?= htmlspecialchars($row['first_name'].' '.$row['last_name']) ?></td>
-                    <?php foreach($row['marks'] as $obt): ?>
-                        <td><?= bn(number_format((float)$obt,2)) ?></td>
+                    <?php foreach($row['marks'] as $mark): ?>
+                        <?php if($mark['value'] === '-') { ?>
+                            <td>-</td>
+                        <?php } else if($mark['fail']) { ?>
+                            <td style="color:#e3342f;font-weight:600;"><?= bn(number_format((float)$mark['value'],2)) ?></td>
+                        <?php } else { ?>
+                            <td><?= bn(number_format((float)$mark['value'],2)) ?></td>
+                        <?php } ?>
                     <?php endforeach; ?>
                     <td class="tot-col"><?= bn(number_format($row['total_marks'],2)) ?></td>
                     <td><?= bn($row['subjects_passed']) ?></td>
-                    <td><?= bn($row['subjects_failed']) ?></td>
+                    <td><?= $row['subjects_failed'] > 0 ? bn($row['subjects_failed']) : '' ?></td>
                     <td><?= strtoupper($row['result_status']) ?></td>
                 </tr>
             <?php endforeach; ?>

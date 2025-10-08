@@ -12,9 +12,34 @@ $user_id = $_SESSION['user_id'];
 $today = date('Y-m-d');
 
 // Fetch teacher's routine (class, section, subject) for today (with subject name), ordered by class numeric value ASC
-$routine_stmt = $pdo->prepare("SELECT r.id, c.id as class_id, c.name as class_name, c.numeric_value as class_numeric, s.id as section_id, s.name as section_name, r.subject_id, sub.name as subject_name FROM routines r JOIN classes c ON r.class_id = c.id JOIN sections s ON r.section_id = s.id JOIN subjects sub ON r.subject_id = sub.id WHERE r.teacher_id = ? ORDER BY c.numeric_value ASC, s.name ASC, sub.name ASC");
+// Show only today's and upcoming classes for the teacher
+$routine_stmt = $pdo->prepare("
+    SELECT r.id, c.id as class_id, c.name as class_name, c.numeric_value as class_numeric, s.id as section_id, s.name as section_name, r.subject_id, sub.name as subject_name, r.day_of_week
+    FROM routines r
+    JOIN classes c ON r.class_id = c.id
+    JOIN sections s ON r.section_id = s.id
+    JOIN subjects sub ON r.subject_id = sub.id
+    WHERE r.teacher_id = ?
+    ORDER BY c.numeric_value ASC, s.name ASC, sub.name ASC
+");
 $routine_stmt->execute([$user_id]);
-$routines = $routine_stmt->fetchAll();
+$all_routines = $routine_stmt->fetchAll();
+
+// Filter: only today's and future classes
+$today_weekday = strtolower(date('l')); // e.g. 'monday', 'tuesday', etc.
+$routines = array_filter($all_routines, function($r) use ($today_weekday) {
+    // If routine has 'day_of_week' column, compare
+    if (isset($r['day_of_week']) && $r['day_of_week']) {
+        $routine_day = strtolower($r['day_of_week']);
+        // Show if today or future day in week
+        $weekdays = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+        $today_index = array_search($today_weekday, $weekdays);
+        $routine_index = array_search($routine_day, $weekdays);
+        return $routine_index !== false && $routine_index >= $today_index;
+    }
+    // If no day_of_week, fallback: show only today
+    return true;
+});
 
 // Fetch teacher name
 $teacher_name = '';
@@ -418,6 +443,15 @@ if ($is_print) {
                         if ($selected_class_name === '') $selected_class_name = htmlspecialchars($_GET['class_id']);
                         if ($selected_section_name === '') $selected_section_name = htmlspecialchars($_GET['section_id']);
                         if ($selected_subject_name === '') $selected_subject_name = htmlspecialchars($_GET['subject']);
+
+                        // Check if evaluation date is today or future
+                        $can_edit = true;
+                        if($eval && isset($eval['date'])) {
+                            $eval_date = $eval['date'];
+                            if(strtotime($eval_date) < strtotime($today)) {
+                                $can_edit = false;
+                            }
+                        }
                         ?>
                         <form method="POST">
                             <input type="hidden" name="class_id" value="<?php echo (int)$_GET['class_id']; ?>">
@@ -441,7 +475,7 @@ if ($is_print) {
                             </div>
                             <div class="form-group">
                                 <label>ছাত্র/ছাত্রী (মাল্টি-সিলেক্ট)</label>
-                                <select name="students[]" class="form-control select2-student" multiple required style="width:100%; min-height:48px;">
+                                <select name="students[]" class="form-control select2-student" multiple required style="width:100%; min-height:48px;" <?php echo !$can_edit ? 'disabled' : ''; ?>>
                                     <?php foreach($students as $st): ?>
                                         <?php
                                             $student_id = $st['id'];
@@ -467,16 +501,20 @@ if ($is_print) {
                                 </div>
                                 <div class="form-group col-md-3">
                                     <label>পড়া হয়েছে কি?</label><br>
-                                    <input type="checkbox" name="is_completed" value="1" <?php echo ($eval && $eval['is_completed']) ? 'checked' : ''; ?>> হ্যাঁ
+                                    <input type="checkbox" name="is_completed" value="1" <?php echo ($eval && $eval['is_completed']) ? 'checked' : ''; ?> <?php echo !$can_edit ? 'disabled' : ''; ?>> হ্যাঁ
                                 </div>
                                 <div class="form-group col-md-3">
                                     <label>মন্তব্য</label>
-                                    <input type="text" name="remarks" class="form-control" value="<?php echo $eval['remarks'] ?? ''; ?>">
+                                    <input type="text" name="remarks" class="form-control" value="<?php echo $eval['remarks'] ?? ''; ?>" <?php echo !$can_edit ? 'readonly' : ''; ?>>
                                 </div>
                             </div>
+                            <?php if($can_edit): ?>
                             <button type="submit" class="btn btn-success">
                                 <?php echo $eval ? 'আপডেট করুন' : 'সংরক্ষণ করুন'; ?>
                             </button>
+                            <?php else: ?>
+                            <div class="alert alert-warning mt-2">মূল্যায়নের দিন পার হয়ে গেছে, আর পরিবর্তন করা যাবে না।</div>
+                            <?php endif; ?>
                         </form>
                     </div>
                 </div>
@@ -484,9 +522,105 @@ if ($is_print) {
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <b>মূল্যায়ন রিপোর্ট</b>
-                        <a href="?print=1" target="_blank" class="btn btn-sm btn-primary"><i class="fa fa-print"></i> প্রিন্ট</a>
+                        <a href="?print=1<?php
+                            if(isset($_GET['report_date'])) echo '&report_date='.urlencode($_GET['report_date']);
+                            if(isset($_GET['class_name'])) echo '&class_name='.urlencode($_GET['class_name']);
+                            if(isset($_GET['section_name'])) echo '&section_name='.urlencode($_GET['section_name']);
+                            if(isset($_GET['subject'])) echo '&subject='.urlencode($_GET['subject']);
+                            if(isset($_GET['teacher_name'])) echo '&teacher_name='.urlencode($_GET['teacher_name']);
+                            if(isset($_GET['student_name'])) echo '&student_name='.urlencode($_GET['student_name']);
+                        ?>" target="_blank" class="btn btn-sm btn-primary"><i class="fa fa-print"></i> প্রিন্ট</a>
                     </div>
                     <div class="card-body table-responsive">
+                        <?php
+                        // Load classes, teachers, students for filter dropdowns
+                        $filter_classes = $pdo->query("SELECT id, name FROM classes ORDER BY numeric_value ASC")->fetchAll();
+                        $filter_teachers = $pdo->query("SELECT id, full_name FROM users WHERE status='active' AND role='teacher' ORDER BY full_name ASC")->fetchAll();
+                        $filter_students = $pdo->query("SELECT id, first_name, last_name FROM students WHERE status='active' ORDER BY first_name, last_name ASC")->fetchAll();
+                        ?>
+                        <form method="get" class="mb-3" id="filterForm">
+                            <div class="form-row">
+                                <div class="form-group col-md-2">
+                                    <label>শুরুর তারিখ</label>
+                                    <input type="date" name="date_start" class="form-control" value="<?= htmlspecialchars($_GET['date_start'] ?? $today) ?>">
+                                </div>
+                                <div class="form-group col-md-2">
+                                    <label>শেষ তারিখ</label>
+                                    <input type="date" name="date_end" class="form-control" value="<?= htmlspecialchars($_GET['date_end'] ?? $today) ?>">
+                                </div>
+                                <div class="form-group col-md-2">
+                                    <label>শ্রেণি</label>
+                                    <select name="class_id" id="filter_class" class="form-control">
+                                        <option value="">সব</option>
+                                        <?php foreach($filter_classes as $c): ?>
+                                            <option value="<?= $c['id'] ?>" <?= (isset($_GET['class_id']) && $_GET['class_id']==$c['id'])?'selected':'' ?>><?= htmlspecialchars($c['name']) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="form-group col-md-2">
+                                    <label>শাখা</label>
+                                    <select name="section_id" id="filter_section" class="form-control">
+                                        <option value="">সব</option>
+                                    </select>
+                                </div>
+                                <div class="form-group col-md-2">
+                                    <label>বিষয়</label>
+                                    <select name="subject" id="filter_subject" class="form-control">
+                                        <option value="">সব</option>
+                                    </select>
+                                </div>
+                                <div class="form-group col-md-2">
+                                    <label>শিক্ষক</label>
+                                    <select name="teacher_id" id="filter_teacher" class="form-control select2-filter">
+                                        <option value="">সব</option>
+                                        <?php foreach($filter_teachers as $t): ?>
+                                            <option value="<?= $t['id'] ?>" <?= (isset($_GET['teacher_id']) && $_GET['teacher_id']==$t['id'])?'selected':'' ?>><?= htmlspecialchars($t['full_name']) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="form-group col-md-2">
+                                    <label>শিক্ষার্থী</label>
+                                    <select name="student_id" id="filter_student" class="form-control select2-filter">
+                                        <option value="">সব</option>
+                                        <?php foreach($filter_students as $st): ?>
+                                            <option value="<?= $st['id'] ?>" <?= (isset($_GET['student_id']) && $_GET['student_id']==$st['id'])?'selected':'' ?>><?= htmlspecialchars($st['first_name'].' '.$st['last_name']) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-info btn-sm"><i class="fa fa-search"></i> খুঁজুন</button>
+                        </form>
+<?php /* JS for filter form */ ?>
+<script>
+$(function(){
+    // Select2 for teacher/student
+    $('.select2-filter').select2({width:'100%',placeholder:'নির্বাচন করুন',allowClear:true});
+    // Dependent dropdowns for section/subject
+    $('#filter_class').on('change', function(){
+        var classId = $(this).val();
+        // Load sections
+        $.get('ajax/get_sections.php', {class_id:classId}, function(data){
+            var opts = '<option value="">সব</option>';
+            $.each(data, function(i, s){
+                opts += '<option value="'+s.id+'">'+s.name+'</option>';
+            });
+            $('#filter_section').html(opts);
+        },'json');
+        // Load subjects
+        $.get('ajax/get_subjects_by_class.php', {class_id:classId}, function(data){
+            var opts = '<option value="">সব</option>';
+            $.each(data, function(i, s){
+                opts += '<option value="'+s.id+'">'+s.name+'</option>';
+            });
+            $('#filter_subject').html(opts);
+        },'json');
+    });
+    // Trigger on page load if class selected
+    if($('#filter_class').val()){
+        $('#filter_class').trigger('change');
+    }
+});
+</script>
                         <table class="table table-bordered table-striped">
                             <thead>
                                 <tr>
@@ -502,7 +636,24 @@ if ($is_print) {
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php foreach($evaluations as $ev): ?>
+                                <?php
+                                // Filter evaluations
+                                $filtered_evaluations = array_filter($evaluations, function($ev) {
+                                    $date_start = $_GET['date_start'] ?? date('Y-m-d');
+                                    $date_end = $_GET['date_end'] ?? date('Y-m-d');
+                                    if($date_start && $ev['date'] < $date_start) return false;
+                                    if($date_end && $ev['date'] > $date_end) return false;
+                                    if(isset($_GET['class_id']) && $_GET['class_id'] && $ev['class_id'] != $_GET['class_id']) return false;
+                                    if(isset($_GET['section_id']) && $_GET['section_id'] && $ev['section_id'] != $_GET['section_id']) return false;
+                                    if(isset($_GET['subject']) && $_GET['subject'] && $ev['subject'] != $_GET['subject']) return false;
+                                    if(isset($_GET['teacher_id']) && $_GET['teacher_id'] && $ev['teacher_id'] != $_GET['teacher_id']) return false;
+                                    if(isset($_GET['student_id']) && $_GET['student_id']) {
+                                        $st_ids = json_decode($ev['evaluated_students'], true) ?? [];
+                                        if(!in_array($_GET['student_id'], $st_ids)) return false;
+                                    }
+                                    return true;
+                                });
+                                foreach($filtered_evaluations as $ev): ?>
                                 <tr>
                                     <td><?php echo htmlspecialchars($ev['date']); ?></td>
                                     <td><?php echo htmlspecialchars($ev['class_name']); ?></td>
