@@ -1,169 +1,362 @@
 <?php
 require_once '../config.php';
 
-// Authentication check
-if (!isAuthenticated() || !hasRole(['super_admin', 'teacher'])) {
-    redirect('login.php');
+// Auth
+if (!isAuthenticated() || !hasRole(['super_admin','teacher'])) {
+    redirect('../index.php');
 }
 
-// শিক্ষার্থী আইডি পান
-$student_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+// Check if student ID is provided
+if (!isset($_GET['id']) || empty($_GET['id'])) {
+    $_SESSION['error'] = 'শিক্ষার্থী আইডি প্রদান করা হয়নি।';
+    redirect('students.php');
+}
 
-// শিক্ষার্থী ডেটা লোড করুন
-$stmt = $pdo->prepare("
-    SELECT s.*, 
-           c.name as class_name, 
-           sec.name as section_name,
-           u.full_name as guardian_name
-    FROM students s 
-    LEFT JOIN classes c ON s.class_id = c.id 
-    LEFT JOIN sections sec ON s.section_id = sec.id
-    LEFT JOIN users u ON s.guardian_id = u.id
-    WHERE s.id = ?
-");
+$student_id = intval($_GET['id']);
+
+// Fetch student data
+$stmt = $pdo->prepare("SELECT * FROM students WHERE id = ?");
 $stmt->execute([$student_id]);
 $student = $stmt->fetch();
 
 if (!$student) {
-    $_SESSION['error'] = "শিক্ষার্থী পাওয়া যায়নি!";
-    header("Location: students.php");
-    exit();
+    $_SESSION['error'] = 'শিক্ষার্থী খুঁজে পাওয়া যায়নি।';
+    redirect('students.php');
 }
 
-// ক্লাস, শাখা এবং সম্পর্ক লোড করুন
-$classes = $pdo->query("SELECT * FROM classes WHERE status='active' ORDER BY numeric_value ASC")->fetchAll();
-$sections = $pdo->query("SELECT * FROM sections WHERE status='active'")->fetchAll();
-$guardians = $pdo->query("SELECT * FROM users WHERE role='guardian' AND status=1")->fetchAll();
-$relations = $pdo->query("SELECT * FROM guardian_relations")->fetchAll();
+// Load helper data
+$classes = $pdo->query("SELECT * FROM classes ORDER BY name ASC")->fetchAll();
+$relations = $pdo->query("SELECT * FROM guardian_relations ORDER BY id ASC")->fetchAll();
 
-// AJAX রিকোয়েস্ট হ্যান্ডলিং - ক্লাস আইডি অনুযায়ী শাখা লোড করার জন্য
-if (isset($_GET['class_id'])) {
-    $class_id = intval($_GET['class_id']);
-    $stmt = $pdo->prepare("SELECT * FROM sections WHERE class_id = ? AND status='active'");
-    $stmt->execute([$class_id]);
-    $sections = $stmt->fetchAll();
-    
-    echo json_encode($sections);
-    exit;
-}
+$errors = [];
+$success = '';
 
-// শিক্ষার্থী আপডেট করুন
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_student'])) {
-    $first_name = $_POST['first_name'];
-    $last_name = $_POST['last_name'];
-    $father_name = $_POST['father_name'];
-    $mother_name = $_POST['mother_name'];
-    $guardian_relation = $_POST['guardian_relation'];
-    $other_relation = $_POST['other_relation'];
-    $birth_certificate_no = $_POST['birth_certificate_no'];
-    $date_of_birth = $_POST['date_of_birth'];
-    $gender = $_POST['gender'];
-    $blood_group = $_POST['blood_group'];
-    $religion = $_POST['religion'];
-    $present_address = $_POST['present_address'];
-    $permanent_address = $_POST['permanent_address'];
-    $mobile_number = $_POST['mobile_number'];
-    $class_id = $_POST['class_id'];
-    $section_id = $_POST['section_id'];
-    $roll_number = $_POST['roll_number'];
-    $guardian_id = !empty($_POST['guardian_id']) ? $_POST['guardian_id'] : NULL;
-    $status = $_POST['status'];
-    
-    // যদি অন্যান্য সম্পর্ক নির্বাচন করা হয়
-    if ($guardian_relation == 'other' && !empty($other_relation)) {
-        $guardian_relation = $other_relation;
-    }
-    
-    // অভিভাবক নাম ভ্যালিডেশন
-    if ($guardian_relation == 'পিতা' || $guardian_relation == 'মাতা') {
-        $guardian_name_field = ($guardian_relation == 'পিতা') ? 'father_name' : 'mother_name';
-        $guardian_name = $$guardian_name_field;
+// Handle POST
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // CSRF Protection
+    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+        $errors[] = 'সিকিউরিটি ভেরিফিকেশন ব্যর্থ হয়েছে। দয়া করে পুনরায় চেষ্টা করুন।';
     } else {
-        $guardian_name = $_POST['guardian_name'] ?? '';
-        if (empty($guardian_name)) {
-            $_SESSION['error'] = "অভিভাবকের নাম বাধ্যতামূলক!";
-            header("Location: edit_student.php?id=" . $student_id);
-            exit();
+        // Basic sanitization
+        $first_name = trim($_POST['first_name'] ?? '');
+        $last_name = trim($_POST['last_name'] ?? '');
+        $father_name = trim($_POST['father_name'] ?? '');
+        $mother_name = trim($_POST['mother_name'] ?? '');
+        $guardian_relation = trim($_POST['guardian_relation'] ?? '');
+        $guardian_name = trim($_POST['guardian_name'] ?? '');
+        $mobile_number = trim($_POST['mobile_number'] ?? '');
+        $birth_certificate_no = trim($_POST['birth_certificate_no'] ?? '');
+        $date_of_birth = $_POST['date_of_birth'] ?? null;
+        $gender = trim($_POST['gender'] ?? '');
+        $blood_group = trim($_POST['blood_group'] ?? '');
+        $religion = trim($_POST['religion'] ?? '');
+        $present_address = trim($_POST['present_address'] ?? '');
+        $permanent_address = trim($_POST['permanent_address'] ?? '');
+        $copy_address = isset($_POST['copy_address']);
+        $class_id = intval($_POST['class_id'] ?? 0);
+        $section_id = !empty($_POST['section_id']) ? intval($_POST['section_id']) : null;
+        $roll_number = trim($_POST['roll_number'] ?? '');
+        $admission_date = $_POST['admission_date'] ?? null;
+        $year = !empty($_POST['year']) ? intval($_POST['year']) : null;
+
+        // Resolve guardian_relation
+        $guardian_relation_label = $guardian_relation;
+        if (is_numeric($guardian_relation) && intval($guardian_relation) > 0) {
+            $gStmt = $pdo->prepare('SELECT * FROM guardian_relations WHERE id = ?');
+            $gStmt->execute([intval($guardian_relation)]);
+            $gRow = $gStmt->fetch();
+            if ($gRow) {
+                $guardian_relation_label = $gRow['name'] ?? $gRow['relation'] ?? $gRow['title'] ?? array_values($gRow)[1] ?? $guardian_relation_label;
+            }
         }
-    }
-    
-    // লোগো আপলোড হ্যান্ডলিং
-    $photo = $student['photo']; // ডিফল্টভাবে পুরানো ছবি রাখুন
-    
-    if (!empty($_FILES['photo']['name'])) {
-        $upload_dir = '../uploads/students/';
-        if (!is_dir($upload_dir)) {
-            mkdir($upload_dir, 0777, true);
+
+        // Guardian logic validation
+        $lowerRel = mb_strtolower($guardian_relation_label ?? '');
+        if (mb_stripos($lowerRel, 'পিতা') !== false || mb_stripos($lowerRel, 'father') !== false) {
+            $guardian_name = $father_name;
+        } elseif (mb_stripos($lowerRel, 'মাতা') !== false || mb_stripos($lowerRel, 'mother') !== false) {
+            $guardian_name = $mother_name;
         }
-        
-        $file_name = time() . '_' . basename($_FILES['photo']['name']);
-        $target_file = $upload_dir . $file_name;
-        
-        // ফাইল আপলোড করুন
-        if (move_uploaded_file($_FILES['photo']['tmp_name'], $target_file)) {
-            $photo = $file_name;
-            
-            // পুরানো ছবি ডিলিট করুন (যদি থাকে)
-            if (!empty($student['photo']) && file_exists($upload_dir . $student['photo'])) {
-                unlink($upload_dir . $student['photo']);
+
+        if (!(mb_stripos($lowerRel, 'পিতা') !== false || mb_stripos($lowerRel, 'মাতা') !== false)) {
+            if ($guardian_name === '') {
+                $errors[] = 'অভিভাবকের নাম প্রদান করতে হবে।';
+            }
+            if ($mobile_number === '') {
+                $errors[] = 'অভিভাবকের মোবাইল নম্বর প্রদান করতে হবে।';
+            }
+        }
+
+        // address validation
+        if ($present_address === '') {
+            $errors[] = 'বর্তমান ঠিকানা প্রদান করুন।';
+        }
+        if ($copy_address) {
+            $permanent_address = $present_address;
+        }
+
+        if ($first_name === '') { $errors[] = 'শিক্ষার্থীর প্রথম নাম প্রয়োজন।'; }
+        if ($class_id <= 0) { $errors[] = 'শ্রেণি নির্বাচন করুন।'; }
+        if ($date_of_birth === null || $date_of_birth === '') { $errors[] = 'জন্ম তারিখ প্রদান করুন।'; }
+        if ($gender === '') { $errors[] = 'জেন্ডার নির্বাচন করুন।'; }
+
+        // Validate mobile number format
+        if (!empty($mobile_number) && !preg_match('/^01[3-9]\d{8}$/', $mobile_number)) {
+            $errors[] = 'সঠিক মোবাইল নম্বর প্রদান করুন (১১ ডিজিট, 01 দিয়ে শুরু)';
+        }
+
+        // Photo upload handling
+        $photo_file = $student['photo']; // Keep existing photo by default
+        if (!empty($_FILES['photo']['name'])) {
+            $f = $_FILES['photo'];
+            if ($f['error'] === 0) {
+                $allowed = ['image/jpeg','image/png','image/webp'];
+                $maxFileSize = 2 * 1024 * 1024; // 2MB
+                
+                if ($f['size'] > $maxFileSize) {
+                    $errors[] = 'ছবির আকার 2MB এর কম হতে হবে।';
+                } elseif (!in_array($f['type'], $allowed)) {
+                    $errors[] = 'ছবি অবশ্যই jpg/png/webp ফরম্যাটে হতে হবে।';
+                } else {
+                    $ext = pathinfo($f['name'], PATHINFO_EXTENSION);
+                    $photo_file = 'stu_' . time() . '_' . rand(1000,9999) . '.' . $ext;
+                    $dst = __DIR__ . '/../uploads/students/' . $photo_file;
+                    if (!is_dir(dirname($dst))) { 
+                        mkdir(dirname($dst), 0755, true); 
+                    }
+                    if (move_uploaded_file($f['tmp_name'], $dst)) {
+                        // Delete old photo if exists
+                        if (!empty($student['photo']) && file_exists(__DIR__ . '/../uploads/students/' . $student['photo'])) {
+                            unlink(__DIR__ . '/../uploads/students/' . $student['photo']);
+                        }
+                    } else {
+                        $errors[] = 'ছবি আপলোড করতে ব্যর্থ হয়েছে।';
+                        $photo_file = $student['photo']; // Revert to old photo
+                    }
+                }
+            } else {
+                $errors[] = 'ছবি আপলোডে ত্রুটি।';
+            }
+        }
+
+        if (empty($errors)) {
+            try {
+                $pdo->beginTransaction();
+
+                // Update student
+                $stmt = $pdo->prepare("UPDATE students SET
+                    first_name = ?, last_name = ?, father_name = ?, mother_name = ?, 
+                    guardian_relation = ?, birth_certificate_no = ?, date_of_birth = ?, 
+                    gender = ?, blood_group = ?, religion = ?, present_address = ?, 
+                    permanent_address = ?, mobile_number = ?, address = ?, city = ?, 
+                    country = ?, photo = ?, class_id = ?, section_id = ?, roll_number = ?, 
+                    admission_date = ?
+                    WHERE id = ?");
+
+                $ok = $stmt->execute([
+                    $first_name,
+                    $last_name,
+                    $father_name ?: null,
+                    $mother_name ?: null,
+                    $guardian_relation_label ?: null,
+                    $birth_certificate_no ?: null,
+                    $date_of_birth ?: null,
+                    $gender,
+                    $blood_group ?: null,
+                    $religion ?: null,
+                    $present_address ?: null,
+                    $permanent_address ?: null,
+                    $mobile_number ?: null,
+                    null, // address
+                    null, // city
+                    null, // country
+                    $photo_file ?: null,
+                    $class_id,
+                    $section_id ?: 0,
+                    $roll_number !== '' ? intval($roll_number) : null,
+                    $admission_date ?: null,
+                    $student_id
+                ]);
+
+                if (!$ok) throw new Exception('শিক্ষার্থীর তথ্য আপডেট করতে ব্যর্থ।');
+
+                // Update guardian user if exists
+                if (!empty($student['guardian_id'])) {
+                    $uStmt = $pdo->prepare("UPDATE users SET 
+                        phone = ?, full_name = ?, address = ? 
+                        WHERE id = ?");
+                    $uStmt->execute([
+                        $mobile_number ?: null,
+                        $guardian_name ?: null,
+                        $present_address ?: null,
+                        $student['guardian_id']
+                    ]);
+                }
+
+                $pdo->commit();
+
+                $success = "শিক্ষার্থীর তথ্য সফলভাবে আপডেট করা হয়েছে।";
+                
+                // Refresh student data
+                $stmt = $pdo->prepare("SELECT * FROM students WHERE id = ?");
+                $stmt->execute([$student_id]);
+                $student = $stmt->fetch();
+
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                $errors[] = 'ডাটাবেসে আপডেট করতে সমস্যা হয়েছে: ' . $e->getMessage();
             }
         }
     }
-    
-    $stmt = $pdo->prepare("
-        UPDATE students 
-        SET first_name = ?, last_name = ?, father_name = ?, mother_name = ?, 
-            guardian_relation = ?, birth_certificate_no = ?, date_of_birth = ?, 
-            gender = ?, blood_group = ?, religion = ?, present_address = ?, 
-            permanent_address = ?, mobile_number = ?, photo = ?, class_id = ?, 
-            section_id = ?, roll_number = ?, guardian_id = ?, status = ?
-        WHERE id = ?
-    ");
-    
-    if ($stmt->execute([
-        $first_name, $last_name, $father_name, $mother_name, $guardian_relation,
-        $birth_certificate_no, $date_of_birth, $gender, $blood_group, $religion,
-        $present_address, $permanent_address, $mobile_number, $photo,
-        $class_id, $section_id, $roll_number, $guardian_id, $status, $student_id
-    ])) {
-        $_SESSION['success'] = "শিক্ষার্থীর তথ্য সফলভাবে আপডেট করা হয়েছে!";
-        header("Location: student_details.php?id=" . $student_id);
-        exit();
-    } else {
-        $_SESSION['error'] = "শিক্ষার্থীর তথ্য আপডেট করতে সমস্যা হয়েছে!";
-    }
 }
-?>
 
-<!DOCTYPE html>
+// Generate CSRF token if not exists
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+// Minimal helper to fetch sections for class
+$sectionsAll = $pdo->query("SELECT * FROM sections ORDER BY name ASC")->fetchAll();
+
+?>
+<!doctype html>
 <html lang="bn">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>শিক্ষার্থী সম্পাদনা - কিন্ডার গার্ডেন</title>
-
-    <!-- Google Font: Source Sans Pro -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback">
-    <!-- Font Awesome Icons -->
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>শিক্ষার্থী সম্পাদনা করুন</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Theme style -->
+    <!-- AdminLTE style -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
-    <!-- Bengali Font -->
     <link href="https://fonts.maateen.me/solaiman-lipi/font.css" rel="stylesheet">
-    
     <style>
-        body, .main-sidebar, .nav-link {
-            font-family: 'SolaimanLipi', 'Source Sans Pro', sans-serif;
+        :root {
+            --primary-color: #4e73df;
+            --secondary-color: #6f42c1;
+            --success-color: #1cc88a;
         }
-        .student-photo {
-            width: 150px;
-            height: 150px;
+        body {
+            font-family: SolaimanLipi, Arial, sans-serif;
+            background-color: #f8f9fc;
+        }
+        .card {
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+            border: none;
+            border-radius: 10px;
+        }
+        .card-header {
+            border-radius: 10px 10px 0 0 !important;
+            font-weight: 700;
+        }
+        .form-control, .form-select {
+            border-radius: 6px;
+            padding: 10px 15px;
+            border: 1px solid #d1d3e2;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(78, 115, 223, 0.25);
+        }
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+            border-radius: 6px;
+            padding: 10px 20px;
+            font-weight: 600;
+        }
+        .btn-primary:hover {
+            background-color: #3a5fc8;
+            border-color: #3a5fc8;
+        }
+        .photo-preview {
+            max-width: 160px;
+            max-height: 160px;
+            display: block;
+            margin-top: 8px;
+            border: 1px solid #ccc;
+            padding: 3px;
+            border-radius: 6px;
             object-fit: cover;
-            border-radius: 5px;
-            border: 1px solid #ddd;
         }
-        .other-relation, .guardian-name-field {
+        .step-progress {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            position: relative;
+        }
+        .step-progress::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #e3e6f0;
+            transform: translateY(-50%);
+            z-index: 1;
+        }
+        .step {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background: white;
+            border: 2px solid #e3e6f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            position: relative;
+            z-index: 2;
+        }
+        .step.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+        .step-label {
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-top: 8px;
+            white-space: nowrap;
+            font-size: 0.85rem;
+            color: #858796;
+        }
+        .form-section {
             display: none;
+        }
+        .form-section.active {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .nav-tabs .nav-link {
+            border: none;
+            color: #858796;
+            font-weight: 600;
+            padding: 12px 20px;
+        }
+        .nav-tabs .nav-link.active {
+            color: var(--primary-color);
+            border-bottom: 3px solid var(--primary-color);
+            background: transparent;
+        }
+        .required-label::after {
+            content: '*';
+            color: red;
+            margin-left: 3px;
+        }
+        .input-group-text {
+            background-color: #eaecf4;
+            border: 1px solid #d1d3e2;
         }
     </style>
 </head>
@@ -175,399 +368,587 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_student'])) {
     <!-- /.navbar -->
 
     <!-- Main Sidebar Container -->
-    <?php include 'inc/sidebar.php'; ?>
+    <?php
+    if (hasRole(['super_admin'])) {
+        include 'inc/sidebar.php';
+    } elseif (hasRole(['teacher'])) {
+        include '../teacher/inc/sidebar.php';
+    }
+    ?>
 
     <!-- Content Wrapper. Contains page content -->
     <div class="content-wrapper">
-        <!-- Content Header (Page header) -->
-        <div class="content-header">
-            <div class="container-fluid">
-                <div class="row mb-2">
-                    <div class="col-sm-6">
-                        <h1 class="m-0">শিক্ষার্থী সম্পাদনা</h1>
-                    </div>
-                    <div class="col-sm-6">
-                        <ol class="breadcrumb float-sm-right">
-                            <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>admin/dashboard.php">হোম</a></li>
-                            <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>admin/students.php">শিক্ষার্থী ব্যবস্থাপনা</a></li>
-                            <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>admin/student_details.php?id=<?php echo $student_id; ?>">শিক্ষার্থী বিস্তারিত</a></li>
-                            <li class="breadcrumb-item active">শিক্ষার্থী সম্পাদনা</li>
-                        </ol>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Main content -->
         <section class="content">
-            <div class="container-fluid">
-                <!-- Notification Alerts -->
-                <?php if(isset($_SESSION['success'])): ?>
-                    <div class="alert alert-success alert-dismissible">
-                        <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
-                        <h5><i class="icon fas fa-check"></i> সফল!</h5>
-                        <?php echo $_SESSION['success']; unset($_SESSION['success']); ?>
-                    </div>
-                <?php endif; ?>
-
-                <?php if(isset($_SESSION['error'])): ?>
-                    <div class="alert alert-danger alert-dismissible">
-                        <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
-                        <h5><i class="icon fas fa-ban"></i> ত্রুটি!</h5>
-                        <?php echo $_SESSION['error']; unset($_SESSION['error']); ?>
-                    </div>
-                <?php endif; ?>
-
+            <div class="container-fluid py-4">
                 <div class="row">
-                    <div class="col-md-12">
-                        <div class="card card-primary">
-                            <div class="card-header">
-                                <h3 class="card-title">শিক্ষার্থী তথ্য সম্পাদনা</h3>
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                                <h3 class="card-title">শিক্ষার্থী সম্পাদনা করুন</h3>
+                                <a href="students.php" class="btn btn-light btn-sm">
+                                    <i class="fas fa-arrow-left mr-1"></i> <span style="color:#fff;background:#4e73df;padding:2px 10px;border-radius:5px;font-weight:700;box-shadow:0 2px 8px #4e73df55;"></span>শিক্ষার্থী তালিকা</span>
+                                </a>
                             </div>
-                            <!-- /.card-header -->
                             <div class="card-body">
-                                <form method="POST" action="" enctype="multipart/form-data">
-                                    <div class="row">
-                                        <div class="col-md-8">
-                                            <div class="row">
-                                                <div class="col-md-6">
-                                                    <div class="form-group">
-                                                        <label for="first_name">শিক্ষার্থীর নামের প্রথম অংশ *</label>
-                                                        <input type="text" class="form-control" id="first_name" name="first_name" value="<?php echo $student['first_name']; ?>" required>
-                                                    </div>
-                                                </div>
-                                                <div class="col-md-6">
-                                                    <div class="form-group">
-                                                        <label for="last_name">শিক্ষার্থীর নামের শেষ অংশ *</label>
-                                                        <input type="text" class="form-control" id="last_name" name="last_name" value="<?php echo $student['last_name']; ?>" required>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            
-                                            <div class="row">
-                                                <div class="col-md-6">
-                                                    <div class="form-group">
-                                                        <label for="father_name">পিতার নাম *</label>
-                                                        <input type="text" class="form-control" id="father_name" name="father_name" value="<?php echo $student['father_name']; ?>" required>
-                                                    </div>
-                                                </div>
-                                                <div class="col-md-6">
-                                                    <div class="form-group">
-                                                        <label for="mother_name">মাতার নাম *</label>
-                                                        <input type="text" class="form-control" id="mother_name" name="mother_name" value="<?php echo $student['mother_name']; ?>" required>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            
-                                            <div class="row">
-                                                <div class="col-md-6">
-                                                    <div class="form-group">
-                                                        <label for="guardian_relation">অভিভাবকের সম্পর্ক *</label>
-                                                        <select class="form-control" id="guardian_relation" name="guardian_relation" required>
-                                                            <option value="">নির্বাচন করুন</option>
-                                                            <?php foreach($relations as $relation): ?>
-                                                                <option value="<?php echo $relation['name']; ?>" <?php echo ($student['guardian_relation'] == $relation['name']) ? 'selected' : ''; ?>>
-                                                                    <?php echo $relation['name']; ?>
-                                                                </option>
-                                                            <?php endforeach; ?>
-                                                            <option value="other" <?php echo (!in_array($student['guardian_relation'], array_column($relations, 'name'))) ? 'selected' : ''; ?>>অন্যান্য</option>
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                                <div class="col-md-6 other-relation" id="other_relation_field" style="<?php echo (!in_array($student['guardian_relation'], array_column($relations, 'name'))) ? 'display:block;' : 'display:none;'; ?>">
-                                                    <div class="form-group">
-                                                        <label for="other_relation">অন্যান্য সম্পর্ক উল্লেখ করুন</label>
-                                                        <input type="text" class="form-control" id="other_relation" name="other_relation" value="<?php echo (!in_array($student['guardian_relation'], array_column($relations, 'name'))) ? $student['guardian_relation'] : ''; ?>">
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            
-                                            <!-- অভিভাবক নাম ফিল্ড (পিতা/মাতা ছাড়া অন্য সম্পর্কের জন্য) -->
-                                            <div class="row guardian-name-field" id="guardian_name_field">
-                                                <div class="col-md-12">
-                                                    <div class="form-group">
-                                                        <label for="guardian_name">অভিভাবকের নাম *</label>
-                                                        <input type="text" class="form-control" id="guardian_name" name="guardian_name" value="">
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            
-                                            <div class="row">
-                                                <div class="col-md-6">
-                                                    <div class="form-group">
-                                                        <label for="birth_certificate_no">জন্ম নিবন্ধন নম্বর</label>
-                                                        <input type="text" class="form-control" id="birth_certificate_no" name="birth_certificate_no" value="<?php echo $student['birth_certificate_no']; ?>">
-                                                    </div>
-                                                </div>
-                                                <div class="col-md-6">
-                                                    <div class="form-group">
-                                                        <label for="date_of_birth">জন্ম তারিখ *</label>
-                                                        <input type="date" class="form-control" id="date_of_birth" name="date_of_birth" value="<?php echo $student['date_of_birth']; ?>" required>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            
+                                <?php if(!empty($errors)): ?>
+                                    <div class="alert alert-danger">
+                                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                            <span aria-hidden="true">&times;</span>
+                                        </button>
+                                        <h5><i class="icon fas fa-exclamation-triangle"></i> কিছু ত্রুটি রয়েছে!</h5>
+                                        <ul><?php foreach($errors as $e) echo "<li>".htmlspecialchars($e)."</li>"; ?></ul>
+                                    </div>
+                                <?php endif; ?>
+
+                                <?php if($success): ?>
+                                    <div class="alert alert-success">
+                                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                            <span aria-hidden="true">&times;</span>
+                                        </button>
+                                        <h5><i class="icon fas fa-check"></i> সফল!</h5>
+                                        <?php echo $success; ?>
+                                    </div>
+                                <?php endif; ?>
+
+                                <ul class="nav nav-tabs mb-4" id="studentFormTabs" role="tablist">
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link active" id="basic-tab" data-bs-toggle="tab" data-bs-target="#basic" type="button" role="tab" aria-controls="basic" aria-selected="true">
+                                            <i class="fas fa-user-graduate mr-1"></i> প্রাথমিক তথ্য
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" id="guardian-tab" data-bs-toggle="tab" data-bs-target="#guardian" type="button" role="tab" aria-controls="guardian" aria-selected="false">
+                                            <i class="fas fa-users mr-1"></i> অভিভাবক তথ্য
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" id="academic-tab" data-bs-toggle="tab" data-bs-target="#academic" type="button" role="tab" aria-controls="academic" aria-selected="false">
+                                            <i class="fas fa-book mr-1"></i> একাডেমিক তথ্য
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" id="other-tab" data-bs-toggle="tab" data-bs-target="#other" type="button" role="tab" aria-controls="other" aria-selected="false">
+                                            <i class="fas fa-info-circle mr-1"></i> অন্যান্য তথ্য
+                                        </button>
+                                    </li>
+                                </ul>
+
+                                <form method="post" enctype="multipart/form-data" id="editStudentForm">
+                                    <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                                    
+                                    <div class="tab-content" id="studentFormTabContent">
+                                        <!-- Basic Info Tab -->
+                                        <div class="tab-pane fade show active" id="basic" role="tabpanel" aria-labelledby="basic-tab">
                                             <div class="row">
                                                 <div class="col-md-4">
                                                     <div class="form-group">
-                                                        <label for="gender">লিঙ্গ *</label>
-                                                        <select class="form-control" id="gender" name="gender" required>
-                                                            <option value="">নির্বাচন করুন</option>
-                                                            <option value="male" <?php echo ($student['gender'] == 'male') ? 'selected' : ''; ?>>ছেলে</option>
-                                                            <option value="female" <?php echo ($student['gender'] == 'female') ? 'selected' : ''; ?>>মেয়ে</option>
-                                                            <option value="other" <?php echo ($student['gender'] == 'other') ? 'selected' : ''; ?>>অন্যান্য</option>
-                                                        </select>
+                                                        <label class="required-label">প্রথম নাম</label>
+                                                        <div class="input-group">
+                                                            <span class="input-group-text"><i class="fas fa-user"></i></span>
+                                                            <input name="first_name" class="form-control" value="<?php echo htmlspecialchars($student['first_name'] ?? ''); ?>" required>
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 <div class="col-md-4">
                                                     <div class="form-group">
-                                                        <label for="blood_group">রক্তের গ্রুপ</label>
-                                                        <select class="form-control" id="blood_group" name="blood_group">
-                                                            <option value="">নির্বাচন করুন</option>
-                                                            <option value="A+" <?php echo ($student['blood_group'] == 'A+') ? 'selected' : ''; ?>>A+</option>
-                                                            <option value="A-" <?php echo ($student['blood_group'] == 'A-') ? 'selected' : ''; ?>>A-</option>
-                                                            <option value="B+" <?php echo ($student['blood_group'] == 'B+') ? 'selected' : ''; ?>>B+</option>
-                                                            <option value="B-" <?php echo ($student['blood_group'] == 'B-') ? 'selected' : ''; ?>>B-</option>
-                                                            <option value="AB+" <?php echo ($student['blood_group'] == 'AB+') ? 'selected' : ''; ?>>AB+</option>
-                                                            <option value="AB-" <?php echo ($student['blood_group'] == 'AB-') ? 'selected' : ''; ?>>AB-</option>
-                                                            <option value="O+" <?php echo ($student['blood_group'] == 'O+') ? 'selected' : ''; ?>>O+</option>
-                                                            <option value="O-" <?php echo ($student['blood_group'] == 'O-') ? 'selected' : ''; ?>>O-</option>
-                                                        </select>
+                                                        <label>শেষ নাম</label>
+                                                        <div class="input-group">
+                                                            <span class="input-group-text"><i class="fas fa-user"></i></span>
+                                                            <input name="last_name" class="form-control" value="<?php echo htmlspecialchars($student['last_name'] ?? ''); ?>">
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 <div class="col-md-4">
                                                     <div class="form-group">
-                                                        <label for="religion">ধর্ম</label>
-                                                        <select class="form-control" id="religion" name="religion">
-                                                            <option value="">নির্বাচন করুন</option>
-                                                            <option value="Islam" <?php echo ($student['religion'] == 'Islam') ? 'selected' : ''; ?>>ইসলাম</option>
-                                                            <option value="Hinduism" <?php echo ($student['religion'] == 'Hinduism') ? 'selected' : ''; ?>>হিন্দু</option>
-                                                            <option value="Christianity" <?php echo ($student['religion'] == 'Christianity') ? 'selected' : ''; ?>>খ্রিস্টান</option>
-                                                            <option value="Buddhism" <?php echo ($student['religion'] == 'Buddhism') ? 'selected' : ''; ?>>বৌদ্ধ</option>
-                                                            <option value="Other" <?php echo ($student['religion'] == 'Other') ? 'selected' : ''; ?>>অন্যান্য</option>
-                                                        </select>
+                                                        <label class="required-label">জন্ম তারিখ</label>
+                                                        <div class="input-group">
+                                                            <span class="input-group-text"><i class="fas fa-calendar"></i></span>
+                                                            <input type="date" name="date_of_birth" class="form-control" value="<?php echo htmlspecialchars($student['date_of_birth'] ?? ''); ?>" required>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                            
+
                                             <div class="row">
-                                                <div class="col-md-6">
+                                                <div class="col-md-3">
                                                     <div class="form-group">
-                                                        <label for="present_address">বর্তমান ঠিকানা *</label>
-                                                        <textarea class="form-control" id="present_address" name="present_address" rows="3" required><?php echo $student['present_address']; ?></textarea>
+                                                        <label class="required-label">লিঙ্গ</label>
+                                                        <div class="input-group">
+                                                            <span class="input-group-text"><i class="fas fa-venus-mars"></i></span>
+                                                            <select name="gender" class="form-control" required>
+                                                                <option value="">নির্বাচন করুন</option>
+                                                                <option value="male" <?php if(($student['gender'] ?? '')=='male') echo 'selected'; ?>>পুরুষ</option>
+                                                                <option value="female" <?php if(($student['gender'] ?? '')=='female') echo 'selected'; ?>>মহিলা</option>
+                                                                <option value="other" <?php if(($student['gender'] ?? '')=='other') echo 'selected'; ?>>অন্যান্য</option>
+                                                            </select>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                                <div class="col-md-6">
+                                                <div class="col-md-3">
                                                     <div class="form-group">
-                                                        <label for="permanent_address">স্থায়ী ঠিকানা *</label>
-                                                        <textarea class="form-control" id="permanent_address" name="permanent_address" rows="3" required><?php echo $student['permanent_address']; ?></textarea>
+                                                        <label>জন্ম সনদের নং</label>
+                                                        <div class="input-group">
+                                                            <span class="input-group-text"><i class="fas fa-id-card"></i></span>
+                                                            <input name="birth_certificate_no" class="form-control" value="<?php echo htmlspecialchars($student['birth_certificate_no'] ?? ''); ?>">
+                                                        </div>
                                                     </div>
-                                                    <button type="button" class="btn btn-secondary btn-sm" id="copyAddress">
-                                                        <i class="fas fa-copy"></i> বর্তমান ঠিকানা অনুলিপি করুন
-                                                    </button>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <div class="form-group">
+                                                        <label>রক্তের গ্রুপ</label>
+                                                        <div class="input-group">
+                                                            <span class="input-group-text"><i class="fas fa-tint"></i></span>
+                                                            <select name="blood_group" class="form-control">
+                                                                <option value="">নির্বাচন করুন</option>
+                                                                <?php $bgs = ['A+','A-','B+','B-','AB+','AB-','O+','O-']; foreach($bgs as $bg): ?>
+                                                                    <option value="<?php echo $bg; ?>" <?php if(($student['blood_group'] ?? '')==$bg) echo 'selected'; ?>><?php echo $bg; ?></option>
+                                                                <?php endforeach; ?>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <div class="form-group">
+                                                        <label>ধর্ম</label>
+                                                        <div class="input-group">
+                                                            <span class="input-group-text"><i class="fas fa-pray"></i></span>
+                                                            <select name="religion" class="form-control">
+                                                                <option value="">নির্বাচন করুন</option>
+                                                                <?php $religions = ['ইসলাম','হিন্দু','বৌদ্ধ','খ্রিস্টান','অন্যান্য']; foreach($religions as $r): ?>
+                                                                    <option value="<?php echo $r; ?>" <?php if(($student['religion'] ?? '')==$r) echo 'selected'; ?>><?php echo $r; ?></option>
+                                                                <?php endforeach; ?>
+                                                            </select>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            
+
                                             <div class="row">
-                                                <div class="col-md-6">
-                                                    <div class="form-group">
-                                                        <label for="mobile_number">মোবাইল নম্বর *</label>
-                                                        <input type="text" class="form-control" id="mobile_number" name="mobile_number" value="<?php echo $student['mobile_number']; ?>" required>
-                                                    </div>
-                                                </div>
-                                                <div class="col-md-6">
-                                                    <div class="form-group">
-                                                        <label for="guardian_id">অভিভাবক (ঐচ্ছিক)</label>
-                                                        <select class="form-control" id="guardian_id" name="guardian_id">
-                                                            <option value="">নির্বাচন করুন</option>
-                                                            <?php foreach($guardians as $guardian): ?>
-                                                                <option value="<?php echo $guardian['id']; ?>" <?php echo ($student['guardian_id'] == $guardian['id']) ? 'selected' : ''; ?>>
-                                                                    <?php echo $guardian['full_name']; ?> (<?php echo $guardian['phone']; ?>)
-                                                                </option>
-                                                            <?php endforeach; ?>
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            
-                                            <div class="row">
                                                 <div class="col-md-4">
                                                     <div class="form-group">
-                                                        <label for="class_id">ক্লাস *</label>
-                                                        <select class="form-control" id="class_id" name="class_id" required>
-                                                            <option value="">নির্বাচন করুন</option>
-                                                            <?php foreach($classes as $class): ?>
-                                                                <option value="<?php echo $class['id']; ?>" <?php echo ($student['class_id'] == $class['id']) ? 'selected' : ''; ?>>
-                                                                    <?php echo $class['name']; ?>
-                                                                </option>
-                                                            <?php endforeach; ?>
-                                                        </select>
+                                                        <label>ছবি আপলোড</label>
+                                                        <div class="custom-file">
+                                                            <input type="file" name="photo" id="photo" accept="image/*" class="custom-file-input">
+                                                            <label class="custom-file-label" for="photo">ছবি নির্বাচন করুন</label>
+                                                        </div>
+                                                        <?php if(!empty($student['photo'])): ?>
+                                                            <img src="../uploads/students/<?php echo htmlspecialchars($student['photo']); ?>" id="photoPreview" class="photo-preview mt-2">
+                                                        <?php else: ?>
+                                                            <img id="photoPreview" class="photo-preview mt-2" style="display:none">
+                                                        <?php endif; ?>
+                                                        <?php if(!empty($student['photo'])): ?>
+                                                            <div class="form-check mt-2">
+                                                                <input class="form-check-input" type="checkbox" name="remove_photo" id="remove_photo" value="1">
+                                                                <label class="form-check-label" for="remove_photo">বর্তমান ছবি সরান</label>
+                                                            </div>
+                                                        <?php endif; ?>
                                                     </div>
                                                 </div>
-                                                <div class="col-md-4">
-                                                    <div class="form-group">
-                                                        <label for="section_id">শাখা *</label>
-                                                        <select class="form-control" id="section_id" name="section_id" required>
-                                                            <option value="">নির্বাচন করুন</option>
-                                                            <?php 
-                                                            // নির্বাচিত ক্লাসের শাখাগুলো লোড করুন
-                                                            $class_sections = $pdo->prepare("SELECT * FROM sections WHERE class_id = ? AND status='active'");
-                                                            $class_sections->execute([$student['class_id']]);
-                                                            $sections = $class_sections->fetchAll();
-                                                            
-                                                            foreach($sections as $section): ?>
-                                                                <option value="<?php echo $section['id']; ?>" <?php echo ($student['section_id'] == $section['id']) ? 'selected' : ''; ?>>
-                                                                    <?php echo $section['name']; ?>
-                                                                </option>
-                                                            <?php endforeach; ?>
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                                <div class="col-md-4">
-                                                    <div class="form-group">
-                                                        <label for="roll_number">রোল নম্বর *</label>
-                                                        <input type="number" class="form-control" id="roll_number" name="roll_number" value="<?php echo $student['roll_number']; ?>" required>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            
-                                            <div class="form-group">
-                                                <label for="status">স্ট্যাটাস</label>
-                                                <select class="form-control" id="status" name="status">
-                                                    <option value="active" <?php echo ($student['status'] == 'active') ? 'selected' : ''; ?>>সক্রিয়</option>
-                                                    <option value="inactive" <?php echo ($student['status'] == 'inactive') ? 'selected' : ''; ?>>নিষ্ক্রিয়</option>
-                                                </select>
                                             </div>
                                         </div>
-                                        
-                                        <div class="col-md-4">
-                                            <div class="form-group text-center">
-                                                <label for="photo">ছবি</label>
-                                                <div class="text-center mb-3">
-                                                    <?php if(!empty($student['photo'])): ?>
-                                                        <img src="../uploads/students/<?php echo $student['photo']; ?>" class="student-photo mb-2" alt="শিক্ষার্থীর ছবি">
-                                                    <?php else: ?>
-                                                        <img src="https://via.placeholder.com/150" class="student-photo mb-2" alt="ছবি নেই">
-                                                    <?php endif; ?>
+
+                                        <!-- Guardian Info Tab -->
+                                        <div class="tab-pane fade" id="guardian" role="tabpanel" aria-labelledby="guardian-tab">
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <div class="form-group">
+                                                        <label>পিতার নাম</label>
+                                                        <div class="input-group">
+                                                            <span class="input-group-text"><i class="fas fa-male"></i></span>
+                                                            <input name="father_name" id="father_name" class="form-control" value="<?php echo htmlspecialchars($student['father_name'] ?? ''); ?>">
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <div class="custom-file">
-                                                    <input type="file" class="custom-file-input" id="photo" name="photo" accept="image/*">
-                                                    <label class="custom-file-label" for="photo">নতুন ছবি নির্বাচন করুন</label>
+                                                <div class="col-md-6">
+                                                    <div class="form-group">
+                                                        <label>মাতার নাম</label>
+                                                        <div class="input-group">
+                                                            <span class="input-group-text"><i class="fas fa-female"></i></span>
+                                                            <input name="mother_name" id="mother_name" class="form-control" value="<?php echo htmlspecialchars($student['mother_name'] ?? ''); ?>">
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <small class="form-text text-muted">সর্বোচ্চ সাইজ: 2MB, ফরম্যাট: JPG, PNG, GIF</small>
+                                            </div>
+
+                                            <div class="row">
+                                                <div class="col-md-4">
+                                                    <div class="form-group">
+                                                        <label class="required-label">অভিভাবকের সম্পর্ক</label>
+                                                        <div class="input-group">
+                                                            <span class="input-group-text"><i class="fas fa-user-friends"></i></span>
+                                                            <select name="guardian_relation" id="guardian_relation" class="form-control" required>
+                                                                <option value="">নির্বাচন করুন</option>
+                                                                <?php foreach($relations as $rel): ?>
+                                                                    <option value="<?php echo $rel['id']; ?>" <?php if(($student['guardian_relation'] ?? '')==$rel['id'] || (isset($student['guardian_relation']) && $student['guardian_relation']==($rel['name'] ?? $rel['relation'] ?? $rel['title']))) echo 'selected'; ?>><?php echo htmlspecialchars($rel['name'] ?? $rel['relation'] ?? $rel['title']); ?></option>
+                                                                <?php endforeach; ?>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <div class="form-group">
+                                                        <label>অভিভাবকের নাম</label>
+                                                        <div class="input-group">
+                                                            <span class="input-group-text"><i class="fas fa-user"></i></span>
+                                                            <input name="guardian_name" id="guardian_name" class="form-control" value="<?php echo htmlspecialchars($student['guardian_name'] ?? ''); ?>">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <div class="form-group">
+                                                        <label>অভিভাবকের মোবাইল</label>
+                                                        <div class="input-group">
+                                                            <span class="input-group-text"><i class="fas fa-phone"></i></span>
+                                                            <input name="mobile_number" id="mobile_number" class="form-control" value="<?php echo htmlspecialchars($student['mobile_number'] ?? ''); ?>" placeholder="01xxxxxxxxx">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <div class="form-group">
+                                                        <label class="required-label">বর্তমান ঠিকানা</label>
+                                                        <div class="input-group">
+                                                            <span class="input-group-text"><i class="fas fa-home"></i></span>
+                                                            <textarea name="present_address" id="present_address" class="form-control" rows="2" required><?php echo htmlspecialchars($student['present_address'] ?? ''); ?></textarea>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="form-group">
+                                                        <label>স্থায়ী ঠিকানা</label>
+                                                        <div class="input-group">
+                                                            <span class="input-group-text"><i class="fas fa-home"></i></span>
+                                                            <textarea name="permanent_address" id="permanent_address" class="form-control" rows="2"><?php echo htmlspecialchars($student['permanent_address'] ?? ''); ?></textarea>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="row">
+                                                <div class="col-md-12">
+                                                    <div class="form-check mt-2">
+                                                        <input class="form-check-input" type="checkbox" name="copy_address" id="copy_address" <?php if(($student['present_address'] ?? '') === ($student['permanent_address'] ?? '')) echo 'checked'; ?>>
+                                                        <label class="form-check-label" for="copy_address">বর্তমান ঠিকানা স্থায়ী ঠিকানায় কপি করুন</label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Academic Info Tab -->
+                                        <div class="tab-pane fade" id="academic" role="tabpanel" aria-labelledby="academic-tab">
+                                            <div class="row">
+                                                <div class="col-md-4">
+                                                    <div class="form-group">
+                                                        <label class="required-label">শ্রেণি</label>
+                                                        <div class="input-group">
+                                                            <span class="input-group-text"><i class="fas fa-graduation-cap"></i></span>
+                                                            <select name="class_id" id="class_id" class="form-control" required>
+                                                                <option value="">নির্বাচন করুন</option>
+                                                                <?php foreach($classes as $c): ?>
+                                                                    <option value="<?php echo $c['id']; ?>" <?php if(($student['class_id'] ?? 0)==$c['id']) echo 'selected'; ?>><?php echo htmlspecialchars($c['name']); ?></option>
+                                                                <?php endforeach; ?>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <div class="form-group">
+                                                        <label>শাখা</label>
+                                                        <div class="input-group">
+                                                            <span class="input-group-text"><i class="fas fa-chalkboard"></i></span>
+                                                            <select name="section_id" id="section_id" class="form-control" style="display:none;">
+                                                                <option value="">নির্বাচন করুন</option>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <div class="form-group">
+                                                        <label>রোল নম্বর</label>
+                                                        <div class="input-group">
+                                                            <span class="input-group-text"><i class="fas fa-sort-numeric-down"></i></span>
+                                                            <input name="roll_number" class="form-control" value="<?php echo htmlspecialchars($student['roll_number'] ?? ''); ?>">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <div class="form-group">
+                                                        <label>ভর্তির তারিখ</label>
+                                                        <div class="input-group">
+                                                            <span class="input-group-text"><i class="fas fa-calendar-check"></i></span>
+                                                            <input type="date" name="admission_date" class="form-control" value="<?php echo htmlspecialchars($student['admission_date'] ?? ''); ?>">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="form-group">
+                                                        <label>সাল (Year)</label>
+                                                        <div class="input-group">
+                                                            <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
+                                                            <input name="year" type="number" min="1900" max="2100" class="form-control" value="<?php echo htmlspecialchars($student['year'] ?? date('Y')); ?>">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Other Info Tab -->
+                                        <div class="tab-pane fade" id="other" role="tabpanel" aria-labelledby="other-tab">
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-info-circle mr-2"></i> নিশ্চিত করুন যে সমস্ত তথ্য সঠিকভাবে প্রদান করা হয়েছে। তথ্য জমা দেওয়ার পরে পরিবর্তন করা কঠিন হতে পারে।
+                                            </div>
+                                            
+                                            <div class="card bg-light">
+                                                <div class="card-header">
+                                                    <h5 class="card-title mb-0">তথ্য পর্যালোচনা</h5>
+                                                </div>
+                                                <div class="card-body">
+                                                    <div class="row">
+                                                        <div class="col-md-6">
+                                                            <p><strong>শিক্ষার্থীর নাম:</strong> <span id="reviewFirstName"><?php echo htmlspecialchars($student['first_name'] ?? ''); ?></span> <span id="reviewLastName"><?php echo htmlspecialchars($student['last_name'] ?? ''); ?></span></p>
+                                                            <p><strong>জন্ম তারিখ:</strong> <span id="reviewDob"><?php echo htmlspecialchars($student['date_of_birth'] ?? ''); ?></span></p>
+                                                            <p><strong>লিঙ্গ:</strong> <span id="reviewGender"><?php echo !empty($student['gender']) ? ($student['gender'] == 'male' ? 'পুরুষ' : ($student['gender'] == 'female' ? 'মহিলা' : 'অন্যান্য')) : ''; ?></span></p>
+                                                            <p><strong>শ্রেণি:</strong> <span id="reviewClass">
+                                                                <?php 
+                                                                if(!empty($student['class_id'])) {
+                                                                    foreach($classes as $c) {
+                                                                        if($c['id'] == $student['class_id']) {
+                                                                            echo htmlspecialchars($c['name']);
+                                                                            break;
+                                                                        }
+                                                                    }
+                                                                }
+                                                                ?>
+                                                            </span></p>
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <p><strong>অভিভাবকের নাম:</strong> <span id="reviewGuardian"><?php echo htmlspecialchars($student['guardian_name'] ?? ''); ?></span></p>
+                                                            <p><strong>সম্পর্ক:</strong> <span id="reviewRelation"><?php echo htmlspecialchars($student['guardian_relation'] ?? ''); ?></span></p>
+                                                            <p><strong>মোবাইল নম্বর:</strong> <span id="reviewMobile"><?php echo htmlspecialchars($student['mobile_number'] ?? ''); ?></span></p>
+                                                            <p><strong>ঠিকানা:</strong> <span id="reviewAddress"><?php echo htmlspecialchars($student['present_address'] ?? ''); ?></span></p>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                    
-                                    <div class="form-group text-center mt-4">
-                                        <button type="submit" name="update_student" class="btn btn-primary btn-lg">
-                                            <i class="fas fa-save"></i> তথ্য আপডেট করুন
+
+                                    <div class="d-flex justify-content-between mt-4">
+                                        <button type="button" class="btn btn-secondary" id="prevBtn" style="display: none;">
+                                            <i class="fas fa-arrow-left mr-1"></i> পূর্ববর্তী
                                         </button>
-                                        <a href="<?php echo BASE_URL; ?>students.php" class="btn btn-secondary btn-lg">
-                                            <i class="fas fa-times"></i> বাতিল
-                                        </a>
+                                        <button type="button" class="btn btn-primary" id="nextBtn">
+                                            পরবর্তী <i class="fas fa-arrow-right ml-1"></i>
+                                        </button>
+                                        <button class="btn btn-success" type="submit" id="submitBtn" style="display: none;">
+                                            <i class="fas fa-check mr-1"></i> আপডেট করুন
+                                        </button>
                                     </div>
                                 </form>
                             </div>
-                            <!-- /.card-body -->
                         </div>
+                        <p class="text-muted small mt-2">স্টুডেন্ট আইডি: <strong><?php echo htmlspecialchars($student['student_id'] ?? ''); ?></strong></p>
                     </div>
                 </div>
             </div>
-            <!-- /.container-fluid -->
         </section>
-        <!-- /.content -->
     </div>
-    <!-- /.content-wrapper -->
 
     <!-- Main Footer -->
     <?php include 'inc/footer.php'; ?>
-</div>
-<!-- ./wrapper -->
 
-<!-- REQUIRED SCRIPTS -->
-<!-- jQuery -->
+</div>
+
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<!-- Bootstrap 4 -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
+<!-- Bootstrap 5 JS Bundle -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <!-- AdminLTE App -->
 <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
-
 <script>
-    $(document).ready(function() {
-        // Custom file input
-        $('.custom-file-input').on('change', function() {
-            let fileName = $(this).val().split('\\').pop();
-            $(this).next('.custom-file-label').addClass("selected").html(fileName);
-            
-            // ছবি প্রিভিউ
-            if (this.files && this.files[0]) {
-                var reader = new FileReader();
-                
-                reader.onload = function(e) {
-                    $('.student-photo').attr('src', e.target.result);
-                }
-                
-                reader.readAsDataURL(this.files[0]);
-            }
-        });
-
-        // অন্যান্য সম্পর্ক ফিল্ড দেখান/লুকান
-        $('#guardian_relation').change(function() {
-            if ($(this).val() === 'other') {
-                $('#other_relation_field').show();
-            } else {
-                $('#other_relation_field').hide();
-            }
-            
-            // অভিভাবক নাম ফিল্ড দেখান/লুকান
-            if ($(this).val() === 'পিতা' || $(this).val() === 'মাতা') {
-                $('#guardian_name_field').hide();
-                $('#guardian_name').removeAttr('required');
-            } else if ($(this).val() !== '' && $(this).val() !== 'other') {
-                $('#guardian_name_field').show();
-                $('#guardian_name').attr('required', 'required');
-            } else {
-                $('#guardian_name_field').hide();
-                $('#guardian_name').removeAttr('required');
+$(function(){
+    // Form tabs navigation
+    let currentTab = 0;
+    const tabs = $('#studentFormTabs .nav-link');
+    const tabPanes = $('.tab-pane');
+    
+    function showTab(n) {
+        tabs.each(function(i) {
+            if (i === n) {
+                $(this).tab('show');
+                $(this).removeClass('disabled');
             }
         });
         
-        // পৃষ্ঠা লোড হওয়ার সময় সম্পর্ক ফিল্ড চেক করুন
-        if ($('#guardian_relation').val() !== 'পিতা' && $('#guardian_relation').val() !== 'মাতা' && $('#guardian_relation').val() !== '' && $('#guardian_relation').val() !== 'other') {
-            $('#guardian_name_field').show();
-            $('#guardian_name').attr('required', 'required');
+        // Show/hide navigation buttons
+        if (n === 0) {
+            $('#prevBtn').hide();
+        } else {
+            $('#prevBtn').show();
         }
-
-        // ঠিকানা অনুলিপি করুন
-        $('#copyAddress').click(function() {
-            $('#permanent_address').val($('#present_address').val());
-        });
         
-        // ক্লাস পরিবর্তন হলে শাখা লোড করুন
-        $('#class_id').change(function() {
-            var class_id = $(this).val();
-            if (class_id) {
-                $.ajax({
-                    url: 'edit_student.php',
-                    type: 'GET',
-                    data: {class_id: class_id},
-                    success: function(data) {
-                        var sections = JSON.parse(data);
-                        $('#section_id').empty();
-                        $('#section_id').append('<option value="">নির্বাচন করুন</option>');
-                        
-                        $.each(sections, function(key, value) {
-                            $('#section_id').append('<option value="'+ value.id +'">'+ value.name +'</option>');
-                        });
-                    }
-                });
+        if (n === (tabs.length - 1)) {
+            $('#nextBtn').hide();
+            $('#submitBtn').show();
+        } else {
+            $('#nextBtn').show();
+            $('#submitBtn').hide();
+        }
+        
+        currentTab = n;
+    }
+    
+    $('#nextBtn').click(function() {
+        // Validate current tab before proceeding
+        let valid = true;
+        const inputs = $(tabPanes[currentTab]).find('input, select, textarea');
+        
+        inputs.each(function() {
+            if ($(this).prop('required') && !$(this).val()) {
+                $(this).addClass('is-invalid');
+                valid = false;
             } else {
-                $('#section_id').empty();
-                $('#section_id').append('<option value="">নির্বাচন করুন</option>');
+                $(this).removeClass('is-invalid');
             }
         });
+        
+        if (valid) {
+            showTab(currentTab + 1);
+            updateReview();
+        } else {
+            // Scroll to first error
+            $('html, body').animate({
+                scrollTop: $('.is-invalid').first().offset().top - 100
+            }, 500);
+        }
     });
+    
+    $('#prevBtn').click(function() {
+        showTab(currentTab - 1);
+    });
+    
+    // Initialize first tab
+    showTab(0);
+    
+    // Update review information
+    function updateReview() {
+        $('#reviewFirstName').text($('input[name="first_name"]').val());
+        $('#reviewLastName').text($('input[name="last_name"]').val());
+        $('#reviewDob').text($('input[name="date_of_birth"]').val());
+        $('#reviewGender').text($('select[name="gender"] option:selected').text());
+        $('#reviewGuardian').text($('input[name="guardian_name"]').val());
+        $('#reviewRelation').text($('select[name="guardian_relation"] option:selected').text());
+        $('#reviewMobile').text($('input[name="mobile_number"]').val());
+        $('#reviewAddress').text($('textarea[name="present_address"]').val());
+        
+        const classId = $('select[name="class_id"]').val();
+        $('#reviewClass').text($('select[name="class_id"] option[value="' + classId + '"]').text());
+    }
+    
+    // Guardian relation logic
+    function updateGuardianFields(){
+        var relText = $('#guardian_relation option:selected').text().trim();
+        if(relText === 'পিতা'){
+            $('#guardian_name').val($('#father_name').val()).prop('disabled', true).prop('required', false);
+        } else if(relText === 'মাতা'){
+            $('#guardian_name').val($('#mother_name').val()).prop('disabled', true).prop('required', false);
+        } else {
+            $('#guardian_name').val('').prop('disabled', false).prop('required', true);
+        }
+    }
+
+    $('#guardian_relation').on('change', updateGuardianFields);
+    $('#father_name,#mother_name').on('input', updateGuardianFields);
+    updateGuardianFields();
+
+    // copy present -> permanent address
+    function syncAddresses(copy){
+        if(copy){
+            $('#permanent_address').val($('#present_address').val()).prop('readonly', true);
+        } else {
+            $('#permanent_address').prop('readonly', false);
+        }
+    }
+
+    $('#copy_address').on('change', function(){
+        syncAddresses($(this).is(':checked'));
+    });
+    // when present address changes and copy is checked, update permanent
+    $('#present_address').on('input', function(){
+        if($('#copy_address').is(':checked')) $('#permanent_address').val($(this).val());
+    });
+    // initialize copy state
+    syncAddresses($('#copy_address').is(':checked'));
+
+    // photo preview
+    $('#photo').on('change', function(e){
+        var file = this.files[0];
+        if(!file) return;
+        var reader = new FileReader();
+        reader.onload = function(ev){
+            $('#photoPreview').attr('src', ev.target.result).show();
+        }
+        reader.readAsDataURL(file);
+        
+        // Update custom file label
+        $(this).next('.custom-file-label').text(file.name);
+    });
+
+    // Remove photo checkbox
+    $('#remove_photo').on('change', function(){
+        if($(this).is(':checked')) {
+            $('#photoPreview').hide();
+        } else {
+            $('#photoPreview').show();
+        }
+    });
+
+    // AJAX: Show section only after class is selected
+    $('#class_id').on('change', function(){
+        var cid = $(this).val();
+        if(cid){
+            $('#section_id').show();
+            $.get('get_sections.php?class_id='+cid, function(data){
+                $('#section_id').html(data);
+                // Set existing section if available
+                var existingSection = <?php echo !empty($student['section_id']) ? $student['section_id'] : 'null'; ?>;
+                if(existingSection) {
+                    $('#section_id').val(existingSection);
+                }
+            });
+        }else{
+            $('#section_id').hide().html('<option value="">নির্বাচন করুন</option>');
+        }
+    });
+    // On page load, if class is selected, trigger change
+    if($('#class_id').val()) $('#class_id').trigger('change');
+    
+    // Real-time validation
+    $('input, select, textarea').on('change input', function() {
+        if ($(this).prop('required') && !$(this).val()) {
+            $(this).addClass('is-invalid');
+        } else {
+            $(this).removeClass('is-invalid');
+        }
+    });
+    
+    // Mobile number validation
+    $('#mobile_number').on('input', function() {
+        const mobile = $(this).val();
+        if (mobile && !/^01[3-9]\d{8}$/.test(mobile)) {
+            $(this).addClass('is-invalid');
+            $(this).next('.invalid-feedback').remove();
+            $(this).after('<div class="invalid-feedback">সঠিক মোবাইল নম্বর প্রদান করুন (১১ ডিজিট, 01 দিয়ে শুরু)</div>');
+        } else {
+            $(this).removeClass('is-invalid');
+            $(this).next('.invalid-feedback').remove();
+        }
+    });
+});
 </script>
 </body>
 </html>

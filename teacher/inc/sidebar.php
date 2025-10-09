@@ -130,7 +130,7 @@
                 <li class="nav-item">
                     <a href="#" class="nav-link">
                         <i class="nav-icon fas fa-chart-bar"></i>
-                        <p>রিপোর্ট <i class="right fas fa-angle-left"></i></p>
+                        <p> রিপোর্ট <i class="right fas fa-angle-left"></i></p>
                     </a>
                     <ul class="nav nav-treeview">
                         <li class="nav-item">
@@ -139,7 +139,12 @@
                                 <p>মাসিক হাজিরাশীট</p>
                             </a>
                         </li>
-
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/certificates/print_certificate_options.php" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>সার্টিফিকেট প্রিন্ট</p>
+                            </a>
+                        </li>
                     </ul>
                 </li>
                 

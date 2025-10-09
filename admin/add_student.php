@@ -374,7 +374,7 @@ $sectionsAll = $pdo->query("SELECT * FROM sections ORDER BY name ASC")->fetchAll
                             <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                                 <h3 class="card-title">নতুন শিক্ষার্থী যোগ করুন</h3>
                                 <a href="students.php" class="btn btn-light btn-sm">
-                                    <i class="fas fa-arrow-left mr-1"></i> শিক্ষার্থী তালিকা
+                                    <i class="fas fa-arrow-left mr-1"></i> <span style="color:#fff;background:#4e73df;padding:2px 10px;border-radius:5px;font-weight:700;box-shadow:0 2px 8px #4e73df55;"></span>শিক্ষার্থী তালিকা</span>
                                 </a>
                             </div>
                             <div class="card-body">
@@ -500,7 +500,12 @@ $sectionsAll = $pdo->query("SELECT * FROM sections ORDER BY name ASC")->fetchAll
                                                         <label>ধর্ম</label>
                                                         <div class="input-group">
                                                             <span class="input-group-text"><i class="fas fa-pray"></i></span>
-                                                            <input name="religion" class="form-control" value="<?php echo htmlspecialchars($_POST['religion'] ?? ''); ?>">
+                                                            <select name="religion" class="form-control">
+                                                                <option value="">নির্বাচন করুন</option>
+                                                                <?php $religions = ['ইসলাম','হিন্দু','বৌদ্ধ','খ্রিস্টান','অন্যান্য']; foreach($religions as $r): ?>
+                                                                    <option value="<?php echo $r; ?>" <?php if(!empty($_POST['religion']) && $_POST['religion']==$r) echo 'selected'; ?>><?php echo $r; ?></option>
+                                                                <?php endforeach; ?>
+                                                            </select>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -551,9 +556,9 @@ $sectionsAll = $pdo->query("SELECT * FROM sections ORDER BY name ASC")->fetchAll
                                                             <span class="input-group-text"><i class="fas fa-user-friends"></i></span>
                                                             <select name="guardian_relation" id="guardian_relation" class="form-control" required>
                                                                 <option value="">নির্বাচন করুন</option>
-                                                                <option value="পিতা" <?php if(!empty($_POST['guardian_relation']) && $_POST['guardian_relation']=='পিতা') echo 'selected'; ?>>পিতা</option>
-                                                                <option value="মাতা" <?php if(!empty($_POST['guardian_relation']) && $_POST['guardian_relation']=='মাতা') echo 'selected'; ?>>মাতা</option>
-                                                                <option value="অন্যান্য" <?php if(!empty($_POST['guardian_relation']) && $_POST['guardian_relation']=='অন্যান্য') echo 'selected'; ?>>অন্যান্য</option>
+                                                                <?php foreach($relations as $rel): ?>
+                                                                    <option value="<?php echo $rel['id']; ?>" <?php if(!empty($_POST['guardian_relation']) && $_POST['guardian_relation']==$rel['id']) echo 'selected'; ?>><?php echo htmlspecialchars($rel['name'] ?? $rel['relation'] ?? $rel['title']); ?></option>
+                                                                <?php endforeach; ?>
                                                             </select>
                                                         </div>
                                                     </div>
@@ -631,11 +636,8 @@ $sectionsAll = $pdo->query("SELECT * FROM sections ORDER BY name ASC")->fetchAll
                                                         <label>শাখা</label>
                                                         <div class="input-group">
                                                             <span class="input-group-text"><i class="fas fa-chalkboard"></i></span>
-                                                            <select name="section_id" id="section_id" class="form-control">
+                                                            <select name="section_id" id="section_id" class="form-control" style="display:none;">
                                                                 <option value="">নির্বাচন করুন</option>
-                                                                <?php foreach($sectionsAll as $s): ?>
-                                                                    <option value="<?php echo $s['id']; ?>" data-class="<?php echo $s['class_id']; ?>" <?php if(!empty($_POST['section_id']) && $_POST['section_id']==$s['id']) echo 'selected'; ?>><?php echo htmlspecialchars($s['name']); ?></option>
-                                                                <?php endforeach; ?>
                                                             </select>
                                                         </div>
                                                     </div>
@@ -827,16 +829,13 @@ $(function(){
     
     // Guardian relation logic
     function updateGuardianFields(){
-        var rel = $('#guardian_relation').val();
-        if(rel === 'পিতা'){
-            $('#guardian_name').val($('#father_name').val()).prop('disabled', true);
-            $('#mobile_number').prop('required', false);
-        } else if(rel === 'মাতা'){
-            $('#guardian_name').val($('#mother_name').val()).prop('disabled', true);
-            $('#mobile_number').prop('required', false);
+        var relText = $('#guardian_relation option:selected').text().trim();
+        if(relText === 'পিতা'){
+            $('#guardian_name').val($('#father_name').val()).prop('disabled', true).prop('required', false);
+        } else if(relText === 'মাতা'){
+            $('#guardian_name').val($('#mother_name').val()).prop('disabled', true).prop('required', false);
         } else {
-            $('#guardian_name').val('').prop('disabled', false);
-            $('#mobile_number').prop('required', true);
+            $('#guardian_name').val('').prop('disabled', false).prop('required', true);
         }
     }
 
@@ -877,16 +876,20 @@ $(function(){
         $(this).next('.custom-file-label').text(file.name);
     });
 
-    // filter sections by class
-    var originalOptions = $('#section_id option');
+    // AJAX: Show section only after class is selected
     $('#class_id').on('change', function(){
         var cid = $(this).val();
-        $('#section_id').html('<option value="">নির্বাচন করুন</option>');
-        originalOptions.each(function(){
-            var cls = $(this).data('class');
-            if(!cid || cls == cid) $('#section_id').append($(this).clone());
-        });
+        if(cid){
+            $('#section_id').show();
+            $.get('get_sections.php?class_id='+cid, function(data){
+                $('#section_id').html(data);
+            });
+        }else{
+            $('#section_id').hide().html('<option value="">নির্বাচন করুন</option>');
+        }
     });
+    // On page load, if class is selected, trigger change
+    if($('#class_id').val()) $('#class_id').trigger('change');
     
     // Real-time validation
     $('input, select, textarea').on('change input', function() {
