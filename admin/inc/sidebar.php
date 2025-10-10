@@ -17,7 +17,10 @@
             $currentUser = $_SESSION['user'];
         } elseif (!empty($_SESSION['user_id'])) {
             // fallback: fetch user from DB
-            $pdo = isset($pdo) ? $pdo : (function_exists('getPDO') ? getPDO() : null);
+            if (!isset($pdo)) {
+                // If $pdo is not set, cannot fetch user from DB, so skip
+                $pdo = null;
+            }
             if ($pdo) {
                 $stmt = $pdo->prepare("SELECT full_name, photo FROM users WHERE id = ?");
                 $stmt->execute([$_SESSION['user_id']]);
