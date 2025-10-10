@@ -57,7 +57,6 @@
                     } elseif (!empty($roleKey)) {
                         $roleLabel = ucwords(str_replace(['_','-'], ' ', $roleKey));
                     }
-
                     if ($roleLabel) echo '<small class="text-muted d-block">'.htmlspecialchars($roleLabel).'</small>';
                     ?>
                 </div>
@@ -66,13 +65,13 @@
         <!-- Sidebar Menu -->
         <nav class="mt-2">
             <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
-                <li class="nav-item">
+                <li class="nav-item has-treeview">
                     <a href="<?php echo BASE_URL; ?>admin/dashboard.php" class="nav-link">
                         <i class="nav-icon fas fa-tachometer-alt"></i>
                         <p>ড্যাশবোর্ড</p>
                     </a>
                 </li>
-                <li class="nav-item">
+                <li class="nav-item has-treeview">
                     <a href="#" class="nav-link">
                         <i class="nav-icon fas fa-chart-bar"></i>
                         <p> শিক্ষার্থী ব্যবস্থাপনা <i class="right fas fa-angle-left"></i></p>
@@ -92,7 +91,7 @@
                         </li>
                     </ul>
                 </li>
-                <li class="nav-item">
+                <li class="nav-item has-treeview">
                     <a href="#" class="nav-link">
                         <i class="nav-icon fas fa-school"></i>
                         <p>শ্রেণি ব্যবস্থাপনা <i class="right fas fa-angle-left"></i></p>
@@ -112,7 +111,7 @@
                         </li>
                     </ul>
                 </li>
-                <li class="nav-item">
+                <li class="nav-item has-treeview">
                     <a href="#" class="nav-link">
                         <i class="nav-icon fas fa-school"></i>
                         <p>বিষয় ব্যবস্থাপনা <i class="right fas fa-angle-left"></i></p>
@@ -132,7 +131,7 @@
                         </li>
                     </ul>
                 </li>
-                <li class="nav-item">
+                <li class="nav-item has-treeview">
                     <a href="<?php echo BASE_URL; ?>admin/teachers.php" class="nav-link">
                         <i class="nav-icon fas fa-chalkboard-teacher"></i>
                         <p>শিক্ষক ব্যবস্থাপনা</p>
