@@ -136,12 +136,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cert_data']) && is_ar
                                             <option value="">সকল শিক্ষার্থী</option>
                                             <?php
                                             if ($selected_year_id && $selected_class_id) {
-                                                $stuList = $pdo->prepare("SELECT id, first_name, last_name, roll_number FROM students WHERE class_id=? AND year_id=? AND status='active' ORDER BY roll_number ASC");
-                                                $stuList->execute([$selected_class_id, $selected_year_id]);
-                                                foreach ($stuList->fetchAll() as $stuOpt) {
-                                                    $name = htmlspecialchars($stuOpt['first_name'].' '.$stuOpt['last_name']);
-                                                    $roll = htmlspecialchars($stuOpt['roll_number']);
-                                                    echo '<option value="'.$stuOpt['id'].'"'.($selected_student_id==$stuOpt['id']?' selected':'').'>'.$name.' (রোল: '.$roll.')</option>';
+                                                if (!isset($pdo) || !$pdo) {
+                                                    echo '<option value="">ডাটাবেস সংযোগ নেই</option>';
+                                                } else {
+                                                    $stuList = $pdo->prepare("SELECT id, first_name, last_name, roll_number FROM students WHERE class_id=? AND year_id=? AND status='active' ORDER BY roll_number ASC");
+                                                    $stuList->execute([$selected_class_id, $selected_year_id]);
+                                                    foreach ($stuList->fetchAll() as $stuOpt) {
+                                                        $name = htmlspecialchars($stuOpt['first_name'].' '.$stuOpt['last_name']);
+                                                        $roll = htmlspecialchars($stuOpt['roll_number']);
+                                                        echo '<option value="'.$stuOpt['id'].'"'.($selected_student_id==$stuOpt['id']?' selected':'').'>'.$name.' (রোল: '.$roll.')</option>';
+                                                    }
                                                 }
                                             }
                                             ?>
@@ -170,9 +174,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cert_data']) && is_ar
                                         <tbody>
                                             <?php foreach ($students as $stu):
                                                 // fetch previous cert info if exists
-                                                $cert = $pdo->prepare("SELECT gpa, issue_date FROM five_pass_certificate_info WHERE student_id = ?");
-                                                $cert->execute([$stu['id']]);
-                                                $cert_info = $cert->fetch();
+                                                $cert_info = [];
+                                                if (isset($pdo) && $pdo) {
+                                                    $cert = $pdo->prepare("SELECT gpa, issue_date FROM five_pass_certificate_info WHERE student_id = ?");
+                                                    $cert->execute([$stu['id']]);
+                                                    $cert_info = $cert->fetch();
+                                                }
                                             ?>
                                             <tr>
                                                 <td><?php echo htmlspecialchars($stu['first_name'].' '.$stu['last_name']); ?></td>
