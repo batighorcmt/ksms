@@ -240,6 +240,12 @@
                                         <p>সার্টিফিকেট তালিকা</p>
                                     </a>
                                 </li>
+                                <li class="nav-item">
+                                    <a href="<?php echo BASE_URL; ?>admin/certificates/five_pass_certificate_print.php" class="nav-link">
+                                        <i class="far fa-file-pdf nav-icon"></i>
+                                        <p>প্রত্যয়পত্র প্রিন্ট</p>
+                                    </a>
+                                </li>
                             </ul>
                         </li>
                     </ul>
