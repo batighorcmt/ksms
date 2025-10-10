@@ -27,6 +27,9 @@ if (!$student) {
 // Load helper data
 $classes = $pdo->query("SELECT * FROM classes ORDER BY name ASC")->fetchAll();
 $relations = $pdo->query("SELECT * FROM guardian_relations ORDER BY id ASC")->fetchAll();
+// Load academic years
+$years = $pdo->query("SELECT * FROM academic_years ORDER BY year DESC")->fetchAll();
+$active_year = $pdo->query("SELECT * FROM academic_years WHERE is_current = 1 LIMIT 1")->fetch();
 
 $errors = [];
 $success = '';
@@ -57,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $section_id = !empty($_POST['section_id']) ? intval($_POST['section_id']) : null;
         $roll_number = trim($_POST['roll_number'] ?? '');
         $admission_date = $_POST['admission_date'] ?? null;
-        $year = !empty($_POST['year']) ? intval($_POST['year']) : null;
+    $year_id = !empty($_POST['year_id']) ? intval($_POST['year_id']) : ($student['year_id'] ?? ($active_year['id'] ?? null));
 
         // Resolve guardian_relation
         $guardian_relation_label = $guardian_relation;
@@ -150,7 +153,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     gender = ?, blood_group = ?, religion = ?, present_address = ?, 
                     permanent_address = ?, mobile_number = ?, address = ?, city = ?, 
                     country = ?, photo = ?, class_id = ?, section_id = ?, roll_number = ?, 
-                    admission_date = ?
+                    admission_date = ?, year_id = ?
                     WHERE id = ?");
 
                 $ok = $stmt->execute([
@@ -175,7 +178,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $section_id ?: 0,
                     $roll_number !== '' ? intval($roll_number) : null,
                     $admission_date ?: null,
-                    $student_id
+                    $year_id, $student_id
                 ]);
 
                 if (!$ok) throw new Exception('শিক্ষার্থীর তথ্য আপডেট করতে ব্যর্থ।');
@@ -658,7 +661,7 @@ $sectionsAll = $pdo->query("SELECT * FROM sections ORDER BY name ASC")->fetchAll
                                                         <label>শাখা</label>
                                                         <div class="input-group">
                                                             <span class="input-group-text"><i class="fas fa-chalkboard"></i></span>
-                                                            <select name="section_id" id="section_id" class="form-control" style="display:none;">
+                                                            <select name="section_id" id="section_id" class="form-select" style="display:none;">
                                                                 <option value="">নির্বাচন করুন</option>
                                                             </select>
                                                         </div>
@@ -690,12 +693,17 @@ $sectionsAll = $pdo->query("SELECT * FROM sections ORDER BY name ASC")->fetchAll
                                                         <label>সাল (Year)</label>
                                                         <div class="input-group">
                                                             <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
-                                                            <input name="year" type="number" min="1900" max="2100" class="form-control" value="<?php echo htmlspecialchars($student['year'] ?? date('Y')); ?>">
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                                <select name="year_id" id="year_id" class="form-select" required>
+                                                    <option value="">নির্বাচন করুন</option>
+                                                    <?php foreach($years as $y): ?>
+                                                        <option value="<?php echo $y['id']; ?>" <?php echo (!empty($year_id) && $year_id == $y['id']) ? 'selected' : ((!empty($active_year['id']) && $active_year['id'] == $y['id']) ? 'selected' : ''); ?>><?php echo htmlspecialchars($y['year']); ?><?php echo ($y['is_current'] ? ' (বর্তমান)' : ''); ?></option>
+                                                    <?php endforeach; ?>
+                                                </select>
                                             </div>
                                         </div>
+                                                       </div>
+                                </div>
+                            </div>
 
                                         <!-- Other Info Tab -->
                                         <div class="tab-pane fade" id="other" role="tabpanel" aria-labelledby="other-tab">
@@ -752,8 +760,7 @@ $sectionsAll = $pdo->query("SELECT * FROM sections ORDER BY name ASC")->fetchAll
                                 </form>
                             </div>
                         </div>
-                        <p class="text-muted small mt-2">স্টুডেন্ট আইডি: <strong><?php echo htmlspecialchars($student['student_id'] ?? ''); ?></strong></p>
-                    </div>
+                        
                 </div>
             </div>
         </section>

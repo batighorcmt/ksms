@@ -41,7 +41,8 @@ if (!$school_info) {
 <html lang="bn">
 <head>
     <meta charset="UTF-8">
-    <title>প্রত্যয়নপত্র যাচাইকরণ</title>
+    <title>প্রত্যয়নপত্র/সার্টিফিকেট যাচাইকরণ</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
     <link href="https://fonts.maateen.me/solaiman-lipi/font.css" rel="stylesheet">
     <style>
         body { font-family: 'SolaimanLipi', Arial, sans-serif; background: #f5f5f5; }
@@ -59,7 +60,7 @@ if (!$school_info) {
 <body>
     <div class="verify-container">
         <div class="school-name"><?php echo htmlspecialchars($school_info['name']); ?></div>
-        <div class="result success">✅ প্রত্যয়নপত্রটি বৈধ</div>
+        <div class="result success">✅ প্রত্যয়নপত্র/সার্টিফিকেটটি বৈধ</div>
         <table class="info-table">
             <tr><td class="label">শিক্ষার্থীর নাম</td><td class="value"><?php echo htmlspecialchars($student['first_name'] . ' ' . $student['last_name']); ?></td></tr>
             <tr><td class="label">শ্রেণি ও শাখা</td><td class="value"><?php echo htmlspecialchars($student['class_name']); if (!empty($student['section_name'])) echo ' (' . htmlspecialchars($student['section_name']) . ')'; ?></td></tr>
@@ -67,7 +68,7 @@ if (!$school_info) {
             <tr><td class="label">স্টুডেন্ট আইডি</td><td class="value"><?php echo htmlspecialchars($student['student_id']); ?></td></tr>
             <tr><td class="label">জন্ম তারিখ</td><td class="value"><?php echo !empty($student['date_of_birth']) ? date('d/m/Y', strtotime($student['date_of_birth'])) : 'প্রদান করা হয়নি'; ?></td></tr>
         </table>
-        <div style="margin-top:18px;color:#666;font-size:14px;">বিদ্যালয়ের তথ্য: <?php echo htmlspecialchars($school_info['address']); ?> | ফোন: <?php echo htmlspecialchars($school_info['phone']); ?></div>
+        <div style="margin-top:18px;color:#666;font-size:14px;">বিদ্যালয়ের ঠিকানা: <?php echo htmlspecialchars($school_info['address']); ?> | ফোন: <?php echo htmlspecialchars($school_info['phone']); ?></div>
     </div>
 </body>
 </html>

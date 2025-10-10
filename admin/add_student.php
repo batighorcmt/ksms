@@ -6,10 +6,13 @@ if (!isAuthenticated() || !hasRole(['super_admin','teacher'])) {
     redirect('../index.php');
 }
 
+
 // Load helper data
 $classes = $pdo->query("SELECT * FROM classes ORDER BY name ASC")->fetchAll();
-// load guardian relations for the select (may have id,name fields)
 $relations = $pdo->query("SELECT * FROM guardian_relations ORDER BY id ASC")->fetchAll();
+// Load academic years
+$years = $pdo->query("SELECT * FROM academic_years ORDER BY year DESC")->fetchAll();
+$current_year = $pdo->query("SELECT * FROM academic_years WHERE is_current = 1 LIMIT 1")->fetch();
 
 $errors = [];
 $success = '';
@@ -40,8 +43,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $section_id = !empty($_POST['section_id']) ? intval($_POST['section_id']) : null;
         $roll_number = trim($_POST['roll_number'] ?? '');
         $admission_date = $_POST['admission_date'] ?? null;
-        // 'year' is kept for UI only; students table doesn't store a 'year' column here
-        $year = !empty($_POST['year']) ? intval($_POST['year']) : null;
+    // Year selection
+    $year_id = !empty($_POST['year_id']) ? intval($_POST['year_id']) : ($current_year['id'] ?? null);
 
         // Resolve guardian_relation: it may be an id from guardian_relations table or a direct label
         $guardian_relation_label = $guardian_relation;
@@ -129,10 +132,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $default_password = '123456';
                 $password_hash = password_hash($default_password, PASSWORD_DEFAULT);
 
-                // Insert student without guardian_id (we'll update it after creating guardian user)
+                // Insert student with year_id
                 $stmt = $pdo->prepare("INSERT INTO students
-                    (student_id, first_name, last_name, father_name, mother_name, guardian_relation, birth_certificate_no, date_of_birth, gender, blood_group, religion, present_address, permanent_address, mobile_number, address, city, country, photo, class_id, section_id, roll_number, admission_date)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    (student_id, first_name, last_name, father_name, mother_name, guardian_relation, birth_certificate_no, date_of_birth, gender, blood_group, religion, present_address, permanent_address, mobile_number, address, city, country, photo, class_id, section_id, roll_number, admission_date, year_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
                 $ok = $stmt->execute([
                     $student_id,
@@ -156,7 +159,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $class_id,
                     $section_id ?: 0,
                     $roll_number !== '' ? intval($roll_number) : null,
-                    $admission_date ?: null
+                    $admission_date ?: null,
+                    $year_id
                 ]);
 
                 if (!$ok) throw new Exception('স্টুডেন্ট তথ্য সংরক্ষণে ব্যর্থ।');
@@ -665,10 +669,15 @@ $sectionsAll = $pdo->query("SELECT * FROM sections ORDER BY name ASC")->fetchAll
                                                 </div>
                                                 <div class="col-md-6">
                                                     <div class="form-group">
-                                                        <label>সাল (Year)</label>
+                                                        <label class="required-label">সাল (Year)</label>
                                                         <div class="input-group">
                                                             <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
-                                                            <input name="year" type="number" min="1900" max="2100" class="form-control" value="<?php echo htmlspecialchars($_POST['year'] ?? date('Y')); ?>">
+                                                            <select name="year_id" id="year_id" class="form-control" required>
+                                                                <option value="">নির্বাচন করুন</option>
+                                                                <?php foreach($years as $y): ?>
+                                                                    <option value="<?php echo $y['id']; ?>" <?php echo (!empty($year_id) && $year_id == $y['id']) ? 'selected' : ((!empty($current_year['id']) && $current_year['id'] == $y['id']) ? 'selected' : ''); ?>><?php echo htmlspecialchars($y['year']); ?><?php echo ($y['is_current'] ? ' (বর্তমান)' : ''); ?></option>
+                                                                <?php endforeach; ?>
+                                                            </select>
                                                         </div>
                                                     </div>
                                                 </div>

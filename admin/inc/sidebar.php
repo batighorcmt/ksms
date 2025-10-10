@@ -221,10 +221,24 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admin/certificates/print_certificate_options.php" class="nav-link">
+                            <a href="#" class="nav-link">
                                 <i class="far fa-circle nav-icon"></i>
-                                <p>সার্টিফিকেট প্রিন্ট</p>
+                                <p>সার্টিফিকেট <i class="right fas fa-angle-left"></i></p>
                             </a>
+                            <ul class="nav nav-treeview">
+                                <li class="nav-item">
+                                    <a href="<?php echo BASE_URL; ?>admin/certificates/five_pass_certificate_genarate.php" class="nav-link">
+                                        <i class="far fa-dot-circle nav-icon"></i>
+                                        <p>সার্টিফিকেট জেনারেট</p>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="<?php echo BASE_URL; ?>admin/certificates/five_pass_certificate_list.php" class="nav-link">
+                                        <i class="far fa-list-alt nav-icon"></i>
+                                        <p>সার্টিফিকেট তালিকা</p>
+                                    </a>
+                                </li>
+                            </ul>
                         </li>
                     </ul>
                 </li>
@@ -251,7 +265,7 @@
                     </a>
                     <ul class="nav nav-treeview">
                         <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admin/institute_info.php" class="nav-link">
+                            <a href="<?php echo BASE_URL; ?>admin/settings/institute_info.php" class="nav-link">
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>প্রতিষ্ঠানের তথ্য</p>
                             </a>
@@ -278,6 +292,12 @@
                             <a href="<?php echo BASE_URL; ?>admin/settings/sms_settings.php" class="nav-link">
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>এসএমএস সেটিংস</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/settings/academic_year_management.php" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>শিক্ষাবর্ষ ব্যবস্থাপনা</p>
                             </a>
                         </li>
                     </ul>

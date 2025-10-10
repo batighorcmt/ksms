@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>প্রাথমিক বিদ্যালয় সার্টিফিকেট</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap');
+        
+        * {
+            margin: 0.4in;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Hind Siliguri', sans-serif;
+        }
+        
+        body {
+            background-color: #f5f5f5;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .certificate-container {
+            width: 794px; /* A4 width in pixels */
+            height: 1123px; /* A4 height in pixels */
+            background-color: #fff;
+            border: 15px double #1e5799;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        
+        .certificate-header {
+            display: flex;
+            align-items: center;
+            padding: 20px 30px;
+            border-bottom: 2px solid #d4af37;
+            margin-bottom: 20px;
+        }
+        
+        .school-logo {
+            width: 100px;
+            height: 100px;
+            background-color: #f8f8f8;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #1e5799;
+            margin-right: 20px;
+        }
+        
+        .school-info {
+            flex: 1;
+        }
+        
+        .school-name {
+            font-size: 26px;
+            font-weight: 700;
+            color: #1e5799;
+            margin-bottom: 5px;
+        }
+        
+        .school-address {
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+        
+        .contact-info {
+            font-size: 14px;
+            display: flex;
+            gap: 20px;
+        }
+        
+        .certificate-details {
+            display: flex;
+            justify-content: space-between;
+            padding: 0px 30px;
+            font-size: 14px;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 10px;
+        }
+        
+        .certificate-id {
+            font-weight: 600;
+        }
+        
+        .issue-date {
+            font-weight: 600;
+        }
+        
+        .certificate-body {
+            padding: 0 40px;
+            text-align: center;
+        }
+        
+        .certificate-title {
+            font-size: 32px;
+            font-weight: 700;
+            color: #1e5799;
+            margin-bottom: 20px;
+            text-decoration: underline;
+        }
+        
+        .certificate-text {
+            font-size: 18px;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            text-align: justify;
+        }
+        
+        .student-details {
+            display: flex;
+            margin: 25px 0;
+            gap: 30px;
+        }
+        
+        .student-info {
+            flex: 1;
+            text-align: left;
+        }
+        
+        .student-photo {
+            width: 150px;
+            height: 180px;
+            background-color: #f0f0f0;
+            border: 1px solid #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .info-row {
+            display: flex;
+            margin-bottom: 10px;
+            border-bottom: 1px dashed #ddd;
+            padding-bottom: 8px;
+        }
+        
+        .info-label {
+            width: 160px;
+            font-weight: 600;
+        }
+        
+        .info-value {
+            flex: 1;
+        }
+        
+        .signature-section {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 40px;
+            padding: 0 20px;
+        }
+        
+        .principal-signature {
+            text-align: center;
+        }
+        
+        .signature-line {
+            width: 200px;
+            height: 1px;
+            background-color: #000;
+            margin: 50px auto 10px;
+        }
+        
+        .qr-section {
+            text-align: center;
+        }
+        
+        .qr-code {
+            width: 120px;
+            height: 120px;
+            background-color: #f0f0f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #ddd;
+            margin: 0 auto 5px;
+        }
+        
+        .qr-caption {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .certificate-footer {
+            background-color: #f9f9f9;
+            padding: 15px;
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+            border-top: 1px solid #ddd;
+            margin-top: 30px;
+        }
+        
+        .technical-support {
+            font-weight: bold;
+            color: #1e5799;
+        }
+        
+        .stamp {
+            position: absolute;
+            bottom: 150px;
+            right: 80px;
+            width: 100px;
+            height: 100px;
+            border: 2px solid #d4af37;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transform: rotate(-15deg);
+            opacity: 0.9;
+            background-color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .stamp-text {
+            font-size: 14px;
+            font-weight: bold;
+            color: #d4af37;
+            text-align: center;
+        }
+        
+        .print-btn {
+            background-color: #1e5799;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background-color 0.3s;
+        }
+        
+        .print-btn:hover {
+            background-color: #154274;
+        }
+        
+        /* Print Styles */
+        @media print {
+            body {
+                background-color: white;
+                padding: 0;
+                margin: 0;
+            }
+            
+            .certificate-container {
+                box-shadow: none;
+                margin: 0;
+                border: 15px double #1e5799;
+            }
+            
+            .print-btn {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="certificate-container">
+        <div class="certificate-header">
+            <div class="school-logo">
+                <span style="font-size: 14px; font-weight: bold; color: #1e5799;">বিদ্যালয় লোগো</span>
+            </div>
+            <div class="school-info">
+                <h1 class="school-name">সরকারি প্রাথমিক বিদ্যালয়, ঢাকা</h1>
+                <p class="school-address">৩৮/ক, মিরপুর রোড, ঢাকা-১২১৬</p>
+                <div class="contact-info">
+                    <span>মোবাইল: ০১৭১২-৩৪৫৬৭৮</span>
+                    <span>ই-মেইল: info@school.edu.bd</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="certificate-details">
+            <div class="certificate-id">সার্টিফিকেট আইডি: PSC-2023-01234</div>
+            <div class="issue-date">ইস্যুর তারিখ: ৩১ ডিসেম্বর, ২০২৩</div>
+        </div>
+        
+        <div class="certificate-body">
+            <h2 class="certificate-title">প্রমাণপত্র</h2>
+            
+            <p class="certificate-text">
+                এই মর্মে প্রত্যয়ন করা যাচ্ছে যে, নিম্নলিখিত শিক্ষার্থী আমাদের বিদ্যালয়ের পঞ্চম শ্রেণিতে অধ্যয়ন করেছে এবং ২০২৩ শিক্ষাবর্ষের বার্ষিক পরীক্ষায় সাফল্যের সাথে উত্তীর্ণ হয়েছে। শিক্ষার্থী বিদ্যালয়ের নিয়ম-কানুন মেনে চলেছে এবং তার আচরণ সন্তোষজনক ছিল।
+            </p>
+            
+            <div class="student-details">
+                <div class="student-info">
+                    <div class="info-row">
+                        <div class="info-label">শিক্ষার্থীর নাম:</div>
+                        <div class="info-value">আনিকা ইসলাম</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">পিতার নাম:</div>
+                        <div class="info-value">মোঃ রফিকুল ইসলাম</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">মাতার নাম:</div>
+                        <div class="info-value">মোসাঃ সেলিনা আক্তার</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">জন্ম তারিখ:</div>
+                        <div class="info-value">১৫ মার্চ, ২০১২</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">রোল নং:</div>
+                        <div class="info-value">১২</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">শ্রেণি:</div>
+                        <div class="info-value">পঞ্চম</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">পরীক্ষার বছর:</div>
+                        <div class="info-value">২০২৩</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">জিপিএ:</div>
+                        <div class="info-value">৪.৯২ (পাঁচ এর মধ্যে)</div>
+                    </div>
+                </div>
+                
+                <div class="student-photo">
+                    শিক্ষার্থীর ছবি
+                </div>
+            </div>
+            
+            <p class="certificate-text">
+                শিক্ষার্থীকে ভবিষ্যত জীবনে সাফল্য ও সমৃদ্ধি কামনা করা হল। এই সার্টিফিকেটটি তার শিক্ষাগত যোগ্যতার প্রমাণ হিসেবে গণ্য হবে।
+            </p>
+            
+            <div class="signature-section">
+                <div class="principal-signature">
+                    <div class="signature-line"></div>
+                    <p>মোঃ আব্দুল করিম</p>
+                    <p>প্রধান শিক্ষক</p>
+                    <p>সরকারি প্রাথমিক বিদ্যালয়, ঢাকা</p>
+                </div>
+                
+                <div class="qr-section">
+                    <div class="qr-code">
+                        <span>QR Code</span>
+                    </div>
+                    <p class="qr-caption">যাচাই করতে স্ক্যান করুন</p>
+                </div>
+            </div>
+
+        </div>
+        
+        <div class="certificate-footer">
+            <p>কারিগরি সহযোগীতায়ঃ <span class="technical-support">বাতিঘর কম্পিউটার’স</span>, মোবাইলঃ 0176239671</p>
+        </div>
+    </div>
+    
+    <button class="print-btn" onclick="window.print()">সার্টিফিকেট প্রিন্ট করুন</button>
+</body>
+</html>

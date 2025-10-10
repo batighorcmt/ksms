@@ -1,5 +1,5 @@
 <?php
-require_once '../config.php';
+require_once '../../config.php';
 
 // Authentication check - শুধুমাত্র সুপার অ্যাডমিন এক্সেস করতে পারবে
 if (!isAuthenticated() || !hasRole(['super_admin'])) {
@@ -8,19 +8,26 @@ if (!isAuthenticated() || !hasRole(['super_admin'])) {
 
 // প্রতিষ্ঠানের তথ্য লোড করুন
 $school_info = $pdo->query("SELECT * FROM school_info LIMIT 1")->fetch();
-
-// যদি কোনো তথ্য না থাকে, তাহলে ডিফল্ট ভ্যালু সেট করুন
+// Ensure all keys exist to avoid undefined key warnings
+$school_info_defaults = [
+    'name' => '',
+    'address' => '',
+    'phone' => '',
+    'email' => '',
+    'established_year' => '',
+    'principal_name' => '',
+    'principal_designation' => '',
+    'short_code' => '',
+    'website' => '',
+    'logo' => ''
+];
 if (!$school_info) {
-    $school_info = [
-        'name' => '',
-        'address' => '',
-        'phone' => '',
-        'email' => '',
-        'established_year' => '',
-        'principal_name' => '',
-        'website' => '',
-        'logo' => ''
-    ];
+    $school_info = $school_info_defaults;
+} else {
+    // Fill missing keys if any
+    foreach ($school_info_defaults as $k => $v) {
+        if (!array_key_exists($k, $school_info)) $school_info[$k] = $v;
+    }
 }
 
 // ফর্ম সাবমিট হলে তথ্য আপডেট করুন
@@ -32,63 +39,63 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_info'])) {
     $established_year = $_POST['established_year'];
     $principal_name = $_POST['principal_name'];
     $website = $_POST['website'];
-    
+    $principal_designation = $_POST['principal_designation'] ?? '';
+    $short_code = $_POST['short_code'] ?? '';
+
     // লোগো আপলোড হ্যান্ডলিং
     $logo = $school_info['logo']; // ডিফল্টভাবে পুরানো লোগো রাখুন
-    
+
     if (!empty($_FILES['logo']['name'])) {
-        $upload_dir = '../uploads/logo/';
+        $upload_dir = BASE_URL . 'uploads/logo/';
         if (!is_dir($upload_dir)) {
             mkdir($upload_dir, 0777, true);
         }
-        
+
         $file_name = time() . '_' . basename($_FILES['logo']['name']);
         $target_file = $upload_dir . $file_name;
-        
+
         // ফাইল আপলোড করুন
         if (move_uploaded_file($_FILES['logo']['tmp_name'], $target_file)) {
             $logo = $file_name;
-            
+
             // পুরানো লোগো ডিলিট করুন (যদি থাকে)
             if (!empty($school_info['logo']) && file_exists($upload_dir . $school_info['logo'])) {
                 unlink($upload_dir . $school_info['logo']);
             }
         }
     }
-    
+
     // ডেটাবেসে তথ্য আপডেট বা ইনসার্ট করুন
     if ($school_info) {
         // আপডেট করুন
         $stmt = $pdo->prepare("
             UPDATE school_info 
             SET name = ?, address = ?, phone = ?, email = ?, 
-                established_year = ?, principal_name = ?, website = ?, logo = ?
+                established_year = ?, principal_name = ?, principal_designation = ?, short_code = ?, website = ?, logo = ?
             WHERE id = ?
         ");
         $result = $stmt->execute([
             $name, $address, $phone, $email, 
-            $established_year, $principal_name, $website, $logo,
+            $established_year, $principal_name, $principal_designation, $short_code, $website, $logo,
             $school_info['id']
         ]);
     } else {
         // নতুন এন্ট্রি তৈরি করুন
         $stmt = $pdo->prepare("
             INSERT INTO school_info 
-            (name, address, phone, email, established_year, principal_name, website, logo) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            (name, address, phone, email, established_year, principal_name, principal_designation, short_code, website, logo) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         $result = $stmt->execute([
             $name, $address, $phone, $email, 
-            $established_year, $principal_name, $website, $logo
+            $established_year, $principal_name, $principal_designation, $short_code, $website, $logo
         ]);
     }
     
     if ($result) {
-        $_SESSION['success'] = "প্রতিষ্ঠানের তথ্য সফলভাবে আপডেট করা হয়েছে!";
-        // পৃষ্ঠা রিফ্রেশ করে নতুন তথ্য দেখানোর জন্য
-        redirect('institute_info.php');
+        $success_message = "প্রতিষ্ঠানের তথ্য সফলভাবে আপডেট করা হয়েছে!";
     } else {
-        $_SESSION['error'] = "তথ্য আপডেট করতে সমস্যা হয়েছে!";
+        $error_message = "তথ্য আপডেট করতে সমস্যা হয়েছে!";
     }
 }
 ?>
@@ -129,11 +136,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_info'])) {
 <div class="wrapper">
 
     <!-- Navbar -->
-    <?php include 'inc/header.php'; ?>
+    <?php include '../inc/header.php'; ?>
     <!-- /.navbar -->
 
     <!-- Main Sidebar Container -->
-    <?php include 'inc/sidebar.php'; ?>
+    <?php include '../inc/sidebar.php'; ?>
 
     <!-- Content Wrapper. Contains page content -->
     <div class="content-wrapper">
@@ -159,19 +166,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_info'])) {
         <section class="content">
             <div class="container-fluid">
                 <!-- Notification Alerts -->
-                <?php if(isset($_SESSION['success'])): ?>
+                <?php if(!empty($success_message)): ?>
                     <div class="alert alert-success alert-dismissible">
                         <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
                         <h5><i class="icon fas fa-check"></i> সফল!</h5>
-                        <?php echo $_SESSION['success']; unset($_SESSION['success']); ?>
+                        <?php echo $success_message; ?>
                     </div>
                 <?php endif; ?>
 
-                <?php if(isset($_SESSION['error'])): ?>
+                <?php if(!empty($error_message)): ?>
                     <div class="alert alert-danger alert-dismissible">
                         <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
                         <h5><i class="icon fas fa-ban"></i> ত্রুটি!</h5>
-                        <?php echo $_SESSION['error']; unset($_SESSION['error']); ?>
+                        <?php echo $error_message; ?>
                     </div>
                 <?php endif; ?>
 
@@ -207,35 +214,49 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_info'])) {
                                     </div>
                                     
                                     <div class="row">
-                                        <div class="col-md-6">
+                                        <div class="col-md-4">
                                             <div class="form-group">
                                                 <label for="phone">ফোন নম্বর</label>
                                                 <input type="text" class="form-control" id="phone" name="phone" 
                                                        value="<?php echo $school_info['phone']; ?>">
                                             </div>
                                         </div>
-                                        <div class="col-md-6">
+                                        <div class="col-md-4">
                                             <div class="form-group">
                                                 <label for="email">ইমেইল</label>
                                                 <input type="email" class="form-control" id="email" name="email" 
                                                        value="<?php echo $school_info['email']; ?>">
                                             </div>
                                         </div>
+                                        <div class="col-md-4">
+                                            <div class="form-group">
+                                                <label for="website">ওয়েবসাইট</label>
+                                                <input type="url" class="form-control" id="website" name="website" 
+                                                       value="<?php echo $school_info['website']; ?>">
+                                            </div>
+                                        </div>
                                     </div>
                                     
                                     <div class="row">
-                                        <div class="col-md-6">
+                                        <div class="col-md-4">
                                             <div class="form-group">
                                                 <label for="principal_name">প্রধান শিক্ষকের নাম</label>
                                                 <input type="text" class="form-control" id="principal_name" 
                                                        name="principal_name" value="<?php echo $school_info['principal_name']; ?>">
                                             </div>
                                         </div>
-                                        <div class="col-md-6">
+                                        <div class="col-md-4">
                                             <div class="form-group">
-                                                <label for="website">ওয়েবসাইট</label>
-                                                <input type="url" class="form-control" id="website" name="website" 
-                                                       value="<?php echo $school_info['website']; ?>" placeholder="https://">
+                                                <label for="principal_designation">প্রধান শিক্ষকের পদবী</label>
+                                                <input type="text" class="form-control" id="principal_designation" 
+                                                       name="principal_designation" value="<?php echo $school_info['principal_designation'] ?? ''; ?>">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-group">
+                                                <label for="short_code">প্রতিষ্ঠানের সংক্ষিপ্ত নাম (Short Code)</label>
+                                                <input type="text" class="form-control" id="short_code" 
+                                                       name="short_code" value="<?php echo $school_info['short_code'] ?? ''; ?>">
                                             </div>
                                         </div>
                                     </div>
@@ -251,7 +272,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_info'])) {
                                         <?php if(!empty($school_info['logo'])): ?>
                                         <div class="logo-container mt-3">
                                             <p>বর্তমান লোগো:</p>
-                                            <img src="../uploads/logo/<?php echo $school_info['logo']; ?>" 
+                                            <img src="<?php echo $upload_dir . $school_info['logo']; ?>" 
                                                  class="logo-preview" alt="প্রতিষ্ঠানের লোগো">
                                         </div>
                                         <?php endif; ?>
@@ -276,7 +297,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_info'])) {
     <!-- /.content-wrapper -->
 
     <!-- Main Footer -->
-    <?php include 'inc/footer.php'; ?>
+    <?php include '../inc/footer.php'; ?>
 </div>
 <!-- ./wrapper -->
 
