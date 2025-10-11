@@ -272,7 +272,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_info'])) {
                                         <?php if(!empty($school_info['logo'])): ?>
                                         <div class="logo-container mt-3">
                                             <p>বর্তমান লোগো:</p>
-                                            <img src="<?php echo $upload_dir . $school_info['logo']; ?>" 
+                                            <img src="<?php echo BASE_URL . 'uploads/logo/' . $school_info['logo']; ?>" 
                                                  class="logo-preview" alt="প্রতিষ্ঠানের লোগো">
                                         </div>
                                         <?php endif; ?>

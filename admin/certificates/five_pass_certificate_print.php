@@ -483,7 +483,7 @@ function convert_to_bangla_number($str) {
         </div>
         
         <div class="certificate-body">
-            <h2 class="certificate-title">প্রমাণপত্র</h2>
+            <h2 class="certificate-title">প্রশংসা পত্র</h2>
             
             <p class="certificate-text">
                 এই মর্মে প্রত্যয়ন করা যাচ্ছে যে, নিম্নলিখিত শিক্ষার্থী আমাদের বিদ্যালয়ের পঞ্চম শ্রেণিতে অধ্যয়ন করেছে এবং <?php echo convert_to_bangla_number($stu['exam_year']); ?> শিক্ষাবর্ষের বার্ষিক পরীক্ষায় সাফল্যের সাথে উত্তীর্ণ হয়েছে। শিক্ষার্থী বিদ্যালয়ের নিয়ম-কানুন মেনে চলেছে এবং তার আচরণ সন্তোষজনক ছিল।
