@@ -46,8 +46,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_info'])) {
     $logo = $school_info['logo']; // ডিফল্টভাবে পুরানো লোগো রাখুন
 
     if (!empty($_FILES['logo']['name'])) {
-        // Use server file path for uploads
-        $upload_dir = dirname(__DIR__, 2) . '/uploads/logo/';
+        // Use server file path for uploads (cross-platform)
+        $upload_dir = realpath(dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'logo') . DIRECTORY_SEPARATOR;
         if (!is_dir($upload_dir)) {
             mkdir($upload_dir, 0777, true);
         }
