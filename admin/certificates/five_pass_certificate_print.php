@@ -141,22 +141,17 @@ function convert_to_bangla_number($str) {
             margin-bottom: 10px; 
         }
         
-        .school-logo { 
-            width: 100px; 
-            height: 100px; 
-            background-color: #f8f8f8; 
-            border-radius: 50%; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            border: 2px solid #1e5799; 
-            margin-right: 20px;  
+        .school-logo {
+            width: 100px;
+            height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 20px;
         }
-        
-        .school-logo img { 
-            max-width: 90px; 
-            max-height: 90px; 
-            border-radius: 50%; 
+        .school-logo img {
+            max-width: 90px;
+            max-height: 90px;
         }
         
         .school-info { 
