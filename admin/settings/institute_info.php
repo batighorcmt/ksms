@@ -46,7 +46,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_info'])) {
     $logo = $school_info['logo']; // ডিফল্টভাবে পুরানো লোগো রাখুন
 
     if (!empty($_FILES['logo']['name'])) {
-        $upload_dir = BASE_URL . 'uploads/logo/';
+        // Use server file path for uploads
+        $upload_dir = dirname(__DIR__, 2) . '/uploads/logo/';
         if (!is_dir($upload_dir)) {
             mkdir($upload_dir, 0777, true);
         }
@@ -59,8 +60,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_info'])) {
             $logo = $file_name;
 
             // পুরানো লোগো ডিলিট করুন (যদি থাকে)
-            if (!empty($school_info['logo']) && file_exists($upload_dir . $school_info['logo'])) {
-                unlink($upload_dir . $school_info['logo']);
+            $old_logo_path = $upload_dir . $school_info['logo'];
+            if (!empty($school_info['logo']) && file_exists($old_logo_path)) {
+                unlink($old_logo_path);
             }
         }
     }
