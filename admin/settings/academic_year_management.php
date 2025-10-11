@@ -11,8 +11,18 @@ if (!isAuthenticated() || !hasRole(['super_admin'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['add_year'])) {
         $year = intval($_POST['year']);
-        $stmt = $pdo->prepare("INSERT INTO academic_years (year, is_current) VALUES (?, 0)");
-        $stmt->execute([$year]);
+        $start_date = !empty($_POST['start_date']) ? $_POST['start_date'] : null;
+        $end_date = !empty($_POST['end_date']) ? $_POST['end_date'] : null;
+        // If start_date is required, provide a default if not set
+        if (!$start_date) {
+            $start_date = date('Y-m-d', strtotime($year.'-01-01'));
+        }
+        // If end_date is required, provide a default if not set
+        if (!$end_date) {
+            $end_date = date('Y-m-d', strtotime($year.'-12-31'));
+        }
+        $stmt = $pdo->prepare("INSERT INTO academic_years (year, is_current, start_date, end_date) VALUES (?, 0, ?, ?)");
+        $stmt->execute([$year, $start_date, $end_date]);
     }
     if (isset($_POST['update_year'])) {
         $id = intval($_POST['id']);
@@ -84,9 +94,17 @@ $years = $pdo->query("SELECT * FROM academic_years ORDER BY year DESC")->fetchAl
                 <div class="card card-primary card-outline">
                     <div class="card-body">
                         <form method="post" class="row g-2 mb-3">
-                            <div class="col-md-4 col-8">
+                            <div class="col-md-3 col-6">
                                 <label for="year" class="form-label required-label">নতুন শিক্ষাবর্ষ (Year)</label>
                                 <input type="number" name="year" id="year" class="form-control" min="1900" max="2100" required>
+                            </div>
+                            <div class="col-md-3 col-6">
+                                <label for="start_date" class="form-label">শুরুর তারিখ</label>
+                                <input type="date" name="start_date" id="start_date" class="form-control">
+                            </div>
+                            <div class="col-md-3 col-6">
+                                <label for="end_date" class="form-label">শেষ তারিখ</label>
+                                <input type="date" name="end_date" id="end_date" class="form-control">
                             </div>
                             <div class="col-md-2 col-4 d-flex align-items-end">
                                 <button type="submit" name="add_year" class="btn btn-success w-100">যুক্ত করুন</button>
