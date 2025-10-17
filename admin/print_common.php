@@ -1,4 +1,6 @@
 <?php
+// Ensure application uses Dhaka timezone (+06:00) for printed timestamps
+date_default_timezone_set('Asia/Dhaka');
 // Simple include to render institute header and footer for print pages.
 // Usage:
 // include 'print_common.php';
@@ -37,7 +39,7 @@ if (!function_exists('print_header')) {
             <div style="font-weight:700;font-size:1.25rem"><?php echo $name; ?></div>
             <div style="color:#444;font-size:0.95rem"><?php echo $address; ?></div>
             <div style="color:#444;font-size:0.95rem"><?php echo $contact; ?></div>
-            <?php if($title_extra): ?><div style="margin-top:6px;color:#555;font-size:0.95rem"><?php echo $title_extra; ?></div><?php endif; ?>
+            <?php if($title_extra): ?><div style="margin-top:6px;color:black;font-size:1.5rem"><?php echo $title_extra; ?></div><?php endif; ?>
         </div>
     </div>
     <hr style="border:none;border-top:2px solid #e6e6e6;margin:8px 0 14px 0;" />
@@ -48,6 +50,11 @@ if (!function_exists('print_header')) {
 
 if (!function_exists('print_footer')) {
     function print_footer() {
-        return '<div style="margin-top:12px;text-align:right;color:#444;font-size:0.95rem">মুদ্রিত: ' . date('d M Y, h:i A') . '</div>';
+        $printed = '<div style="margin-top:12px;text-align:right;color:#444;font-size:0.95rem">মুদ্রিত: ' . date('d M Y, h:i A') . '</div>';
+        // Highlight technical support / company line
+        $support = '<div style="margin-top:8px;padding:8px;border-left:4px solid #0d6efd;background:#e9f2ff;color:#000;font-size:0.95rem">';
+        $support .= 'কারিগরি সহযোগীতায়ঃ <strong>বাতিঘর কম্পিউটার\'স</strong>, মোবাইলঃ <span style="font-weight:700">01762-396713</span>';
+        $support .= '</div>';
+        return $printed . $support;
     }
 }

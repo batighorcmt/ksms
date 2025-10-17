@@ -2,10 +2,10 @@
 -- version 5.2.1
 -- https://www.phpmyadmin.net/
 --
--- Host: localhost:3306
--- Generation Time: Oct 07, 2025 at 08:52 PM
--- Server version: 8.0.40
--- PHP Version: 8.3.13
+-- Host: 127.0.0.1
+-- Generation Time: Oct 17, 2025 at 07:05 AM
+-- Server version: 10.4.32-MariaDB
+-- PHP Version: 8.2.12
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -28,21 +28,24 @@ SET time_zone = "+00:00";
 --
 
 CREATE TABLE `academic_years` (
-  `id` int NOT NULL,
-  `year` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
+  `id` int(11) NOT NULL,
+  `year` varchar(20) NOT NULL,
   `start_date` date NOT NULL,
   `end_date` date NOT NULL,
-  `is_current` tinyint(1) DEFAULT '0',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `is_current` tinyint(1) DEFAULT 0,
+  `status` varchar(10) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `academic_years`
 --
 
-INSERT INTO `academic_years` (`id`, `year`, `start_date`, `end_date`, `is_current`, `created_at`, `updated_at`) VALUES
-(1, '২০২৫', '2025-01-01', '2025-12-31', 1, '2025-09-07 18:32:53', '2025-09-08 13:53:24');
+INSERT INTO `academic_years` (`id`, `year`, `start_date`, `end_date`, `is_current`, `status`, `created_at`, `updated_at`) VALUES
+(1, '2026', '2025-01-01', '2025-12-31', 0, 'active', '2025-09-07 18:32:53', '2025-10-11 07:33:42'),
+(2, '2025', '0000-00-00', '0000-00-00', 1, 'active', '2025-10-10 14:30:19', '2025-10-11 07:33:39'),
+(4, '2027', '0000-00-00', '0000-00-00', 0, 'active', '2025-10-10 14:37:21', '2025-10-11 07:33:44');
 
 -- --------------------------------------------------------
 
@@ -51,16 +54,16 @@ INSERT INTO `academic_years` (`id`, `year`, `start_date`, `end_date`, `is_curren
 --
 
 CREATE TABLE `attendance` (
-  `id` int NOT NULL,
-  `student_id` int NOT NULL,
-  `class_id` int NOT NULL,
-  `section_id` int NOT NULL,
+  `id` int(11) NOT NULL,
+  `student_id` int(11) NOT NULL,
+  `class_id` int(11) NOT NULL,
+  `section_id` int(11) NOT NULL,
   `date` date NOT NULL,
-  `status` enum('present','absent','late','half_day') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `remarks` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci,
-  `recorded_by` int NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `status` enum('present','absent','late','half_day') NOT NULL,
+  `remarks` text DEFAULT NULL,
+  `recorded_by` int(11) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -751,7 +754,14 @@ INSERT INTO `attendance` (`id`, `student_id`, `class_id`, `section_id`, `date`, 
 (729, 148, 10, 16, '2025-10-06', 'absent', '', 1, '2025-10-06 04:43:20', '2025-10-06 11:05:14'),
 (730, 149, 10, 16, '2025-10-06', 'present', '', 1, '2025-10-06 04:43:20', '2025-10-06 11:05:14'),
 (731, 174, 10, 16, '2025-10-06', 'present', '', 1, '2025-10-06 04:43:20', '2025-10-06 11:05:14'),
-(732, 175, 10, 16, '2025-10-06', 'present', '', 1, '2025-10-06 04:43:20', '2025-10-06 11:05:14');
+(732, 175, 10, 16, '2025-10-06', 'present', '', 1, '2025-10-06 04:43:20', '2025-10-06 11:05:14'),
+(733, 176, 10, 16, '2025-10-07', 'present', '', 1, '2025-10-07 15:04:18', '2025-10-07 15:04:18'),
+(734, 146, 10, 16, '2025-10-07', 'present', '', 1, '2025-10-07 15:04:18', '2025-10-07 15:04:18'),
+(735, 147, 10, 16, '2025-10-07', 'absent', '', 1, '2025-10-07 15:04:18', '2025-10-07 15:04:18'),
+(736, 148, 10, 16, '2025-10-07', 'absent', '', 1, '2025-10-07 15:04:18', '2025-10-07 15:04:18'),
+(737, 149, 10, 16, '2025-10-07', 'present', '', 1, '2025-10-07 15:04:18', '2025-10-07 15:04:18'),
+(738, 174, 10, 16, '2025-10-07', 'absent', '', 1, '2025-10-07 15:04:18', '2025-10-07 15:04:18'),
+(739, 175, 10, 16, '2025-10-07', 'present', '', 1, '2025-10-07 15:04:18', '2025-10-07 15:04:18');
 
 -- --------------------------------------------------------
 
@@ -760,17 +770,17 @@ INSERT INTO `attendance` (`id`, `student_id`, `class_id`, `section_id`, `date`, 
 --
 
 CREATE TABLE `classes` (
-  `id` int NOT NULL,
-  `name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `numeric_value` int DEFAULT NULL,
-  `capacity` int DEFAULT NULL,
-  `room_number` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `class_teacher_id` int DEFAULT NULL,
-  `monthly_fee` decimal(10,2) DEFAULT '0.00',
-  `admission_fee` decimal(10,2) DEFAULT '0.00',
-  `status` enum('active','inactive') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT 'active',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `id` int(11) NOT NULL,
+  `name` varchar(50) NOT NULL,
+  `numeric_value` int(11) DEFAULT NULL,
+  `capacity` int(11) DEFAULT NULL,
+  `room_number` varchar(20) DEFAULT NULL,
+  `class_teacher_id` int(11) DEFAULT NULL,
+  `monthly_fee` decimal(10,2) DEFAULT 0.00,
+  `admission_fee` decimal(10,2) DEFAULT 0.00,
+  `status` enum('active','inactive') DEFAULT 'active',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -793,10 +803,10 @@ INSERT INTO `classes` (`id`, `name`, `numeric_value`, `capacity`, `room_number`,
 --
 
 CREATE TABLE `class_periods` (
-  `id` int NOT NULL,
-  `class_id` int NOT NULL,
-  `section_id` int NOT NULL,
-  `period_count` int NOT NULL DEFAULT '1'
+  `id` int(11) NOT NULL,
+  `class_id` int(11) NOT NULL,
+  `section_id` int(11) NOT NULL,
+  `period_count` int(11) NOT NULL DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -816,13 +826,13 @@ INSERT INTO `class_periods` (`id`, `class_id`, `section_id`, `period_count`) VAL
 --
 
 CREATE TABLE `class_subjects` (
-  `id` int NOT NULL,
-  `class_id` int NOT NULL,
-  `subject_id` int NOT NULL,
-  `teacher_id` int DEFAULT NULL,
-  `numeric_value` int DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `id` int(11) NOT NULL,
+  `class_id` int(11) NOT NULL,
+  `subject_id` int(11) NOT NULL,
+  `teacher_id` int(11) DEFAULT NULL,
+  `numeric_value` int(11) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -878,11 +888,11 @@ INSERT INTO `class_subjects` (`id`, `class_id`, `subject_id`, `teacher_id`, `num
 --
 
 CREATE TABLE `class_subject_teachers` (
-  `id` int NOT NULL,
-  `class_id` int NOT NULL,
-  `subject_id` int NOT NULL,
-  `teacher_id` int NOT NULL,
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP
+  `id` int(11) NOT NULL,
+  `class_id` int(11) NOT NULL,
+  `subject_id` int(11) NOT NULL,
+  `teacher_id` int(11) NOT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -900,23 +910,23 @@ INSERT INTO `class_subject_teachers` (`id`, `class_id`, `subject_id`, `teacher_i
 (99, 6, 6, 17, '2025-09-18 21:18:11'),
 (100, 9, 3, 17, '2025-09-18 21:18:11'),
 (101, 10, 4, 17, '2025-09-18 21:18:11'),
-(102, 8, 1, 14, '2025-09-19 15:06:02'),
-(103, 8, 4, 14, '2025-09-19 15:06:02'),
-(104, 9, 1, 14, '2025-09-19 15:06:02'),
-(105, 7, 1, 3, '2025-09-19 15:06:11'),
-(106, 7, 4, 3, '2025-09-19 15:06:11'),
-(107, 8, 3, 3, '2025-09-19 15:06:11'),
-(108, 2, 2, 3, '2025-09-19 15:06:11'),
-(109, 2, 6, 3, '2025-09-19 15:06:11'),
-(110, 1, 4, 3, '2025-09-19 15:06:11'),
-(111, 1, 5, 3, '2025-09-19 15:06:11'),
-(112, 6, 7, 3, '2025-09-19 15:06:11'),
-(113, 9, 1, 3, '2025-09-19 15:06:11'),
-(114, 9, 5, 3, '2025-09-19 15:06:11'),
-(115, 9, 6, 3, '2025-09-19 15:06:11'),
-(116, 10, 1, 3, '2025-09-19 15:06:11'),
-(117, 10, 5, 3, '2025-09-19 15:06:11'),
-(118, 10, 6, 3, '2025-09-19 15:06:11');
+(119, 8, 1, 14, '2025-10-08 19:04:52'),
+(120, 8, 4, 14, '2025-10-08 19:04:52'),
+(121, 9, 1, 14, '2025-10-08 19:04:52'),
+(122, 7, 1, 3, '2025-10-08 19:05:00'),
+(123, 7, 4, 3, '2025-10-08 19:05:00'),
+(124, 8, 3, 3, '2025-10-08 19:05:00'),
+(125, 2, 2, 3, '2025-10-08 19:05:00'),
+(126, 2, 6, 3, '2025-10-08 19:05:00'),
+(127, 1, 4, 3, '2025-10-08 19:05:00'),
+(128, 1, 5, 3, '2025-10-08 19:05:00'),
+(129, 6, 7, 3, '2025-10-08 19:05:00'),
+(130, 9, 1, 3, '2025-10-08 19:05:00'),
+(131, 9, 5, 3, '2025-10-08 19:05:00'),
+(132, 9, 6, 3, '2025-10-08 19:05:00'),
+(133, 10, 1, 3, '2025-10-08 19:05:00'),
+(134, 10, 5, 3, '2025-10-08 19:05:00'),
+(135, 10, 6, 3, '2025-10-08 19:05:00');
 
 -- --------------------------------------------------------
 
@@ -925,11 +935,11 @@ INSERT INTO `class_subject_teachers` (`id`, `class_id`, `subject_id`, `teacher_i
 --
 
 CREATE TABLE `class_teachers` (
-  `id` int NOT NULL,
-  `class_id` int NOT NULL,
-  `teacher_id` int NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `id` int(11) NOT NULL,
+  `class_id` int(11) NOT NULL,
+  `teacher_id` int(11) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -938,14 +948,14 @@ CREATE TABLE `class_teachers` (
 
 INSERT INTO `class_teachers` (`id`, `class_id`, `teacher_id`, `created_at`, `updated_at`) VALUES
 (31, 2, 17, '2025-09-18 21:18:11', '2025-09-18 21:18:11'),
-(32, 6, 14, '2025-09-19 15:06:02', '2025-09-19 15:06:02'),
-(33, 7, 3, '2025-09-19 15:06:11', '2025-09-19 15:06:11'),
-(34, 8, 3, '2025-09-19 15:06:11', '2025-09-19 15:06:11'),
-(35, 2, 3, '2025-09-19 15:06:11', '2025-09-19 15:06:11'),
-(36, 1, 3, '2025-09-19 15:06:11', '2025-09-19 15:06:11'),
-(37, 6, 3, '2025-09-19 15:06:11', '2025-09-19 15:06:11'),
-(38, 9, 3, '2025-09-19 15:06:11', '2025-09-19 15:06:11'),
-(39, 10, 3, '2025-09-19 15:06:11', '2025-09-19 15:06:11');
+(40, 6, 14, '2025-10-08 19:04:52', '2025-10-08 19:04:52'),
+(41, 7, 3, '2025-10-08 19:05:00', '2025-10-08 19:05:00'),
+(42, 8, 3, '2025-10-08 19:05:00', '2025-10-08 19:05:00'),
+(43, 2, 3, '2025-10-08 19:05:00', '2025-10-08 19:05:00'),
+(44, 1, 3, '2025-10-08 19:05:00', '2025-10-08 19:05:00'),
+(45, 6, 3, '2025-10-08 19:05:00', '2025-10-08 19:05:00'),
+(46, 9, 3, '2025-10-08 19:05:00', '2025-10-08 19:05:00'),
+(47, 10, 3, '2025-10-08 19:05:00', '2025-10-08 19:05:00');
 
 -- --------------------------------------------------------
 
@@ -954,16 +964,16 @@ INSERT INTO `class_teachers` (`id`, `class_id`, `teacher_id`, `created_at`, `upd
 --
 
 CREATE TABLE `events` (
-  `id` int NOT NULL,
-  `title` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci,
+  `id` int(11) NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `description` text DEFAULT NULL,
   `event_date` date NOT NULL,
   `event_time` time DEFAULT NULL,
-  `location` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `audience` enum('all','teachers','guardians','students') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT 'all',
-  `created_by` int NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `location` varchar(255) DEFAULT NULL,
+  `audience` enum('all','teachers','guardians','students') DEFAULT 'all',
+  `created_by` int(11) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -973,26 +983,25 @@ CREATE TABLE `events` (
 --
 
 CREATE TABLE `exams` (
-  `id` int NOT NULL,
-  `name` varchar(150) CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci NOT NULL,
-  `academic_year` varchar(20) CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci DEFAULT NULL,
-  `class_id` int NOT NULL,
-  `exam_type_id` int NOT NULL,
+  `id` int(11) NOT NULL,
+  `name` varchar(100) NOT NULL,
+  `academic_year_id` int(11) NOT NULL,
+  `class_id` int(11) NOT NULL,
+  `exam_type_id` int(11) NOT NULL,
   `exam_date` date DEFAULT NULL,
   `exam_time` time DEFAULT NULL,
   `result_release_date` date DEFAULT NULL,
-  `created_by` int DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `created_by` int(11) DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `exams`
 --
 
-INSERT INTO `exams` (`id`, `name`, `academic_year`, `class_id`, `exam_type_id`, `exam_date`, `exam_time`, `result_release_date`, `created_by`, `created_at`, `updated_at`) VALUES
-(1, '২য় সাময়িক পরীক্ষা', '2025', 7, 1, NULL, NULL, '2025-09-24', 1, '2025-09-19 18:00:28', '2025-09-19 18:00:28'),
-(2, '২য় সাময়িক পরীক্ষা', '2025', 6, 2, NULL, NULL, '2025-09-30', 1, '2025-09-19 20:07:08', '2025-10-02 04:49:00');
+INSERT INTO `exams` (`id`, `name`, `academic_year_id`, `class_id`, `exam_type_id`, `exam_date`, `exam_time`, `result_release_date`, `created_by`, `updated_at`, `created_at`) VALUES
+(9, 'xcvv', 2, 1, 2, NULL, NULL, '2025-10-17', NULL, NULL, '2025-10-17 04:57:50');
 
 -- --------------------------------------------------------
 
@@ -1001,39 +1010,21 @@ INSERT INTO `exams` (`id`, `name`, `academic_year`, `class_id`, `exam_type_id`, 
 --
 
 CREATE TABLE `exam_heads` (
-  `id` int NOT NULL,
-  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `code` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `max_marks` int NOT NULL DEFAULT '0',
-  `pass_marks` int NOT NULL DEFAULT '0',
-  `weightage` decimal(5,2) DEFAULT '1.00',
-  `status` enum('active','inactive') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT 'active',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP
+  `id` int(11) NOT NULL,
+  `name` varchar(100) NOT NULL,
+  `code` varchar(20) NOT NULL,
+  `max_marks` int(11) NOT NULL,
+  `pass_marks` int(11) NOT NULL,
+  `weightage` decimal(5,2) DEFAULT 1.00,
+  `status` enum('active','inactive') DEFAULT 'active'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `exam_heads`
 --
 
-INSERT INTO `exam_heads` (`id`, `name`, `code`, `max_marks`, `pass_marks`, `weightage`, `status`, `created_at`) VALUES
-(1, 'রচনামূলক', 'রচনা', 100, 33, 1.00, 'active', '2025-09-19 07:52:15');
-
--- --------------------------------------------------------
-
---
--- Table structure for table `exam_results`
---
-
-CREATE TABLE `exam_results` (
-  `id` int NOT NULL,
-  `exam_id` int NOT NULL,
-  `student_id` int NOT NULL,
-  `marks_obtained` decimal(5,2) NOT NULL,
-  `grade` varchar(5) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `remarks` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+INSERT INTO `exam_heads` (`id`, `name`, `code`, `max_marks`, `pass_marks`, `weightage`, `status`) VALUES
+(2, 'রচনামুলক', 'CQ', 100, 33, 1.00, 'active');
 
 -- --------------------------------------------------------
 
@@ -1042,12 +1033,12 @@ CREATE TABLE `exam_results` (
 --
 
 CREATE TABLE `exam_result_rules` (
-  `id` int NOT NULL,
-  `rule_name` varchar(150) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `exam_type_ids` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `calculation_method` enum('average','weighted_average','best_of') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT 'average',
-  `pass_logic` enum('total_based','head_wise') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT 'total_based',
-  `status` enum('active','inactive') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT 'active'
+  `id` int(11) NOT NULL,
+  `rule_name` varchar(100) NOT NULL,
+  `exam_type_ids` varchar(100) NOT NULL,
+  `calculation_method` enum('average','weighted_average','best_of') DEFAULT 'average',
+  `pass_logic` enum('total_based','head_wise') DEFAULT 'total_based',
+  `status` enum('active','inactive') DEFAULT 'active'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -1055,7 +1046,7 @@ CREATE TABLE `exam_result_rules` (
 --
 
 INSERT INTO `exam_result_rules` (`id`, `rule_name`, `exam_type_ids`, `calculation_method`, `pass_logic`, `status`) VALUES
-(2, 'গড় ', '5,2,1', 'average', 'total_based', 'active');
+(1, 'গড় ভিত্তিক', '2,1', 'average', 'total_based', 'active');
 
 -- --------------------------------------------------------
 
@@ -1064,10 +1055,11 @@ INSERT INTO `exam_result_rules` (`id`, `rule_name`, `exam_type_ids`, `calculatio
 --
 
 CREATE TABLE `exam_settings` (
-  `id` int NOT NULL,
-  `exam_types` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
+  `id` int(11) NOT NULL,
+  `term_exam_id` int(11) NOT NULL,
+  `tutorial_exam_ids` text DEFAULT NULL,
+  `include_in_final` tinyint(1) DEFAULT 1,
+  `weight` decimal(5,2) DEFAULT 1.00
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -1077,35 +1069,48 @@ CREATE TABLE `exam_settings` (
 --
 
 CREATE TABLE `exam_subjects` (
-  `id` int NOT NULL,
-  `exam_id` int NOT NULL,
-  `subject_id` int NOT NULL,
+  `id` int(11) NOT NULL,
+  `exam_id` int(11) NOT NULL,
+  `subject_id` int(11) NOT NULL,
   `exam_date` date DEFAULT NULL,
   `exam_time` time DEFAULT NULL,
-  `full_mark` int DEFAULT '0',
-  `pass_mark` int DEFAULT '0',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `max_marks` int(11) NOT NULL,
+  `pass_marks` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `exam_subjects`
 --
 
-INSERT INTO `exam_subjects` (`id`, `exam_id`, `subject_id`, `exam_date`, `exam_time`, `full_mark`, `pass_mark`, `created_at`, `updated_at`) VALUES
-(1, 1, 1, '2025-09-20', '10:00:00', 100, 33, '2025-09-19 18:00:28', '2025-09-19 18:00:28'),
-(2, 1, 2, '2025-09-21', '10:00:00', 100, 33, '2025-09-19 18:00:28', '2025-09-19 18:00:28'),
-(3, 1, 3, '2025-09-22', '10:00:00', 100, 33, '2025-09-19 18:00:28', '2025-09-19 18:00:28'),
-(4, 1, 7, '2025-09-23', '10:00:00', 100, 33, '2025-09-19 18:00:28', '2025-09-19 18:00:28'),
-(23, 2, 12, NULL, NULL, 100, 33, '2025-10-02 04:49:00', '2025-10-02 04:49:00'),
-(24, 2, 13, NULL, NULL, 100, 33, '2025-10-02 04:49:00', '2025-10-02 04:49:00'),
-(25, 2, 10, NULL, NULL, 100, 33, '2025-10-02 04:49:00', '2025-10-02 04:49:00'),
-(26, 2, 11, NULL, NULL, 100, 33, '2025-10-02 04:49:00', '2025-10-02 04:49:00'),
-(27, 2, 3, NULL, NULL, 100, 33, '2025-10-02 04:49:00', '2025-10-02 04:49:00'),
-(28, 2, 6, NULL, NULL, 100, 33, '2025-10-02 04:49:00', '2025-10-02 04:49:00'),
-(29, 2, 4, NULL, NULL, 100, 33, '2025-10-02 04:49:00', '2025-10-02 04:49:00'),
-(30, 2, 5, NULL, NULL, 100, 33, '2025-10-02 04:49:00', '2025-10-02 04:49:00'),
-(31, 2, 7, '2025-09-28', '11:30:00', 100, 33, '2025-10-02 04:49:00', '2025-10-02 04:49:00');
+INSERT INTO `exam_subjects` (`id`, `exam_id`, `subject_id`, `exam_date`, `exam_time`, `max_marks`, `pass_marks`) VALUES
+(1, 9, 2, NULL, NULL, 100, 33),
+(2, 9, 3, NULL, NULL, 100, 33),
+(3, 9, 1, NULL, NULL, 100, 33),
+(4, 9, 7, NULL, NULL, 100, 33);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `exam_term_tutorial_links`
+--
+
+CREATE TABLE `exam_term_tutorial_links` (
+  `id` int(11) NOT NULL,
+  `term_exam_id` int(11) NOT NULL,
+  `tutorial_exam_id` int(11) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `exam_tutorial_links`
+--
+
+CREATE TABLE `exam_tutorial_links` (
+  `id` int(11) NOT NULL,
+  `term_exam_id` int(11) NOT NULL,
+  `tutorial_exam_id` int(11) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -1114,12 +1119,12 @@ INSERT INTO `exam_subjects` (`id`, `exam_id`, `subject_id`, `exam_date`, `exam_t
 --
 
 CREATE TABLE `exam_types` (
-  `id` int NOT NULL,
-  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `code` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci,
-  `weightage` decimal(5,2) DEFAULT '1.00',
-  `status` enum('active','inactive') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT 'active'
+  `id` int(11) NOT NULL,
+  `name` varchar(100) NOT NULL,
+  `code` varchar(20) DEFAULT NULL,
+  `description` text DEFAULT NULL,
+  `weightage` decimal(5,2) DEFAULT 1.00,
+  `status` enum('active','inactive') DEFAULT 'active'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -1127,9 +1132,8 @@ CREATE TABLE `exam_types` (
 --
 
 INSERT INTO `exam_types` (`id`, `name`, `code`, `description`, `weightage`, `status`) VALUES
-(1, '১ম সাময়িক', '১ম সাময়িক ', '', 1.00, 'active'),
-(2, '২য় সাময়িক', '2nd terminal ', '', 1.00, 'active'),
-(5, 'বার্ষিক ', 'annual', '', 1.00, 'active');
+(1, 'সাময়িক', 'Terminal', '', 1.00, 'active'),
+(2, 'টিউটোরিয়াল', 'Tutorial', '', 1.00, 'active');
 
 -- --------------------------------------------------------
 
@@ -1138,11 +1142,11 @@ INSERT INTO `exam_types` (`id`, `name`, `code`, `description`, `weightage`, `sta
 --
 
 CREATE TABLE `fee_categories` (
-  `id` int NOT NULL,
-  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `id` int(11) NOT NULL,
+  `name` varchar(100) NOT NULL,
+  `description` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -1163,17 +1167,17 @@ INSERT INTO `fee_categories` (`id`, `name`, `description`, `created_at`, `update
 --
 
 CREATE TABLE `fee_payments` (
-  `id` int NOT NULL,
-  `student_id` int NOT NULL,
-  `fee_structure_id` int NOT NULL,
+  `id` int(11) NOT NULL,
+  `student_id` int(11) NOT NULL,
+  `fee_structure_id` int(11) NOT NULL,
   `amount` decimal(10,2) NOT NULL,
   `payment_date` date NOT NULL,
-  `payment_method` enum('cash','bank_transfer','check','mobile_banking') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT 'cash',
-  `transaction_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `status` enum('paid','pending','partial') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT 'pending',
-  `collected_by` int NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `payment_method` enum('cash','bank_transfer','check','mobile_banking') DEFAULT 'cash',
+  `transaction_id` varchar(100) DEFAULT NULL,
+  `status` enum('paid','pending','partial') DEFAULT 'pending',
+  `collected_by` int(11) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -1183,14 +1187,39 @@ CREATE TABLE `fee_payments` (
 --
 
 CREATE TABLE `fee_structures` (
-  `id` int NOT NULL,
-  `class_id` int NOT NULL,
-  `fee_category_id` int NOT NULL,
+  `id` int(11) NOT NULL,
+  `class_id` int(11) NOT NULL,
+  `fee_category_id` int(11) NOT NULL,
   `amount` decimal(10,2) NOT NULL,
-  `academic_year` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `academic_year` varchar(20) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `five_pass_certificate_info`
+--
+
+CREATE TABLE `five_pass_certificate_info` (
+  `id` int(11) NOT NULL,
+  `student_id` int(11) NOT NULL,
+  `gpa` varchar(10) NOT NULL,
+  `exam_year` varchar(10) NOT NULL,
+  `certificate_id` varchar(32) NOT NULL,
+  `issue_date` date NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `five_pass_certificate_info`
+--
+
+INSERT INTO `five_pass_certificate_info` (`id`, `student_id`, `gpa`, `exam_year`, `certificate_id`, `issue_date`) VALUES
+(5, 176, 'পাশ', '2025', 'CPKS-2025-1', '2025-10-10'),
+(6, 177, 'পাশ', '2025', 'CPKS-2025-2', '2025-10-10'),
+(7, 1, 'Pass', '2026', 'CPKS-2026-2', '2025-10-01'),
+(8, 173, 'পাস', '2025', 'CPKS-2025-4', '2025-10-01');
 
 -- --------------------------------------------------------
 
@@ -1199,9 +1228,9 @@ CREATE TABLE `fee_structures` (
 --
 
 CREATE TABLE `guardian_relations` (
-  `id` int NOT NULL,
-  `name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+  `id` int(11) NOT NULL,
+  `name` varchar(50) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -1226,13 +1255,13 @@ INSERT INTO `guardian_relations` (`id`, `name`, `created_at`) VALUES
 --
 
 CREATE TABLE `holidays` (
-  `id` int NOT NULL,
-  `title` varchar(255) CHARACTER SET utf8mb3 NOT NULL,
+  `id` int(11) NOT NULL,
+  `title` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL,
   `date` date NOT NULL,
-  `description` text CHARACTER SET utf8mb3,
-  `status` enum('active','inactive') CHARACTER SET utf8mb3 NOT NULL DEFAULT 'active',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `description` text CHARACTER SET utf8 COLLATE utf8_general_ci DEFAULT NULL,
+  `status` enum('active','inactive') CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL DEFAULT 'active',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -1242,13 +1271,13 @@ CREATE TABLE `holidays` (
 --
 
 CREATE TABLE `homework` (
-  `id` int NOT NULL,
-  `class_id` int NOT NULL,
-  `section_id` int NOT NULL,
-  `subject` varchar(100) CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci NOT NULL,
-  `homework_text` text CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci NOT NULL,
+  `id` int(11) NOT NULL,
+  `class_id` int(11) NOT NULL,
+  `section_id` int(11) NOT NULL,
+  `subject` varchar(100) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,
+  `homework_text` text CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,
   `due_date` date NOT NULL,
-  `created_by` int DEFAULT NULL,
+  `created_by` int(11) DEFAULT NULL,
   `created_at` datetime NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -1266,17 +1295,17 @@ INSERT INTO `homework` (`id`, `class_id`, `section_id`, `subject`, `homework_tex
 --
 
 CREATE TABLE `leave_applications` (
-  `id` int NOT NULL,
-  `student_id` int NOT NULL,
-  `guardian_id` int NOT NULL,
-  `leave_type` enum('sick','personal','family','other') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
+  `id` int(11) NOT NULL,
+  `student_id` int(11) NOT NULL,
+  `guardian_id` int(11) NOT NULL,
+  `leave_type` enum('sick','personal','family','other') NOT NULL,
   `start_date` date NOT NULL,
   `end_date` date NOT NULL,
-  `reason` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `status` enum('pending','approved','rejected') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT 'pending',
-  `approved_by` int DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `reason` text NOT NULL,
+  `status` enum('pending','approved','rejected') DEFAULT 'pending',
+  `approved_by` int(11) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -1286,15 +1315,15 @@ CREATE TABLE `leave_applications` (
 --
 
 CREATE TABLE `lesson_evaluation` (
-  `id` int NOT NULL,
-  `teacher_id` int NOT NULL,
-  `class_id` int NOT NULL,
-  `section_id` int NOT NULL,
-  `subject` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
+  `id` int(11) NOT NULL,
+  `teacher_id` int(11) NOT NULL,
+  `class_id` int(11) NOT NULL,
+  `section_id` int(11) NOT NULL,
+  `subject` varchar(100) NOT NULL,
   `date` date NOT NULL,
-  `evaluated_students` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `is_completed` tinyint(1) NOT NULL DEFAULT '0',
-  `remarks` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci,
+  `evaluated_students` text NOT NULL,
+  `is_completed` tinyint(1) NOT NULL DEFAULT 0,
+  `remarks` text DEFAULT NULL,
   `created_at` datetime NOT NULL,
   `updated_at` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -1317,7 +1346,10 @@ INSERT INTO `lesson_evaluation` (`id`, `teacher_id`, `class_id`, `section_id`, `
 (11, 17, 6, 13, 'বাংলাদেশ ও বিশ্বপরিচয়', '2025-09-23', '[\"66\",\"71\",\"73\",\"78\"]', 0, '', '2025-09-23 06:39:02', NULL),
 (12, 20, 7, 14, 'সাধারণ জ্ঞান, আরবি ও চিত্রাঙ্কন', '2025-09-29', '[\"81\",\"83\",\"85\",\"87\"]', 0, '', '2025-09-29 17:55:48', NULL),
 (13, 20, 7, 14, 'ইংরেজি', '2025-09-30', '[\"83\",\"89\",\"91\",\"95\",\"98\"]', 0, '', '2025-09-30 05:28:25', NULL),
-(14, 20, 7, 14, 'সাধারণ জ্ঞান, আরবি ও চিত্রাঙ্কন', '2025-09-30', '[\"80\",\"82\",\"86\",\"90\",\"98\"]', 0, '', '2025-09-30 18:07:27', NULL);
+(14, 20, 7, 14, 'সাধারণ জ্ঞান, আরবি ও চিত্রাঙ্কন', '2025-09-30', '[\"80\",\"82\",\"86\",\"90\",\"98\"]', 0, '', '2025-09-30 18:07:27', NULL),
+(15, 17, 7, 14, 'গণিত', '2025-10-08', '[\"80\",\"81\",\"82\",\"95\"]', 0, '', '2025-10-08 20:16:13', NULL),
+(16, 20, 2, 3, 'ইংরেজি', '2025-10-08', '[\"39\",\"45\",\"50\",\"52\",\"54\"]', 0, '', '2025-10-08 20:16:40', NULL),
+(17, 17, 8, 15, 'বাংলা', '2025-10-08', '[\"101\",\"103\"]', 0, '', '2025-10-08 20:47:20', NULL);
 
 -- --------------------------------------------------------
 
@@ -1326,107 +1358,14 @@ INSERT INTO `lesson_evaluation` (`id`, `teacher_id`, `class_id`, `section_id`, `
 --
 
 CREATE TABLE `marks` (
-  `id` int NOT NULL,
-  `exam_id` int NOT NULL,
-  `exam_subject_id` int NOT NULL,
-  `student_id` int NOT NULL,
-  `obtained_marks` decimal(8,2) DEFAULT '0.00',
-  `entered_by` int DEFAULT NULL,
-  `entered_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `id` int(11) NOT NULL,
+  `student_id` int(11) NOT NULL,
+  `exam_id` int(11) NOT NULL,
+  `subject_id` int(11) NOT NULL,
+  `head_id` int(11) DEFAULT NULL,
+  `marks_obtained` decimal(5,2) NOT NULL,
+  `remarks` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `marks`
---
-
-INSERT INTO `marks` (`id`, `exam_id`, `exam_subject_id`, `student_id`, `obtained_marks`, `entered_by`, `entered_at`, `updated_at`) VALUES
-(1, 1, 1, 79, 89.00, 17, '2025-09-19 18:01:20', '2025-09-19 19:38:15'),
-(2, 1, 1, 80, 80.00, 17, '2025-09-19 19:07:30', '2025-09-19 19:38:13'),
-(3, 1, 1, 81, 79.00, 17, '2025-09-19 19:07:41', '2025-09-19 19:38:20'),
-(4, 1, 3, 79, 87.00, 17, '2025-09-19 19:10:52', '2025-09-19 19:24:10'),
-(5, 1, 3, 94, 52.00, 17, '2025-09-19 19:12:35', '2025-09-19 19:12:35'),
-(6, 1, 3, 95, 45.00, 17, '2025-09-19 19:12:35', '2025-09-19 19:12:35'),
-(7, 1, 3, 96, 48.00, 17, '2025-09-19 19:12:36', '2025-09-19 19:12:36'),
-(8, 1, 3, 97, 74.00, 17, '2025-09-19 19:12:36', '2025-09-19 19:12:36'),
-(9, 1, 3, 98, 96.00, 17, '2025-09-19 19:12:37', '2025-09-19 19:12:37'),
-(10, 1, 3, 99, 80.00, 17, '2025-09-19 19:12:39', '2025-09-19 19:12:39'),
-(11, 1, 3, 82, 74.00, 17, '2025-09-19 19:15:25', '2025-09-19 19:25:29'),
-(12, 1, 3, 80, 89.00, 17, '2025-09-19 19:23:23', '2025-09-19 19:25:20'),
-(13, 1, 3, 83, 17.00, 17, '2025-09-19 19:23:42', '2025-09-19 19:23:42'),
-(14, 1, 1, 98, 59.42, 17, '2025-09-19 19:39:21', '2025-09-19 19:39:21'),
-(15, 1, 1, 99, 47.50, 17, '2025-09-19 19:39:28', '2025-09-19 19:39:28'),
-(16, 1, 2, 79, 75.00, 17, '2025-09-19 20:02:30', '2025-09-19 20:02:30'),
-(17, 1, 2, 80, 89.00, 17, '2025-09-19 20:02:31', '2025-09-19 20:02:31'),
-(18, 1, 2, 81, 74.00, 17, '2025-09-19 20:02:32', '2025-09-19 20:02:32'),
-(19, 1, 2, 82, 71.00, 17, '2025-09-19 20:02:33', '2025-09-19 20:02:33'),
-(20, 1, 2, 83, 41.00, 17, '2025-09-19 20:02:34', '2025-09-19 20:02:34'),
-(21, 1, 2, 84, 45.50, 17, '2025-09-19 20:02:35', '2025-09-22 12:08:39'),
-(22, 1, 2, 85, 58.00, 17, '2025-09-19 20:02:36', '2025-09-19 20:02:37'),
-(23, 1, 2, 86, 75.00, 17, '2025-09-19 20:02:38', '2025-09-19 20:02:38'),
-(24, 1, 2, 87, 4.00, 17, '2025-09-19 20:02:41', '2025-09-19 20:02:41'),
-(25, 1, 2, 88, 57.00, 17, '2025-09-19 20:02:42', '2025-09-19 20:02:42'),
-(26, 1, 2, 89, 35.00, 17, '2025-09-19 20:02:45', '2025-09-21 20:22:51'),
-(27, 1, 2, 90, 25.00, 17, '2025-09-19 20:02:46', '2025-09-19 20:02:46'),
-(28, 1, 2, 91, 25.00, 17, '2025-09-19 20:02:47', '2025-09-19 20:02:47'),
-(29, 1, 2, 92, 58.00, 17, '2025-09-19 20:02:48', '2025-09-19 20:02:48'),
-(30, 1, 2, 93, 42.00, 17, '2025-09-19 20:02:49', '2025-09-19 20:02:49'),
-(31, 1, 2, 94, 34.00, 17, '2025-09-19 20:02:50', '2025-09-19 20:02:50'),
-(32, 1, 4, 79, 54.00, 17, '2025-09-19 20:02:59', '2025-09-19 20:02:59'),
-(33, 1, 4, 80, 14.00, 17, '2025-09-19 20:03:00', '2025-09-19 20:03:00'),
-(34, 1, 4, 81, 78.00, 17, '2025-09-19 20:03:01', '2025-09-19 20:03:01'),
-(35, 1, 4, 82, 98.00, 17, '2025-09-19 20:03:02', '2025-09-19 20:03:02'),
-(36, 1, 4, 83, 75.00, 17, '2025-09-19 20:03:02', '2025-09-19 20:03:02'),
-(37, 1, 4, 84, 95.00, 17, '2025-09-19 20:03:03', '2025-09-19 20:03:03'),
-(38, 1, 4, 85, 85.00, 17, '2025-09-19 20:03:04', '2025-09-19 20:03:04'),
-(39, 1, 4, 86, 84.00, 17, '2025-09-19 20:03:05', '2025-09-19 20:03:05'),
-(40, 1, 4, 87, 30.00, 17, '2025-09-19 20:03:06', '2025-09-19 20:03:06'),
-(41, 1, 4, 88, 45.00, 17, '2025-09-19 20:03:07', '2025-09-19 20:03:07'),
-(42, 1, 4, 89, 98.00, 17, '2025-09-19 20:03:08', '2025-09-21 20:23:22'),
-(43, 1, 3, 89, 80.00, 17, '2025-09-21 20:23:00', '2025-09-21 20:23:00'),
-(44, 1, 1, 89, 98.00, 17, '2025-09-21 20:23:09', '2025-09-21 20:23:09'),
-(45, 1, 2, 95, 85.00, 17, '2025-09-22 12:08:27', '2025-09-22 12:08:27'),
-(46, 1, 2, 96, 41.00, 17, '2025-09-22 12:08:28', '2025-09-22 12:08:28'),
-(47, 1, 2, 97, 24.50, 17, '2025-09-22 12:08:31', '2025-09-22 12:08:31'),
-(48, 1, 2, 98, 24.00, 17, '2025-09-22 12:08:33', '2025-09-22 12:08:33'),
-(54, 2, 30, 56, 45.00, 20, '2025-10-02 04:49:47', '2025-10-02 04:49:47'),
-(55, 2, 30, 57, 41.00, 20, '2025-10-02 04:49:48', '2025-10-02 04:49:48'),
-(56, 2, 30, 58, 47.00, 20, '2025-10-02 04:49:49', '2025-10-02 04:49:49'),
-(57, 2, 30, 59, 85.00, 20, '2025-10-02 04:49:50', '2025-10-02 04:49:50'),
-(58, 2, 30, 60, 95.00, 20, '2025-10-02 04:49:51', '2025-10-02 04:49:51'),
-(59, 2, 30, 61, 64.00, 20, '2025-10-02 04:49:52', '2025-10-02 04:49:52'),
-(60, 2, 30, 62, 75.00, 20, '2025-10-02 04:49:52', '2025-10-02 04:49:52'),
-(61, 2, 30, 63, 85.00, 20, '2025-10-02 04:49:53', '2025-10-02 04:49:53'),
-(62, 2, 30, 64, 41.00, 20, '2025-10-02 04:49:54', '2025-10-02 04:49:54'),
-(63, 2, 30, 65, 42.00, 20, '2025-10-02 04:49:56', '2025-10-02 04:49:56'),
-(64, 2, 26, 56, 42.00, 20, '2025-10-02 04:50:04', '2025-10-02 04:50:04'),
-(65, 2, 26, 57, 85.00, 20, '2025-10-02 04:50:05', '2025-10-02 04:50:31'),
-(66, 2, 26, 58, 85.00, 20, '2025-10-02 04:50:06', '2025-10-02 04:50:11'),
-(67, 2, 26, 59, 45.00, 20, '2025-10-02 04:50:12', '2025-10-02 04:50:12'),
-(68, 2, 26, 60, 95.00, 20, '2025-10-02 04:50:13', '2025-10-02 04:50:13'),
-(69, 2, 26, 61, 75.00, 20, '2025-10-02 04:50:13', '2025-10-02 04:50:13'),
-(70, 2, 26, 62, 22.00, 20, '2025-10-02 04:50:15', '2025-10-02 04:50:15'),
-(71, 2, 28, 56, 45.00, 20, '2025-10-02 04:50:53', '2025-10-02 04:50:53'),
-(72, 2, 28, 57, 75.00, 20, '2025-10-02 04:50:54', '2025-10-02 04:50:54'),
-(73, 2, 28, 58, 96.00, 20, '2025-10-02 04:50:55', '2025-10-02 04:50:55'),
-(74, 2, 28, 59, 74.00, 20, '2025-10-02 04:50:55', '2025-10-02 04:50:55'),
-(75, 2, 28, 60, 72.00, 20, '2025-10-02 04:50:56', '2025-10-02 04:50:56'),
-(76, 2, 28, 61, 82.00, 20, '2025-10-02 04:50:57', '2025-10-02 04:50:57'),
-(77, 2, 28, 62, 76.00, 20, '2025-10-02 04:50:58', '2025-10-02 04:50:58'),
-(78, 2, 28, 63, 71.00, 20, '2025-10-02 04:51:00', '2025-10-02 04:51:00'),
-(79, 2, 25, 56, 45.00, 20, '2025-10-02 04:52:41', '2025-10-02 04:52:41'),
-(80, 2, 25, 57, 42.00, 20, '2025-10-02 04:52:41', '2025-10-02 04:52:41'),
-(81, 2, 25, 58, 41.00, 20, '2025-10-02 04:52:42', '2025-10-02 04:52:42'),
-(82, 2, 25, 59, 47.00, 20, '2025-10-02 04:52:43', '2025-10-02 04:52:43'),
-(83, 2, 25, 60, 48.00, 20, '2025-10-02 04:52:43', '2025-10-02 04:52:43'),
-(84, 2, 25, 61, 33.00, 20, '2025-10-02 04:52:45', '2025-10-02 04:52:45'),
-(85, 2, 25, 62, 25.00, 20, '2025-10-02 04:52:50', '2025-10-02 04:52:50'),
-(86, 2, 25, 63, 45.00, 20, '2025-10-02 04:52:50', '2025-10-02 04:52:50'),
-(87, 2, 25, 64, 71.00, 20, '2025-10-02 04:52:52', '2025-10-02 04:52:52'),
-(88, 2, 25, 65, 64.00, 20, '2025-10-02 04:52:53', '2025-10-02 04:52:53'),
-(89, 2, 25, 66, 62.00, 20, '2025-10-02 04:52:54', '2025-10-02 04:52:54'),
-(90, 2, 25, 67, 57.00, 20, '2025-10-02 04:52:56', '2025-10-02 04:52:56'),
-(91, 2, 25, 68, 35.00, 20, '2025-10-02 04:52:58', '2025-10-02 04:52:58');
 
 -- --------------------------------------------------------
 
@@ -1435,15 +1374,15 @@ INSERT INTO `marks` (`id`, `exam_id`, `exam_subject_id`, `student_id`, `obtained
 --
 
 CREATE TABLE `notices` (
-  `id` int NOT NULL,
-  `title` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `target_audience` enum('all','teachers','guardians','students') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT 'all',
+  `id` int(11) NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `content` text NOT NULL,
+  `target_audience` enum('all','teachers','guardians','students') DEFAULT 'all',
   `publish_date` date NOT NULL,
   `expire_date` date DEFAULT NULL,
-  `created_by` int NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `created_by` int(11) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -1453,17 +1392,17 @@ CREATE TABLE `notices` (
 --
 
 CREATE TABLE `routines` (
-  `id` int NOT NULL,
-  `class_id` int NOT NULL,
-  `section_id` int NOT NULL,
-  `day_of_week` enum('saturday','sunday','monday','tuesday','wednesday','thursday','friday') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `period_number` int NOT NULL,
-  `subject_id` int NOT NULL,
-  `teacher_id` int NOT NULL,
+  `id` int(11) NOT NULL,
+  `class_id` int(11) NOT NULL,
+  `section_id` int(11) NOT NULL,
+  `day_of_week` enum('saturday','sunday','monday','tuesday','wednesday','thursday','friday') NOT NULL,
+  `period_number` int(11) NOT NULL,
+  `subject_id` int(11) NOT NULL,
+  `teacher_id` int(11) NOT NULL,
   `start_time` time NOT NULL,
   `end_time` time NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -1481,7 +1420,9 @@ INSERT INTO `routines` (`id`, `class_id`, `section_id`, `day_of_week`, `period_n
 (8, 6, 13, 'wednesday', 1, 5, 17, '22:08:00', '22:44:00', '2025-09-17 16:05:57', '2025-09-17 16:05:57'),
 (11, 7, 14, 'sunday', 2, 2, 20, '01:08:00', '05:08:00', '2025-09-19 19:08:38', '2025-09-19 19:08:38'),
 (12, 7, 14, 'tuesday', 3, 7, 20, '01:11:00', '07:09:00', '2025-09-19 19:09:10', '2025-09-19 19:09:10'),
-(13, 6, 13, 'sunday', 1, 10, 17, '10:52:00', '10:56:00', '2025-10-02 04:52:13', '2025-10-02 04:52:13');
+(13, 6, 13, 'sunday', 1, 10, 17, '10:52:00', '10:56:00', '2025-10-02 04:52:13', '2025-10-02 04:52:13'),
+(14, 7, 14, 'thursday', 3, 1, 17, '00:07:00', '00:08:00', '2025-10-08 18:07:24', '2025-10-08 18:07:24'),
+(15, 2, 3, 'thursday', 1, 2, 20, '00:14:00', '00:20:00', '2025-10-08 18:14:39', '2025-10-08 18:14:39');
 
 -- --------------------------------------------------------
 
@@ -1490,25 +1431,27 @@ INSERT INTO `routines` (`id`, `class_id`, `section_id`, `day_of_week`, `period_n
 --
 
 CREATE TABLE `school_info` (
-  `id` int NOT NULL,
-  `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `address` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `phone` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `email` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `logo` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `established_year` int DEFAULT NULL,
-  `principal_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `website` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `id` int(11) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `short_code` varchar(50) DEFAULT '',
+  `address` text NOT NULL,
+  `phone` varchar(20) DEFAULT NULL,
+  `email` varchar(100) DEFAULT NULL,
+  `logo` varchar(255) DEFAULT NULL,
+  `established_year` int(11) DEFAULT NULL,
+  `principal_name` varchar(100) DEFAULT NULL,
+  `principal_designation` varchar(100) DEFAULT '',
+  `website` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `school_info`
 --
 
-INSERT INTO `school_info` (`id`, `name`, `address`, `phone`, `email`, `logo`, `established_year`, `principal_name`, `website`, `created_at`, `updated_at`) VALUES
-(1, 'ক্যারিয়ার প্রি-ক্যাডেট স্কুল', 'জোড়পুকুরিয়া, গাংনী, মেহেরপুর', '+8801718868852', 'info@batighorbd.com', '1759164472_jss_logo.png', 2008, 'কামাল হোসেন', '', '2025-09-07 18:32:53', '2025-09-29 16:47:52');
+INSERT INTO `school_info` (`id`, `name`, `short_code`, `address`, `phone`, `email`, `logo`, `established_year`, `principal_name`, `principal_designation`, `website`, `created_at`, `updated_at`) VALUES
+(1, 'ক্যারিয়ার প্রি-ক্যাডেট স্কুল', 'CPKS', 'জোড়পুকুরিয়া, গাংনী, মেহেরপুর', '+8801757251434', 'info@batighorbd.com', '1760113471_jss_logo.png', 2012, 'মোঃ কামাল হোসেন', 'অধ্যক্ষ', 'https://cpks.edu.bd', '2025-09-07 18:32:53', '2025-10-10 16:24:31');
 
 -- --------------------------------------------------------
 
@@ -1517,15 +1460,15 @@ INSERT INTO `school_info` (`id`, `name`, `address`, `phone`, `email`, `logo`, `e
 --
 
 CREATE TABLE `sections` (
-  `id` int NOT NULL,
-  `class_id` int NOT NULL,
-  `name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `capacity` int DEFAULT NULL,
-  `room_number` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `section_teacher_id` int DEFAULT NULL,
-  `status` enum('active','inactive') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT 'active',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `id` int(11) NOT NULL,
+  `class_id` int(11) NOT NULL,
+  `name` varchar(50) NOT NULL,
+  `capacity` int(11) DEFAULT NULL,
+  `room_number` varchar(20) DEFAULT NULL,
+  `section_teacher_id` int(11) DEFAULT NULL,
+  `status` enum('active','inactive') DEFAULT 'active',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -1548,8 +1491,8 @@ INSERT INTO `sections` (`id`, `class_id`, `name`, `capacity`, `room_number`, `se
 --
 
 CREATE TABLE `settings` (
-  `key` varchar(100) CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci NOT NULL,
-  `value` text CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci
+  `key` varchar(100) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,
+  `value` text CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -1577,13 +1520,13 @@ INSERT INTO `settings` (`key`, `value`) VALUES
 --
 
 CREATE TABLE `sms_logs` (
-  `id` bigint UNSIGNED NOT NULL,
-  `student_id` bigint UNSIGNED DEFAULT NULL,
-  `mobile` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-  `message` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-  `status` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `sent_by` bigint UNSIGNED DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `student_id` bigint(20) UNSIGNED DEFAULT NULL,
+  `mobile` varchar(20) NOT NULL,
+  `message` text NOT NULL,
+  `status` varchar(32) DEFAULT NULL,
+  `sent_by` bigint(20) UNSIGNED DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
@@ -1638,7 +1581,10 @@ INSERT INTO `sms_logs` (`id`, `student_id`, `mobile`, `message`, `status`, `sent
 (45, 174, '01603321944', 'প্রিয় অভিভাবক, আপনার সন্তান নিশাত আমান রাফি আজ 2025-10-06 তারিখে উপস্থিত রয়েছে। -ক্যারিয়ার প্রি-ক্যাডেট স্কুল', 'present', 1, '2025-10-06 04:43:25'),
 (46, 175, '01319447505', 'প্রিয় অভিভাবক, আপনার সন্তান মোঃ আবুল হাসনাত উৎস আজ 2025-10-06 তারিখে অনুপস্থিত রয়েছে। -ক্যারিয়ার প্রি-ক্যাডেট স্কুল', 'absent', 1, '2025-10-06 04:43:26'),
 (47, 147, '01780195092', 'প্রিয় অভিভাবক, আপনার সন্তান Omor Faruk আজ 2025-10-06 তারিখে অনুপস্থিত রয়েছে। -ক্যারিয়ার প্রি-ক্যাডেট স্কুল', 'absent', 1, '2025-10-06 11:05:15'),
-(48, 148, '01885926363', 'প্রিয় অভিভাবক, আপনার সন্তান Md Hamim Ali আজ 2025-10-06 তারিখে অনুপস্থিত রয়েছে। -ক্যারিয়ার প্রি-ক্যাডেট স্কুল', 'absent', 1, '2025-10-06 11:05:16');
+(48, 148, '01885926363', 'প্রিয় অভিভাবক, আপনার সন্তান Md Hamim Ali আজ 2025-10-06 তারিখে অনুপস্থিত রয়েছে। -ক্যারিয়ার প্রি-ক্যাডেট স্কুল', 'absent', 1, '2025-10-06 11:05:16'),
+(49, 147, '01780195092', 'প্রিয় অভিভাবক, আপনার সন্তান Omor Faruk আজ 2025-10-07 তারিখে অনুপস্থিত রয়েছে। -ক্যারিয়ার প্রি-ক্যাডেট স্কুল', 'absent', 1, '2025-10-07 15:04:18'),
+(50, 148, '01885926363', 'প্রিয় অভিভাবক, আপনার সন্তান Md Hamim Ali আজ 2025-10-07 তারিখে অনুপস্থিত রয়েছে। -ক্যারিয়ার প্রি-ক্যাডেট স্কুল', 'absent', 1, '2025-10-07 15:04:19'),
+(51, 174, '01603321944', 'প্রিয় অভিভাবক, আপনার সন্তান নিশাত আমান রাফি আজ 2025-10-07 তারিখে অনুপস্থিত রয়েছে। -ক্যারিয়ার প্রি-ক্যাডেট স্কুল', 'absent', 1, '2025-10-07 15:04:20');
 
 -- --------------------------------------------------------
 
@@ -1647,11 +1593,11 @@ INSERT INTO `sms_logs` (`id`, `student_id`, `mobile`, `message`, `status`, `sent
 --
 
 CREATE TABLE `sms_templates` (
-  `id` int NOT NULL,
-  `title` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `id` int(11) NOT NULL,
+  `title` varchar(100) NOT NULL,
+  `content` text NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -1672,215 +1618,217 @@ INSERT INTO `sms_templates` (`id`, `title`, `content`, `created_at`, `updated_at
 --
 
 CREATE TABLE `students` (
-  `id` int NOT NULL,
-  `student_id` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `first_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `last_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `father_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `mother_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `guardian_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `guardian_relation` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `birth_certificate_no` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `id` int(11) NOT NULL,
+  `student_id` varchar(20) NOT NULL,
+  `first_name` varchar(50) NOT NULL,
+  `last_name` varchar(50) NOT NULL,
+  `father_name` varchar(100) DEFAULT NULL,
+  `mother_name` varchar(100) DEFAULT NULL,
+  `guardian_name` varchar(100) DEFAULT NULL,
+  `guardian_relation` varchar(50) DEFAULT NULL,
+  `birth_certificate_no` varchar(50) DEFAULT NULL,
   `date_of_birth` date NOT NULL,
-  `gender` enum('male','female','other') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `blood_group` varchar(5) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `religion` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `present_address` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci,
-  `permanent_address` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci,
-  `mobile_number` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `address` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci,
-  `city` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `country` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `photo` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `class_id` int NOT NULL,
-  `section_id` int NOT NULL,
-  `roll_number` int DEFAULT NULL,
-  `guardian_id` int DEFAULT NULL,
+  `gender` enum('male','female','other') NOT NULL,
+  `blood_group` varchar(5) DEFAULT NULL,
+  `religion` varchar(20) DEFAULT NULL,
+  `present_address` text DEFAULT NULL,
+  `permanent_address` text DEFAULT NULL,
+  `mobile_number` varchar(20) DEFAULT NULL,
+  `address` text DEFAULT NULL,
+  `city` varchar(50) DEFAULT NULL,
+  `country` varchar(50) DEFAULT NULL,
+  `photo` varchar(255) DEFAULT NULL,
+  `class_id` int(11) NOT NULL,
+  `section_id` int(11) NOT NULL,
+  `roll_number` int(11) DEFAULT NULL,
+  `guardian_id` int(11) DEFAULT NULL,
+  `year_id` int(5) NOT NULL,
   `admission_date` date DEFAULT NULL,
-  `status` enum('active','inactive','graduated') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT 'active',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `status` enum('active','inactive','graduated') DEFAULT 'active',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `students`
 --
 
-INSERT INTO `students` (`id`, `student_id`, `first_name`, `last_name`, `father_name`, `mother_name`, `guardian_name`, `guardian_relation`, `birth_certificate_no`, `date_of_birth`, `gender`, `blood_group`, `religion`, `present_address`, `permanent_address`, `mobile_number`, `address`, `city`, `country`, `photo`, `class_id`, `section_id`, `roll_number`, `guardian_id`, `admission_date`, `status`, `created_at`, `updated_at`) VALUES
-(1, 'STU20255317', 'আব্দুস', 'সালাম', 'খবির উদ্দীন', 'জাহানারা খাতুন', NULL, 'পিতা', '20125714773114142', '2012-02-21', 'male', 'O+', 'Islam', 'জোড়পুকুরিয়া, গাংনী, মেহেরপুর', 'জোড়পুকুরিয়া, গাংনী, মেহেরপুর', '01762396713', NULL, NULL, NULL, '1757338153_1757304574714.jpg', 1, 1, 1, NULL, '2025-09-08', 'active', '2025-09-07 21:00:41', '2025-09-08 13:29:13'),
-(3, 'STU20254030', 'মাহি', 'খাতুন', 'আব্দুল মমিন', 'নয়নতারা', NULL, 'পিতা', '20115714784112141', '2011-06-27', 'female', 'A-', 'Islam', 'বামুন্দী, গাংনী, মেহেরপুর', 'বামুন্দী, গাংনী, মেহেরপুর', '01885926363', NULL, NULL, NULL, '1757337777_aadadfff.jpg', 2, 3, 2, NULL, '2025-09-08', 'active', '2025-09-07 21:10:17', '2025-09-08 13:29:34'),
-(4, 'STU20259491', 'আয়মান', 'হোসেন', 'খাইবার হোসেন', 'জান্নাতুল খাতুন', NULL, 'মাতা', '20155714773112541', '2015-02-06', 'male', 'B+', 'Islam', 'জোড়পুকুরিয়া, গাংনী, মেহেরপুর', 'জোড়পুকুরিয়া, গাংনী, মেহেরপুর', '01762396713', NULL, NULL, NULL, '1757340672_1757308652924.jpg', 9, 12, 5, NULL, '2025-09-08', 'active', '2025-09-08 11:45:12', '2025-09-08 16:46:06'),
-(5, 'STU20256603', 'আহমদ ', 'কাবরান', 'আয়ুব আলী ', 'কামরুন্নাহার ', NULL, 'পিতা', '', '2025-09-02', 'male', 'B-', 'Islam', 'তেরাইল, জোড়পুকুরিয়া,  গাংনী, মেহেরপুর ', 'তেরাইল, জোড়পুকুরিয়া,  গাংনী, মেহেরপুর ', '01762396713', NULL, NULL, NULL, '1757357279_IMG-20250907-WA0003.jpg', 1, 1, 15, NULL, '2025-09-08', 'active', '2025-09-08 17:14:02', '2025-09-08 18:59:08'),
-(6, 'STU20250001', 'Atlatun Marzana', 'Nimu', 'Md Sharif Uddin', 'Mst Anjuman Ara Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Bhomordah', 'Bhomordah', '1716791512', '', '', 'Bangladesh', '', 1, 1, 1, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(7, 'STU20250002', 'Miss Sayma', 'Rahman', 'Md Sayedur Rahman', 'Mst Meherun Nessa', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Terail', 'Terail', '1917942667', '', '', 'Bangladesh', '', 1, 1, 2, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(8, 'STU20250003', 'Md Senzeed Zaman', 'Rafi', 'Md Asaduzzaman', 'Miss Sadia Farjana', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Shohorabaria', 'Shohorabaria', '1747777359', '', '', 'Bangladesh', '', 1, 1, 3, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(9, 'STU20250004', 'Mst Razia', 'Sultana', 'Md Shamim Asraf', 'Mst Nargis Parvin', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Bhrat', 'Bhrat', '1321585600', '', '', 'Bangladesh', '', 1, 1, 4, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(10, 'STU20250005', 'Wasfiya Jannat', 'Othe', 'Md shahidul Islam', 'Miss Jahanara Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Nisipur Bamondi', 'Nisipur Bamondi', '1721749703', '', '', 'Bangladesh', '', 1, 1, 5, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(11, 'STU20250006', 'Arisha', 'Islam', 'Md Ariful Islam', 'Mst Bobita Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Matmura', 'Matmura', '1724844154', '', '', 'Bangladesh', '', 1, 1, 6, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(12, 'STU20250007', 'Umme Jarin', 'Tabassum', 'Kh. Mohiuddin Bitas', 'Mst Jahanara Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Jorepukuria', 'Jorepukuria', '1875337670', '', '', 'Bangladesh', '', 1, 1, 7, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(13, 'STU20250008', 'Lima Parvin', 'Sammi', 'Md Sanarul Islam', 'Mst Fahima Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Bhomordad', 'Bhomordad', '1724454240', '', '', 'Bangladesh', '', 1, 1, 8, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(14, 'STU20250009', 'Mursalin Ahamed', 'Riju', 'Md Mokul Hossian', 'Mst Chompa Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Moheshpur', 'Moheshpur', '1773544372', '', '', 'Bangladesh', '', 1, 1, 9, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(15, 'STU20250010', 'Mst Mollika', 'Khatun', 'Md Osman Goni', 'Mst Champa Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Akubpur', 'Akubpur', '1767732137', '', '', 'Bangladesh', '', 1, 1, 10, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(16, 'STU20250011', 'Mst Roja', 'Islam', 'Md Asraful Islam', 'Sharmin', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Sholotaka', 'Sholotaka', '1763757311', '', '', 'Bangladesh', '', 1, 1, 11, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(17, 'STU20250012', 'Md Sagor', 'Hossain', 'Md Shaiful Islam', 'Mst Maniara Parven', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'jorepukuria', 'jorepukuria', '1762373868', '', '', 'Bangladesh', '', 1, 1, 12, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(18, 'STU20250013', 'Mst', 'Monira', 'Md Abdus Salam', 'Mst Mala', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Bamondi', 'Bamondi', '1755705709', '', '', 'Bangladesh', '', 1, 1, 13, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(19, 'STU20250014', 'Mst Fariha', 'Khatun', 'Md Selim Hossen', 'Mst Chompa Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Bamondi', 'Bamondi', '1311732906', '', '', 'Bangladesh', '', 1, 1, 14, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(20, 'STU20250015', 'Mst Abu Ismat', 'Brinty', 'Md Abu Bokor', 'Mst ', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Garabaria', 'Garabaria', '1727158852', '', '', 'Bangladesh', '', 1, 1, 15, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(21, 'STU20250016', 'Mst Sadia', 'Afrin', 'Mohammad Ali', 'Mst Kakoli Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Bhomordah', 'Bhomordah', '1720140141', '', '', 'Bangladesh', '', 1, 1, 16, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(22, 'STU20250017', 'Jannatul', 'Rose', 'Mohammad Hasannuzzaman Hasan', 'Mst Lovely Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Jorepukuria', 'Jorepukuria', '1771843793', '', '', 'Bangladesh', '', 1, 1, 17, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(23, 'STU20250018', 'Mst Nusrat Jahan', 'Summa', 'Md Saiful Islam', 'Mst Asma Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Jorepukuria', 'Jorepukuria', '1720908150', '', '', 'Bangladesh', '', 1, 1, 18, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(24, 'STU20250019', 'Md Yeasin', 'Arafat', 'Md Zahidul Islam', 'Mst Runa Nasrin', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Terail', 'Terail', '1770626028', '', '', 'Bangladesh', '', 1, 1, 19, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(25, 'STU20250020', 'Mst Tawrin', 'Tabassum', 'Md Gahangir Hasan', 'Mst Fuljhori Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Moheshpur', 'Moheshpur', '1718655703', '', '', 'Bangladesh', '', 1, 1, 20, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(26, 'STU20250021', 'Mst Ahosana Akter', 'Mim', 'Md Aklach', 'Mst Razia Sultana', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Hogoalbaria', 'Hogoalbaria', '1762743462', '', '', 'Bangladesh', '', 1, 1, 21, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(27, 'STU20250022', 'Md Abu', 'Huzaifa', 'Md Earul Islam', 'Mst Jasmin Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Sholotaka', 'Sholotaka', '1719307026', '', '', 'Bangladesh', '', 1, 1, 22, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(28, 'STU20250023', 'Mst. Elma', 'Khatun', 'Md Abdur Rahim ', 'Mst Kaniz Fatema', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Akubpur ', 'Akubpur ', '1737846928', '', '', 'Bangladesh', '', 1, 1, 23, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(29, 'STU20250024', 'Sinfa Noor', 'Esha', 'Md.Raihan', 'Mst.Sharmin', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Akubpur ', 'Akubpur ', '1329364959', '', '', 'Bangladesh', '', 1, 1, 24, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(30, 'STU20250025', 'Md Limon', 'Ali', 'Md Liton Ali', 'Mst Jasmen Akter', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Mailmaria', 'Mailmaria', '1714367983', '', '', 'Bangladesh', '', 1, 1, 25, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(31, 'STU20250026', 'Mst Abu Israt', 'Bushra', 'Md Abu Bakar ', 'Sreemoti Mita Rani Karmokar', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Garabaria', 'Garabaria', '1727158852', '', '', 'Bangladesh', '', 1, 1, 26, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(32, 'STU20250027', 'Md Tahmid', 'Islam', 'Md Masud Rana', 'Mst.Jasmen Akter', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Chargoalgram', 'Chargoalgram', '1323237591', '', '', 'Bangladesh', '', 1, 1, 27, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(33, 'STU20250028', 'Md Arafat', 'Rahman', 'MD Hasan Ali ', 'Mst Halima Khanom', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Jorepukuria', 'Jorepukuria', '1726127613', '', '', 'Bangladesh', '', 1, 1, 28, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(34, 'STU20250029', 'Md Jihad', 'Ali', 'Md Mobarak', 'Mst Kamrunnahar', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Sholotaka', 'Sholotaka', '1325201102', '', '', 'Bangladesh', '', 1, 1, 29, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(35, 'STU20250030', 'Md Galib', 'Ahmed', 'Md Ariful Islam', 'Mst Shathiara ', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Sholotaka', 'Sholotaka', '1770704861', '', '', 'Bangladesh', '', 1, 1, 30, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(36, 'STU20250031', 'Mst Sadea', 'Khatun', 'Md Esraf Hossen ', 'Mst.Shamoli Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Terail ', 'Terail ', '1967332948', '', '', 'Bangladesh', '', 2, 3, 1, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(37, 'STU20250032', 'Mst Sabiha Jahan', 'Mim', 'Md Jahidul Islam', 'Mst Razia Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Shohorabaria Jugir Gofa', 'Shohorabaria Jugir Gofa', '1719970704', '', '', 'Bangladesh', '', 2, 3, 2, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(38, 'STU20250033', 'Md Junaid', 'Islam', 'MD Rafikul Islam ', 'Mst Helena Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Durlovpur', 'Durlovpur', '1887837584', '', '', 'Bangladesh', '', 2, 3, 3, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(39, 'STU20250034', 'Md.Abdullah Bin Abdus', 'Satter', 'Md.Abdus Satter', 'Mst.Sabina Yesmin', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1763335834', '', '', 'Bangladesh', '', 2, 3, 4, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(40, 'STU20250035', 'Nur Mohammud', 'Naim', 'Md Shaharul Islam ', 'Priya Rahaman', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Bhomordha', 'Bhomordha', '1713917286', '', '', 'Bangladesh', '', 2, 3, 5, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(41, 'STU20250036', 'Mst.Summa', 'Khatun', 'Md.Abdul Karim', 'Mst.Rehana Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', '', '', '1703507267', '', '', 'Bangladesh', '', 2, 3, 6, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(42, 'STU20250037', 'Md Mahmudul Hasan', 'Fahim', 'Md Mamunur Rashid', 'Mst Champa Khatun Akhi', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Darmochaki', 'Darmochaki', '1783401164', '', '', 'Bangladesh', '', 2, 3, 7, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(43, 'STU20250038', 'Mst Kamona', 'Khatun', 'Md Fazlu', 'Mst Ratna Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Jorepukuria', 'Jorepukuria', '1315990762', '', '', 'Bangladesh', '', 2, 3, 8, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(44, 'STU20250039', 'Mst khadija', 'khatun', 'Md Hamidul Islam', 'Mst Lovely Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Shohorabaria Manikdia', 'Shohorabaria Manikdia', '1727159221', '', '', 'Bangladesh', '', 2, 3, 9, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(45, 'STU20250040', 'Mst Sumaiya', 'Khatun', 'Md Eleas Hossain ', 'Mst', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Bhomordaha', 'Bhomordaha', '1752715990', '', '', 'Bangladesh', '', 2, 3, 10, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(46, 'STU20250041', 'Mst Ayasha', 'Khatun', 'Md Anisur Rahman', 'Mst Yesmin', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Hogalbaria', 'Hogalbaria', '1721506654', '', '', 'Bangladesh', '', 2, 3, 11, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(47, 'STU20250042', 'Mst Raisa', 'Afrin', 'MD Biplab Hossen ', 'Mst Fahima Khan', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Jorpukuria', 'Jorpukuria', '1873683593', '', '', 'Bangladesh', '', 2, 3, 12, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(48, 'STU20250043', 'Mst Alifa', 'Israt', 'Md Ashraful Islam', 'Mst Rita Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Moheshpur', 'Moheshpur', '1758555314', '', '', 'Bangladesh', '', 2, 3, 13, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(49, 'STU20250044', 'Mst Mim', 'Khatun', 'MD Minaru Islam', 'Mst Asura Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Sindurkouta', 'Sindurkouta', '1777886025', '', '', 'Bangladesh', '', 2, 3, 14, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(50, 'STU20250045', 'MSt Tahsina', 'Tafannum', 'Md Al Mamun ', 'Mst farshia Aktar', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Chatian', 'Chatian', '1771172658', '', '', 'Bangladesh', '', 2, 3, 15, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(51, 'STU20250046', 'Md As', 'Saif', 'Md Uzzal Hossain', 'Mst Sharmin Sultana', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Hogoalbaria', 'Hogoalbaria', '1880439767', '', '', 'Bangladesh', '', 2, 3, 16, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(52, 'STU20250047', 'Mst Lamia', 'Aktar', 'Md Gaffarul Islam', 'MSt Nilufa Easmin', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Moheshpur', 'Moheshpur', '1300324193', '', '', 'Bangladesh', '', 2, 3, 17, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(53, 'STU20250048', 'Nur Mohammud', 'Jubayer', 'MD Abul Kalam Azad', 'Mst Champa Khatun ', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'jorepukuria', 'jorepukuria', '1733039546', '', '', 'Bangladesh', '', 2, 3, 18, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(54, 'STU20250049', 'Md', 'Hamim', 'Md Zillur Rohoman', 'Mst Khadija Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Bamondi', 'Bamondi', '1893272448', '', '', 'Bangladesh', '', 2, 3, 19, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(55, 'STU20250050', 'Fardin', 'Rishan', 'Joynal Abadin', 'Mst Firoja Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '0', '0', '1766233152', '', '', 'Bangladesh', '', 2, 3, 20, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(56, 'STU20250051', 'Kumari Supti', 'Karmokar', 'Kamol Karmakar', 'Sreemoti Mita Rani Karmokar', NULL, '', '', '2012-05-21', 'female', '', 'Hindu', 'Sholotaka', 'Sholotaka', '1719456376', '', '', 'Bangladesh', '', 6, 13, 1, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(57, 'STU20250052', 'Mst Chadni', 'Khatun', 'Md Kalu', 'Mst Taslima Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Bhorat', 'Bhorat', '1742830085', '', '', 'Bangladesh', '', 6, 13, 2, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(58, 'STU20250053', 'Md Junaid', 'Bagdadi', 'Md Jahidul Islam', 'Miss Sadia Farjana', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Shohorabaria', 'Shohorabaria', '1719970704', '', '', 'Bangladesh', '', 6, 13, 3, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(59, 'STU20250054', 'Sree Hemendro', 'Dash', 'Mohadeb Chandro Das', 'Sreemoti Himarani Dashi', NULL, '', '', '2012-05-21', 'male', '', 'Hindu', 'Bhomordah', 'Bhomordah', '1915359071', '', '', 'Bangladesh', '', 6, 13, 4, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(60, 'STU20250055', 'Mst Mimma', 'Khatun', 'Md Mijanur Rohman', 'Mst Khushiara', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Bhorat', 'Bhorat', '1326457505', '', '', 'Bangladesh', '', 6, 13, 5, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(61, 'STU20250056', 'Mst Shefa', 'Khatun', 'MD Shahazan', 'Mst Champa Khatun ', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'jorepukuria', 'jorepukuria', '1822623336', '', '', 'Bangladesh', '', 6, 13, 6, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(62, 'STU20250057', 'Md Sakibul', 'Islam', 'Md Jatirul Islam', 'Mst Shahanaz Parvin', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Terail', 'Terail', '1720564656', '', '', 'Bangladesh', '', 6, 13, 7, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(63, 'STU20250058', 'MD', 'Hossain', 'Md Mohabul Alom', 'Mst Forida Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Shimultola ', 'Shimultola ', '1771748633', '', '', 'Bangladesh', '', 6, 13, 8, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(64, 'STU20250059', 'Mst', 'Jenat', 'Md Abubakkor Siddique', 'Mst Kamrunnahar', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Jorepukuria', 'Jorepukuria', '1744212256', '', '', 'Bangladesh', '', 6, 13, 9, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(65, 'STU20250060', 'Md', 'Muttakin', 'Md Atiar Rohman', 'Mst Hosneara Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Jorepukuria', 'Jorepukuria', '1813628335', '', '', 'Bangladesh', '', 6, 13, 10, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(66, 'STU20250061', 'Mst Nusrat Jahan', 'Nur', 'Md Rayhan Uddin', 'Mst Kakoli Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Jorepukuria', 'Jorepukuria', '1855682075', '', '', 'Bangladesh', '', 6, 13, 11, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(67, 'STU20250062', 'Md Sajjad Hossain', 'Jisan', 'MD Ripon Ali', 'Mst Tumpa Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Shimultola ', 'Shimultola ', '1724843866', '', '', 'Bangladesh', '', 6, 13, 12, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(68, 'STU20250063', 'Raj', 'Ahmed', 'Md Nazmul Haque', 'Shatiara', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Akubpur ', 'Akubpur ', '1307306796', '', '', 'Bangladesh', '', 6, 13, 13, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(69, 'STU20250064', 'Md', 'sanaullah', 'Md Mohibul Huqe', 'Murashida', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Terail Jorepukuria', 'Terail Jorepukuria', '1305956657', '', '', 'Bangladesh', '', 6, 13, 14, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(70, 'STU20250065', 'Mst Rotna', 'Khatun', 'Md Rofikul Islam', 'Mst Nargisa Begom', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Dharmochaki', 'Dharmochaki', '1767914653', '', '', 'Bangladesh', '', 6, 13, 15, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(71, 'STU20250066', 'Md', 'Tamim', 'Md Zillur Rohoman', 'Mst Khadija Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Terail Jorepukuria', 'Terail Jorepukuria', '1893272418', '', '', 'Bangladesh', '', 6, 13, 16, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(72, 'STU20250067', 'Md', 'Abdullah', 'Md Ashraful Islam', 'Mst Roni Ara Khatun 74', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Durlavpur', 'Durlavpur', '1740112172', '', '', 'Bangladesh', '', 6, 13, 17, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(73, 'STU20250068', '', 'Saiful', 'Md', 'Mst Asma Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Jorepukur', 'Jorepukur', '1765147288', '', '', 'Bangladesh', '', 6, 13, 18, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(74, 'STU20250069', 'Anika Akther', 'Adila', 'Md.Ariful Islam', 'Rumana Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', '0', '0', '1766233152', '', '', 'Bangladesh', '', 6, 13, 19, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(75, 'STU20250070', 'Md Sumaiya', 'Khatun', 'Abdul Hanif', 'Mst Sova Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Munda Badiapara', 'Munda Badiapara', '1311299839', '', '', 'Bangladesh', '', 6, 13, 20, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(76, 'STU20250071', 'Md TamIm', 'Iqbal', 'Md Mahabbot Ali', 'Mst Tunuara', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Olinagor', 'Olinagor', '1969237695', '', '', 'Bangladesh', '', 6, 13, 21, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(77, 'STU20250072', 'Nayeem', 'Hasan', 'Md Kaber Ali', 'Mst Shiuli Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Olinagor', 'Olinagor', '1974326652', '', '', 'Bangladesh', '', 6, 13, 22, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(78, 'STU20250073', 'Oliur', 'Rahman', 'Md Mahfuzur Rahman ', 'Mst Rahana Katun ', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Simultala ', 'Simultala ', '1767962896', '', '', 'Bangladesh', '', 6, 13, 23, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(79, 'STU20250074', 'Md', 'Siam', 'Milon Hosen', 'Mst Shamoly Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Durlovpur ', 'Durlovpur ', '1718704252', '', '', 'Bangladesh', '', 7, 14, 1, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(80, 'STU20250075', 'Mst Tahiya', 'Afroj', 'Md Khairul Islam ', 'Mst Ria Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Moheshpur', 'Moheshpur', '1642901286', '', '', 'Bangladesh', '', 7, 14, 2, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(81, 'STU20250076', 'Md Jihad', 'Hosen', 'MD Shamsul Haque', 'Mst Angura Kahtun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Jorpukuria', 'Jorpukuria', '1852879100', '', '', 'Bangladesh', '', 7, 14, 3, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(82, 'STU20250077', 'Mst Sneha Aktar', 'Suraiya', 'Md Shohel Rana', 'MSt Bina Khatun', NULL, 'পিতা', '', '2012-05-21', 'female', '', 'Islam', 'Jorepukuria ', 'Jorepukuria ', '1779065423', '', '', 'Bangladesh', '1757641538_halim.jpg', 7, 14, 4, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-12 01:45:38'),
-(83, 'STU20250078', 'Md Mustakin', 'Ahmed', 'Md Nasim Ahammed', 'Mst Bobita Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Chatian', 'Chatian', '1727379973', '', '', 'Bangladesh', '', 7, 14, 5, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(84, 'STU20250079', 'Md Shafin', 'Reja', 'Md Hamidul Haque', 'Mst Majada Khatun ', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Bhomordaha', 'Bhomordaha', '1876843351', '', '', 'Bangladesh', '', 7, 14, 6, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(85, 'STU20250080', 'Md Abu', 'Laich', 'Bozlu Rahman', 'Mst Munmun Faarjana', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Dharmochaki', 'Dharmochaki', '1939215580', '', '', 'Bangladesh', '', 7, 14, 7, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(86, 'STU20250081', 'Mst Khatune', 'Jannat', 'Md Baridul ', 'Mst Rozina Begum ', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Terail', 'Terail', '1742605237', '', '', 'Bangladesh', '', 7, 14, 8, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(87, 'STU20250082', 'Mst', 'Nisat', 'Md Bokul ali', 'Mst Taslima Aktar Chumki', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Nishipur Bamondi', 'Nishipur Bamondi', '1973638261', '', '', 'Bangladesh', '', 7, 14, 9, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(88, 'STU20250083', '', 'Md', 'Md', '', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '0', '', '', 'Bangladesh', '', 7, 14, 10, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(89, 'STU20250084', 'Md', 'Siam', 'Md Kaosar Ali', 'Mst Nur Easmin ', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Terail', 'Terail', '1316266806', '', '', 'Bangladesh', '', 7, 14, 11, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(90, 'STU20250085', 'Md TamIm', 'Iqbal', 'Ziaur', 'Mst Tunuara', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Nowda Motmura', 'Nowda Motmura', '1779070967', '', '', 'Bangladesh', '', 7, 14, 12, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(91, 'STU20250086', '', 'Shahria', 'Md.Montu', 'Mst Nasrin', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1782594628', '', '', 'Bangladesh', '', 7, 14, 13, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(92, 'STU20250087', 'Mst Jinia', 'aktar', 'Md Jinarul Islam ', 'Mst sharmin Aktar', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Motmura', 'Motmura', '1319940408', '', '', 'Bangladesh', '', 7, 14, 14, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(93, 'STU20250088', 'MD Mostakim Hoseen', 'Siam', 'Md Sohel Rana', 'Mst Shirina Begum', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Jorpukuria', 'Jorpukuria', '1773189964', '', '', 'Bangladesh', '', 7, 14, 15, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(94, 'STU20250089', 'Tasmia', 'Tahmid', 'Md Azad Ali', 'Mst champa Kali', NULL, '', '', '2012-05-21', 'female', '', 'Islam', '', '', '1787283350', '', '', 'Bangladesh', '', 7, 14, 16, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(95, 'STU20250090', 'Md', 'Nahid', 'Shamsher Ali ', 'MSt champa Kali', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'M', 'M', '1742863788', '', '', 'Bangladesh', '', 7, 14, 17, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(96, 'STU20250091', '', 'Sabbir', 'Md Sohel Rana', 'Mst.Rupa', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1967563772', '', '', 'Bangladesh', '', 7, 14, 18, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(97, 'STU20250092', 'Mst', 'Ruhi', 'Rasel ', 'Mst Nahida Aktar Riya', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Motmura ', 'Motmura ', '1838479552', '', '', 'Bangladesh', '', 7, 14, 19, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(98, 'STU20250093', '', 'Sonjib', 'Md', '', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1798453110', '', '', 'Bangladesh', '', 7, 14, 20, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(99, 'STU20250094', 'Md Rifat', 'Hosen', 'Md Rahin ', 'Mst Sanjida Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Jorepukuria', 'Jorepukuria', '1931237279', '', '', 'Bangladesh', '', 7, 14, 21, NULL, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:39:27'),
-(100, 'STU20250095', '', 'Ranok', 'Md', '', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1788974370', '', '', 'Bangladesh', '', 8, 15, 1, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(101, 'STU20250096', '', 'Sumaiya', 'Md', '', NULL, '', '', '2012-05-21', 'female', '', 'Islam', '', '', '1797067719', '', '', 'Bangladesh', '', 8, 15, 2, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(102, 'STU20250097', 'MD Al', 'Imran', 'MdMaruf Hossain', 'Mst Esmotara', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Jorepukuria', 'Jorepukuria', '1754999166', '', '', 'Bangladesh', '', 8, 15, 3, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(103, 'STU20250098', 'Sadifur', 'Rohman', 'Md Mijanur Rohman', 'Sathi Aktar', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'jorepukuria', 'jorepukuria', '1779634877', '', '', 'Bangladesh', '', 8, 15, 4, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(104, 'STU20250099', 'Mst Mukta', 'Khatun', 'Md Abudl Motin', 'Mst Arzina Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Bhorat ', 'Bhorat ', '1751102567', '', '', 'Bangladesh', '', 8, 15, 5, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(105, 'STU20250100', '', 'Alif', 'Md', '', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1963742940', '', '', 'Bangladesh', '', 8, 15, 6, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(106, 'STU20250101', 'MSt Samia', 'Aktar', 'Md Bacchu Mia', 'Mst Sabina Easmin', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Moheshpur', 'Moheshpur', '1706270520', '', '', 'Bangladesh', '', 8, 15, 7, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(107, 'STU20250102', '', 'Alif', 'Md ', '', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1330525489', '', '', 'Bangladesh', '', 8, 15, 8, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(108, 'STU20250103', 'Md Al', '', 'Md Khirul Islam ', 'Mst Rahina Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Bhomordah', 'Bhomordah', '1724143853', '', '', 'Bangladesh', '', 8, 15, 9, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(109, 'STU20250104', 'Md Rabiul', 'Islam', 'Ziaul', 'Mst Bilkis Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Jorepukuria', 'Jorepukuria', '1821110431', '', '', 'Bangladesh', '', 8, 15, 10, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(110, 'STU20250105', '', 'Jisan', 'Md', '', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1768050596', '', '', 'Bangladesh', '', 8, 15, 11, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(111, 'STU20250106', 'Md', 'Shalfi', 'MD Tahaz Uddin ', 'Mst Taslima Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Terail', 'Terail', '1723164293', '', '', 'Bangladesh', '', 8, 15, 12, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(112, 'STU20250107', 'Md', 'Tamim', 'Md Eklach Ali', 'Mst kanchon Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Sholotaka', 'Sholotaka', '1731221475', '', '', 'Bangladesh', '', 8, 15, 13, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(113, 'STU20250108', 'Mst Maria', 'Khatun', 'Md Helal ', 'Mst Helena Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Chatian', 'Chatian', '1300367871', '', '', 'Bangladesh', '', 8, 15, 14, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(114, 'STU20250109', 'MD Firoz Ahmed', 'famim', 'Md Based Mondol', 'Mst Firoza Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'jorepukuria', 'jorepukuria', '1798243130', '', '', 'Bangladesh', '', 8, 15, 15, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(115, 'STU20250110', 'Jerin', 'Tasnim', 'Md Zamat Ali', 'Mst Sathi Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Jorpukuria', 'Jorpukuria', '1703245343', '', '', 'Bangladesh', '', 8, 15, 16, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(116, 'STU20250111', 'Md Junaeid', 'Ahmad', 'Md Shiman ', 'Mst Khalede Khatun ', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Durlovpur ', 'Durlovpur ', '1842429214', '', '', 'Bangladesh', '', 8, 15, 17, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(117, 'STU20250112', 'Md Jeshan', 'Hossain', 'Md Tutul Hossain', 'Mst Rajia Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Jorepukuria', 'Jorepukuria', '1768050596', '', '', 'Bangladesh', '', 8, 15, 18, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(118, 'STU20250113', 'Md Safid Hossen', 'Sohan', 'Md Sadekur Rahman ', 'Shimu Akhtar', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Durlovpur Bamondi', 'Durlovpur Bamondi', '1869904247', '', '', 'Bangladesh', '', 8, 15, 19, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(119, 'STU20250114', 'Md Safi', 'Reza', 'Nd Shahin reza', 'Mst Lotifa Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Sholotaka', 'Sholotaka', '1989785515', '', '', 'Bangladesh', '', 8, 15, 20, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(120, 'STU20250115', 'Md Parvej', 'Hasan', 'Md Mehedi Hasan ', 'Mst Parvina Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Chatian', 'Chatian', '1608433801', '', '', 'Bangladesh', '', 8, 15, 21, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(121, 'STU20250116', '', 'Borsha', 'Md ', '', NULL, '', '', '2012-05-21', 'female', '', 'Islam', '', '', '1795034137', '', '', 'Bangladesh', '', 8, 15, 22, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(122, 'STU20250117', 'Md', 'Limon', 'Md Habibur Rohman', 'Mst Lima Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Bholardar Haravanga', 'Bholardar Haravanga', '1752115824', '', '', 'Bangladesh', '', 8, 15, 23, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(123, 'STU20250118', '', 'Masum', 'Md ', '', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1741936923', '', '', 'Bangladesh', '', 8, 15, 24, NULL, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:40:00'),
-(124, 'STU20250119', 'Mst Kamini', 'Khatun', 'Md kamal Hosen', 'Mst Sikha Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Moheshpur', 'Moheshpur', '1918435135', '', '', 'Bangladesh', '', 9, 12, 1, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(125, 'STU20250120', 'Md', 'Abdullah', 'MD sahidul ', 'Mst Rikta Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', ' Sholotaka', ' Sholotaka', '1608213900', '', '', 'Bangladesh', '', 9, 12, 2, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(126, 'STU20250121', '', 'Sadia', 'Md ', '', NULL, '', '', '2012-05-21', 'female', '', 'Islam', '', '', '1722635933', '', '', 'Bangladesh', '', 9, 12, 3, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(127, 'STU20250122', '', 'Ahona', 'Md Jamat Ali', 'Rita Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', '', '', '1722162429', '', '', 'Bangladesh', '', 9, 12, 4, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(128, 'STU20250123', 'Md Siam', 'Farhan', 'Jalal Uddin', 'Mis Shabnur Aktar', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Bharat', 'Bharat', '1301225005', '', '', 'Bangladesh', '', 9, 12, 5, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(129, 'STU20250124', '', 'Ripon', 'Md', '', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1727439171', '', '', 'Bangladesh', '', 9, 12, 6, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(130, 'STU20250125', 'Md', 'Mutazzihan', ' Ali', 'Mst Nilufa Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Bhorat', 'Bhorat', '1768002309', '', '', 'Bangladesh', '', 9, 12, 7, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(131, 'STU20250126', 'Md Sabbir', 'Husain', 'MD Mohon Hossain', 'Shathiara Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Bharat', 'Bharat', '1627902334', '', '', 'Bangladesh', '', 9, 12, 8, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(132, 'STU20250127', 'Md Sakibul', 'Islam', 'Md Faroque', 'Mst Sumi Aktar', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Olinagor', 'Olinagor', '1409154944', '', '', 'Bangladesh', '', 9, 12, 9, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(133, 'STU20250128', '', 'Lamim', 'Md', 'Mst', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'G', 'G', '1777820539', '', '', 'Bangladesh', '', 9, 12, 10, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(134, 'STU20250129', 'Md Ali', '', 'Md Rubel Hsen ', 'Mst Rita Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Olinagor', 'Olinagor', '1409105569', '', '', 'Bangladesh', '', 9, 12, 11, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(135, 'STU20250130', '', '', 'Md Golam Kibria', 'Mst Rikta Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Bhorat', 'Bhorat', '1924126503', '', '', 'Bangladesh', '', 9, 12, 12, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(136, 'STU20250131', 'Md Shimul', '', 'Md Shariful Islam ', 'Mst Sumita Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'House  no-47 Karamdi ', 'House  no-47 Karamdi ', '1321954114', '', '', 'Bangladesh', '', 9, 12, 13, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(137, 'STU20250132', 'Al Mahmud', 'Abdullah', 'Md Asraful Islam ', 'Mst Dalia Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Jorpukuria', 'Jorpukuria', '1770607926', '', '', 'Bangladesh', '', 9, 12, 14, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(138, 'STU20250133', 'Md', 'Mujahid', 'Md Israfil  Hossain', 'Mst Momena Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Chatian', 'Chatian', '1761604315', '', '', 'Bangladesh', '', 9, 12, 15, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(139, 'STU20250134', 'Md JunaId', 'Ahmmed', 'Md Sahab Uddin', 'Mst Asma Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Jorepukuria', 'Jorepukuria', '1817162621', '', '', 'Bangladesh', '', 9, 12, 16, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(140, 'STU20250135', 'Md Jubaid', 'Ahmed', 'MD Jomsed Ali', 'Rotna Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Terail', 'Terail', '1710117702', '', '', 'Bangladesh', '', 9, 12, 17, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(141, 'STU20250136', 'MD Neyeem', '', 'Md Nazrul Islam ', 'Mst Farjana Shopna', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Terail', 'Terail', '1790235111', '', '', 'Bangladesh', '', 9, 12, 18, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(142, 'STU20250137', 'Md Abdullahil', 'Maruf', 'Md Tipu Sultan', 'Mst Halima Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Jorepukuria', 'Jorepukuria', '1624193377', '', '', 'Bangladesh', '', 9, 12, 19, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(143, 'STU20250138', 'Md', 'Saim', 'Md Eajul ', 'Mst shilpi', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Terail ', 'Terail ', '1758837875', '', '', 'Bangladesh', '', 9, 12, 20, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
-(144, 'STU20250139', 'Md', 'Hossain', 'Md Ripon ', 'Mst Ruma Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Bholardar Haravanga', 'Bholardar Haravanga', '1745359765', '', '', 'Bangladesh', '', 10, 16, 1, NULL, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:40:55'),
-(145, 'STU20250140', '', 'Hussain', 'Md.Kamrul Islam', 'Mst.Sharmina Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1764162984', '', '', 'Bangladesh', '', 10, 16, 2, NULL, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:42:40'),
-(146, 'STU20250141', ' ', 'Jisan', 'Md.Aslam Hossain', 'Mst.Rani Begum', NULL, 'পিতা', '', '2012-05-21', 'male', 'A-', 'Islam', 'টকবকত', 'টকবকত', '01762396713', '', '', 'Bangladesh', '', 10, 16, 3, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-20 18:46:04'),
-(147, 'STU20250142', 'Omor', 'Faruk', 'Md Osman Ali', 'Mst.Julekha Khatun', NULL, 'পিতা', '', '2012-05-21', 'male', 'A+', 'Islam', 'াব্ব', 'াব্ব', '01780195092', '', '', 'Bangladesh', '', 10, 16, 4, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-20 18:45:23'),
-(148, 'STU20250143', 'Md Hamim', 'Ali', 'Md Ekramul Hoque', 'Mst Helena Khatun', NULL, 'পিতা', '', '2012-05-21', 'male', 'A-', 'Islam', 'Bharat', 'Bharat', '01885926363', '', '', 'Bangladesh', '', 10, 16, 5, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-20 18:44:51'),
-(149, 'STU20250144', 'Sohel', 'Rana', 'Md.Sahin', 'Mst.Rojifa', NULL, 'পিতা', '', '2012-05-21', 'male', 'B-', 'Islam', 'জোড়পুকুরিয়া', 'জোড়পুকুরিয়া', '01531349963', '', '', 'Bangladesh', '1757602648_1757304574714.jpg', 10, 16, 6, NULL, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-21 19:43:59'),
-(150, 'STU20250145', 'MD Manzarul', 'Islam', 'Md Aslam Ali', 'Mst Shalina Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Bhomordah', 'Bhomordah', '1752495616', '', '', 'Bangladesh', '', 10, 16, 7, NULL, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:42:46'),
-(151, 'STU20250146', '', 'Siyam', 'Md Eamin ', 'Mst.Shamoly Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1723355243', '', '', 'Bangladesh', '', 10, 16, 8, NULL, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:42:31'),
-(152, 'STU20250147', 'Md Abdullah', 'Hossian', 'Md Jeaur Rahaman', 'Mst Mukta Khayun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Jorepukuria', 'Jorepukuria', '1731787862', '', '', 'Bangladesh', '', 10, 16, 9, NULL, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:42:23'),
-(153, 'STU20250148', '', 'Sohan', 'Md', '', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '0', '', '', 'Bangladesh', '', 10, 16, 10, NULL, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:41:04'),
-(154, 'STU20250149', 'Mst', 'sadiya', 'Md Golam Mostofa', 'Mst Rebeka Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Moheshpur', 'Moheshpur', '1730891303', '', '', 'Bangladesh', '', 10, 16, 11, NULL, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:41:10'),
-(155, 'STU20250150', '', 'Mahfuj', 'Md Easer', 'Mst.Jolama', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1703613407', '', '', 'Bangladesh', '', 10, 16, 12, NULL, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:41:18'),
-(156, 'STU20250151', 'Md Imran', 'Ali', 'Md Ripon Ali', 'Mst Morzina Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Moheshpur', 'Moheshpur', '1798010770', '', '', 'Bangladesh', '', 10, 16, 13, NULL, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:41:27'),
-(157, 'STU20250152', 'Md Naeem', 'Islam', 'Md Raihan Ali ', 'Mst Laki Khatun ', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Jorepukuria ', 'Jorepukuria ', '1315014107', '', '', 'Bangladesh', '', 10, 16, 14, NULL, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:41:33'),
-(158, 'STU20250153', 'Abu', 'Hurayra', 'Md.Shoriful', 'Mst.Layli Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1743285050', '', '', 'Bangladesh', '', 10, 16, 15, NULL, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:41:37'),
-(159, 'STU20250154', 'Md', 'Sazim', 'Md Torikul', 'Mst Shamoly Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Terail Jorpukuria', 'Terail Jorpukuria', '1796511240', '', '', 'Bangladesh', '', 10, 16, 16, NULL, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:41:41'),
-(160, 'STU20250155', '', 'Istiak', 'Md.Baral', 'Mst.Chaina', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1758902731', '', '', 'Bangladesh', '', 10, 16, 17, NULL, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:41:46'),
-(161, 'STU20250156', '', 'Shoyaib', 'Md', 'Mst', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '0', '', '', 'Bangladesh', '', 10, 16, 18, NULL, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:41:57'),
-(162, 'STU20250157', 'Md', 'Shafinull', 'Md Hamidul Haque', 'Mst.Shima', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Bhomordaha', 'Bhomordaha', '1317522731', '', '', 'Bangladesh', '', 10, 16, 19, NULL, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:41:50'),
-(163, 'STU20250158', '', 'Mahmudullah', 'Md', '', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '0', '', '', 'Bangladesh', '', 10, 16, 20, NULL, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:40:43'),
-(164, 'STU20250159', 'Md TamIm', 'Iqbal', 'Md Faruk Ali', 'Julaka Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Olinagor', 'Olinagor', '1777497318', '', '', 'Bangladesh', '', 10, 16, 21, NULL, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:40:40'),
-(165, 'STU20250160', 'Md Jibon', 'Hossain', 'Md Jintu Mia ', 'Mst Tania Khatun ', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Maheshpur ', 'Maheshpur ', '1706176080', '', '', 'Bangladesh', '', 10, 16, 22, NULL, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:40:34'),
-(166, 'STU20250161', '', 'Arafat', 'Md.Alhag', 'Mst.Ati', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1788735582', '', '', 'Bangladesh', '', 10, 16, 23, NULL, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:40:31'),
-(167, 'STU20250162', 'Md Pollob', 'Hossen', 'Md Romzan Ali', 'Mst Poly Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Durlovpur ', 'Durlovpur ', '1734515144', '', '', 'Bangladesh', '', 10, 16, 24, NULL, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:40:28'),
-(168, 'STU20250163', '', 'Nurnbi', 'Jaynal', 'Mst chompa Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Bhomordah', 'Bhomordah', '1705085424', '', '', 'Bangladesh', '', 10, 16, 25, NULL, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:40:25'),
-(169, 'STU20250164', 'Mst Jannatul', 'Mouwa', 'Md.Abdur Rasid', 'Mst Nahida Aktar Riya', NULL, '', '', '2012-05-21', 'female', '', 'Islam', '', '', '1786286167', '', '', 'Bangladesh', '', 10, 16, 26, NULL, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:40:21'),
-(170, 'STU20250165', 'Yeasir Arafat', 'Araf', 'Md Masum', 'Mst Umme Habiba Sultana ', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1733279377', '', '', 'Bangladesh', '', 10, 16, 27, NULL, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:40:18'),
-(171, 'STU20250166', 'Umme', 'Habiba', 'Md', 'Mst', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'G', 'G', '1732803330', '', '', 'Bangladesh', '', 10, 16, 28, NULL, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:40:13'),
-(173, 'STU20256633', 'আহমেদ ', 'বাশার', 'হক মওলা', 'বিবি জান', NULL, 'মাতা', '', '2025-09-01', 'female', 'B-', 'Islam', 'জোড়পুকুরিয়া ', 'জোড়পুকুরিয়া ', '01885926363', NULL, NULL, NULL, '1759168716_IMG_20250929_144201.jpg', 1, 1, 80, NULL, '2025-09-09', 'active', '2025-09-12 03:57:38', '2025-09-29 17:58:36'),
-(174, 'STU20253073', 'নিশাত আমান', 'রাফি', 'সামসুল আমান সেন্টু', 'মনিরা নাছরিন রাঙা', NULL, 'পিতা', '', '2007-12-25', 'male', 'O+', '', 'জোড়পুকুরিয়া, গাংনী, মেহেরপুর', 'জোড়পুকুরিয়া, গাংনী, মেহেরপুর', '01603321944', NULL, NULL, NULL, 'stu_1758526968_3664.png', 10, 16, 48, 21, '2025-01-01', 'active', '2025-09-22 07:42:48', '2025-09-22 07:45:23'),
-(175, 'STU20253711', 'মোঃ আবুল হাসনাত', 'উৎস', 'মোঃ আফিরুল ইসলাম', 'মোছাঃ হাসেনা বেগম', NULL, 'পিতা', '', '2008-09-09', 'male', 'B+', '', 'জোড়পুকুরিয়া', 'জোড়পুকুরিয়া', '01319447505', NULL, NULL, NULL, 'stu_1758609306_2350.jpg', 10, 16, 49, 22, '2025-01-01', 'active', '2025-09-23 06:35:06', '2025-09-23 06:36:09'),
-(176, 'STU20259367', 'আহমেদ', 'শরিফ', 'আফজাল হোসেন', 'খাদিজা খাতুন', NULL, 'মাতা', NULL, '2025-09-01', 'male', 'B-', 'ইসলাম', 'জোড়পুকুরিয়া, গাংনী, মেহেরপুর', 'জোড়পুকুরিয়া, গাংনী, মেহেরপুর', '01885926363', NULL, NULL, NULL, 'stu_1758636238_7499.jpg', 10, 16, 0, 23, '2025-09-10', 'active', '2025-09-23 14:03:58', '2025-09-23 14:03:58');
+INSERT INTO `students` (`id`, `student_id`, `first_name`, `last_name`, `father_name`, `mother_name`, `guardian_name`, `guardian_relation`, `birth_certificate_no`, `date_of_birth`, `gender`, `blood_group`, `religion`, `present_address`, `permanent_address`, `mobile_number`, `address`, `city`, `country`, `photo`, `class_id`, `section_id`, `roll_number`, `guardian_id`, `year_id`, `admission_date`, `status`, `created_at`, `updated_at`) VALUES
+(1, 'STU20255317', 'আব্দুস', 'সালাম', 'খবির উদ্দীন', 'জাহানারা খাতুন', NULL, 'পিতা', '20125714773114142', '2012-02-21', 'male', 'O+', 'Islam', 'জোড়পুকুরিয়া, গাংনী, মেহেরপুর', 'জোড়পুকুরিয়া, গাংনী, মেহেরপুর', '01762396713', NULL, NULL, NULL, '1757338153_1757304574714.jpg', 1, 1, 1, NULL, 1, '2025-09-08', 'active', '2025-09-07 21:00:41', '2025-10-08 19:42:03'),
+(3, 'STU20254030', 'মাহি', 'খাতুন', 'আব্দুল মমিন', 'নয়নতারা', NULL, 'পিতা', '20115714784112141', '2011-06-27', 'female', 'A-', 'Islam', 'বামুন্দী, গাংনী, মেহেরপুর', 'বামুন্দী, গাংনী, মেহেরপুর', '01885926363', NULL, NULL, NULL, '1757337777_aadadfff.jpg', 2, 3, 2, NULL, 0, '2025-09-08', 'active', '2025-09-07 21:10:17', '2025-09-08 13:29:34'),
+(4, 'STU20259491', 'আয়মান', 'হোসেন', 'খাইবার হোসেন', 'জান্নাতুল খাতুন', NULL, 'মাতা', '20155714773112541', '2015-02-06', 'male', 'B+', 'Islam', 'জোড়পুকুরিয়া, গাংনী, মেহেরপুর', 'জোড়পুকুরিয়া, গাংনী, মেহেরপুর', '01762396713', NULL, NULL, NULL, '1757340672_1757308652924.jpg', 9, 12, 5, NULL, 0, '2025-09-08', 'active', '2025-09-08 11:45:12', '2025-09-08 16:46:06'),
+(5, 'STU20256603', 'আহমদ ', 'কাবরান', 'আয়ুব আলী ', 'কামরুন্নাহার ', NULL, 'পিতা', '', '2025-09-02', 'male', 'B-', 'Islam', 'তেরাইল, জোড়পুকুরিয়া,  গাংনী, মেহেরপুর ', 'তেরাইল, জোড়পুকুরিয়া,  গাংনী, মেহেরপুর ', '01762396713', NULL, NULL, NULL, '1757357279_IMG-20250907-WA0003.jpg', 1, 1, 15, NULL, 0, '2025-09-08', 'active', '2025-09-08 17:14:02', '2025-09-08 18:59:08'),
+(6, 'STU20250001', 'Atlatun Marzana', 'Nimu', 'Md Sharif Uddin', 'Mst Anjuman Ara Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Bhomordah', 'Bhomordah', '1716791512', '', '', 'Bangladesh', '', 1, 1, 1, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(7, 'STU20250002', 'Miss Sayma', 'Rahman', 'Md Sayedur Rahman', 'Mst Meherun Nessa', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Terail', 'Terail', '1917942667', '', '', 'Bangladesh', '', 1, 1, 2, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(8, 'STU20250003', 'Md Senzeed Zaman', 'Rafi', 'Md Asaduzzaman', 'Miss Sadia Farjana', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Shohorabaria', 'Shohorabaria', '1747777359', '', '', 'Bangladesh', '', 1, 1, 3, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(9, 'STU20250004', 'Mst Razia', 'Sultana', 'Md Shamim Asraf', 'Mst Nargis Parvin', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Bhrat', 'Bhrat', '1321585600', '', '', 'Bangladesh', '', 1, 1, 4, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(10, 'STU20250005', 'Wasfiya Jannat', 'Othe', 'Md shahidul Islam', 'Miss Jahanara Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Nisipur Bamondi', 'Nisipur Bamondi', '1721749703', '', '', 'Bangladesh', '', 1, 1, 5, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(11, 'STU20250006', 'Arisha', 'Islam', 'Md Ariful Islam', 'Mst Bobita Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Matmura', 'Matmura', '1724844154', '', '', 'Bangladesh', '', 1, 1, 6, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(12, 'STU20250007', 'Umme Jarin', 'Tabassum', 'Kh. Mohiuddin Bitas', 'Mst Jahanara Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Jorepukuria', 'Jorepukuria', '1875337670', '', '', 'Bangladesh', '', 1, 1, 7, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(13, 'STU20250008', 'Lima Parvin', 'Sammi', 'Md Sanarul Islam', 'Mst Fahima Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Bhomordad', 'Bhomordad', '1724454240', '', '', 'Bangladesh', '', 1, 1, 8, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(14, 'STU20250009', 'Mursalin Ahamed', 'Riju', 'Md Mokul Hossian', 'Mst Chompa Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Moheshpur', 'Moheshpur', '1773544372', '', '', 'Bangladesh', '', 1, 1, 9, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(15, 'STU20250010', 'Mst Mollika', 'Khatun', 'Md Osman Goni', 'Mst Champa Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Akubpur', 'Akubpur', '1767732137', '', '', 'Bangladesh', '', 1, 1, 10, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(16, 'STU20250011', 'Mst Roja', 'Islam', 'Md Asraful Islam', 'Sharmin', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Sholotaka', 'Sholotaka', '1763757311', '', '', 'Bangladesh', '', 1, 1, 11, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(17, 'STU20250012', 'Md Sagor', 'Hossain', 'Md Shaiful Islam', 'Mst Maniara Parven', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'jorepukuria', 'jorepukuria', '1762373868', '', '', 'Bangladesh', '', 1, 1, 12, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(18, 'STU20250013', 'Mst', 'Monira', 'Md Abdus Salam', 'Mst Mala', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Bamondi', 'Bamondi', '1755705709', '', '', 'Bangladesh', '', 1, 1, 13, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(19, 'STU20250014', 'Mst Fariha', 'Khatun', 'Md Selim Hossen', 'Mst Chompa Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Bamondi', 'Bamondi', '1311732906', '', '', 'Bangladesh', '', 1, 1, 14, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(20, 'STU20250015', 'Mst Abu Ismat', 'Brinty', 'Md Abu Bokor', 'Mst ', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Garabaria', 'Garabaria', '1727158852', '', '', 'Bangladesh', '', 1, 1, 15, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(21, 'STU20250016', 'Mst Sadia', 'Afrin', 'Mohammad Ali', 'Mst Kakoli Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Bhomordah', 'Bhomordah', '1720140141', '', '', 'Bangladesh', '', 1, 1, 16, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(22, 'STU20250017', 'Jannatul', 'Rose', 'Mohammad Hasannuzzaman Hasan', 'Mst Lovely Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Jorepukuria', 'Jorepukuria', '1771843793', '', '', 'Bangladesh', '', 1, 1, 17, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(23, 'STU20250018', 'Mst Nusrat Jahan', 'Summa', 'Md Saiful Islam', 'Mst Asma Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Jorepukuria', 'Jorepukuria', '1720908150', '', '', 'Bangladesh', '', 1, 1, 18, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(24, 'STU20250019', 'Md Yeasin', 'Arafat', 'Md Zahidul Islam', 'Mst Runa Nasrin', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Terail', 'Terail', '1770626028', '', '', 'Bangladesh', '', 1, 1, 19, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(25, 'STU20250020', 'Mst Tawrin', 'Tabassum', 'Md Gahangir Hasan', 'Mst Fuljhori Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Moheshpur', 'Moheshpur', '1718655703', '', '', 'Bangladesh', '', 1, 1, 20, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(26, 'STU20250021', 'Mst Ahosana Akter', 'Mim', 'Md Aklach', 'Mst Razia Sultana', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Hogoalbaria', 'Hogoalbaria', '1762743462', '', '', 'Bangladesh', '', 1, 1, 21, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(27, 'STU20250022', 'Md Abu', 'Huzaifa', 'Md Earul Islam', 'Mst Jasmin Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Sholotaka', 'Sholotaka', '1719307026', '', '', 'Bangladesh', '', 1, 1, 22, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(28, 'STU20250023', 'Mst. Elma', 'Khatun', 'Md Abdur Rahim ', 'Mst Kaniz Fatema', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Akubpur ', 'Akubpur ', '1737846928', '', '', 'Bangladesh', '', 1, 1, 23, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(29, 'STU20250024', 'Sinfa Noor', 'Esha', 'Md.Raihan', 'Mst.Sharmin', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Akubpur ', 'Akubpur ', '1329364959', '', '', 'Bangladesh', '', 1, 1, 24, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(30, 'STU20250025', 'Md Limon', 'Ali', 'Md Liton Ali', 'Mst Jasmen Akter', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Mailmaria', 'Mailmaria', '1714367983', '', '', 'Bangladesh', '', 1, 1, 25, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(31, 'STU20250026', 'Mst Abu Israt', 'Bushra', 'Md Abu Bakar ', 'Sreemoti Mita Rani Karmokar', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Garabaria', 'Garabaria', '1727158852', '', '', 'Bangladesh', '', 1, 1, 26, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(32, 'STU20250027', 'Md Tahmid', 'Islam', 'Md Masud Rana', 'Mst.Jasmen Akter', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Chargoalgram', 'Chargoalgram', '1323237591', '', '', 'Bangladesh', '', 1, 1, 27, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(33, 'STU20250028', 'Md Arafat', 'Rahman', 'MD Hasan Ali ', 'Mst Halima Khanom', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Jorepukuria', 'Jorepukuria', '1726127613', '', '', 'Bangladesh', '', 1, 1, 28, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(34, 'STU20250029', 'Md Jihad', 'Ali', 'Md Mobarak', 'Mst Kamrunnahar', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Sholotaka', 'Sholotaka', '1325201102', '', '', 'Bangladesh', '', 1, 1, 29, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(35, 'STU20250030', 'Md Galib', 'Ahmed', 'Md Ariful Islam', 'Mst Shathiara ', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Sholotaka', 'Sholotaka', '1770704861', '', '', 'Bangladesh', '', 1, 1, 30, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(36, 'STU20250031', 'Mst Sadea', 'Khatun', 'Md Esraf Hossen ', 'Mst.Shamoli Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Terail ', 'Terail ', '1967332948', '', '', 'Bangladesh', '', 2, 3, 1, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(37, 'STU20250032', 'Mst Sabiha Jahan', 'Mim', 'Md Jahidul Islam', 'Mst Razia Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Shohorabaria Jugir Gofa', 'Shohorabaria Jugir Gofa', '1719970704', '', '', 'Bangladesh', '', 2, 3, 2, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(38, 'STU20250033', 'Md Junaid', 'Islam', 'MD Rafikul Islam ', 'Mst Helena Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Durlovpur', 'Durlovpur', '1887837584', '', '', 'Bangladesh', '', 2, 3, 3, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(39, 'STU20250034', 'Md.Abdullah Bin Abdus', 'Satter', 'Md.Abdus Satter', 'Mst.Sabina Yesmin', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1763335834', '', '', 'Bangladesh', '', 2, 3, 4, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(40, 'STU20250035', 'Nur Mohammud', 'Naim', 'Md Shaharul Islam ', 'Priya Rahaman', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Bhomordha', 'Bhomordha', '1713917286', '', '', 'Bangladesh', '', 2, 3, 5, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(41, 'STU20250036', 'Mst.Summa', 'Khatun', 'Md.Abdul Karim', 'Mst.Rehana Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', '', '', '1703507267', '', '', 'Bangladesh', '', 2, 3, 6, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(42, 'STU20250037', 'Md Mahmudul Hasan', 'Fahim', 'Md Mamunur Rashid', 'Mst Champa Khatun Akhi', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Darmochaki', 'Darmochaki', '1783401164', '', '', 'Bangladesh', '', 2, 3, 7, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(43, 'STU20250038', 'Mst Kamona', 'Khatun', 'Md Fazlu', 'Mst Ratna Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Jorepukuria', 'Jorepukuria', '1315990762', '', '', 'Bangladesh', '', 2, 3, 8, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(44, 'STU20250039', 'Mst khadija', 'khatun', 'Md Hamidul Islam', 'Mst Lovely Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Shohorabaria Manikdia', 'Shohorabaria Manikdia', '1727159221', '', '', 'Bangladesh', '', 2, 3, 9, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(45, 'STU20250040', 'Mst Sumaiya', 'Khatun', 'Md Eleas Hossain ', 'Mst', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Bhomordaha', 'Bhomordaha', '1752715990', '', '', 'Bangladesh', '', 2, 3, 10, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(46, 'STU20250041', 'Mst Ayasha', 'Khatun', 'Md Anisur Rahman', 'Mst Yesmin', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Hogalbaria', 'Hogalbaria', '1721506654', '', '', 'Bangladesh', '', 2, 3, 11, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(47, 'STU20250042', 'Mst Raisa', 'Afrin', 'MD Biplab Hossen ', 'Mst Fahima Khan', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Jorpukuria', 'Jorpukuria', '1873683593', '', '', 'Bangladesh', '', 2, 3, 12, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(48, 'STU20250043', 'Mst Alifa', 'Israt', 'Md Ashraful Islam', 'Mst Rita Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Moheshpur', 'Moheshpur', '1758555314', '', '', 'Bangladesh', '', 2, 3, 13, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(49, 'STU20250044', 'Mst Mim', 'Khatun', 'MD Minaru Islam', 'Mst Asura Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Sindurkouta', 'Sindurkouta', '1777886025', '', '', 'Bangladesh', '', 2, 3, 14, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(50, 'STU20250045', 'MSt Tahsina', 'Tafannum', 'Md Al Mamun ', 'Mst farshia Aktar', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Chatian', 'Chatian', '1771172658', '', '', 'Bangladesh', '', 2, 3, 15, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(51, 'STU20250046', 'Md As', 'Saif', 'Md Uzzal Hossain', 'Mst Sharmin Sultana', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Hogoalbaria', 'Hogoalbaria', '1880439767', '', '', 'Bangladesh', '', 2, 3, 16, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(52, 'STU20250047', 'Mst Lamia', 'Aktar', 'Md Gaffarul Islam', 'MSt Nilufa Easmin', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Moheshpur', 'Moheshpur', '1300324193', '', '', 'Bangladesh', '', 2, 3, 17, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(53, 'STU20250048', 'Nur Mohammud', 'Jubayer', 'MD Abul Kalam Azad', 'Mst Champa Khatun ', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'jorepukuria', 'jorepukuria', '1733039546', '', '', 'Bangladesh', '', 2, 3, 18, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(54, 'STU20250049', 'Md', 'Hamim', 'Md Zillur Rohoman', 'Mst Khadija Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Bamondi', 'Bamondi', '1893272448', '', '', 'Bangladesh', '', 2, 3, 19, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(55, 'STU20250050', 'Fardin', 'Rishan', 'Joynal Abadin', 'Mst Firoja Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '0', '0', '1766233152', '', '', 'Bangladesh', '', 2, 3, 20, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(56, 'STU20250051', 'Kumari Supti', 'Karmokar', 'Kamol Karmakar', 'Sreemoti Mita Rani Karmokar', NULL, '', '', '2012-05-21', 'female', '', 'Hindu', 'Sholotaka', 'Sholotaka', '1719456376', '', '', 'Bangladesh', '', 6, 13, 1, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(57, 'STU20250052', 'Mst Chadni', 'Khatun', 'Md Kalu', 'Mst Taslima Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Bhorat', 'Bhorat', '1742830085', '', '', 'Bangladesh', '', 6, 13, 2, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(58, 'STU20250053', 'Md Junaid', 'Bagdadi', 'Md Jahidul Islam', 'Miss Sadia Farjana', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Shohorabaria', 'Shohorabaria', '1719970704', '', '', 'Bangladesh', '', 6, 13, 3, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(59, 'STU20250054', 'Sree Hemendro', 'Dash', 'Mohadeb Chandro Das', 'Sreemoti Himarani Dashi', NULL, '', '', '2012-05-21', 'male', '', 'Hindu', 'Bhomordah', 'Bhomordah', '1915359071', '', '', 'Bangladesh', '', 6, 13, 4, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(60, 'STU20250055', 'Mst Mimma', 'Khatun', 'Md Mijanur Rohman', 'Mst Khushiara', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Bhorat', 'Bhorat', '1326457505', '', '', 'Bangladesh', '', 6, 13, 5, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(61, 'STU20250056', 'Mst Shefa', 'Khatun', 'MD Shahazan', 'Mst Champa Khatun ', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'jorepukuria', 'jorepukuria', '1822623336', '', '', 'Bangladesh', '', 6, 13, 6, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(62, 'STU20250057', 'Md Sakibul', 'Islam', 'Md Jatirul Islam', 'Mst Shahanaz Parvin', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Terail', 'Terail', '1720564656', '', '', 'Bangladesh', '', 6, 13, 7, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(63, 'STU20250058', 'MD', 'Hossain', 'Md Mohabul Alom', 'Mst Forida Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Shimultola ', 'Shimultola ', '1771748633', '', '', 'Bangladesh', '', 6, 13, 8, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(64, 'STU20250059', 'Mst', 'Jenat', 'Md Abubakkor Siddique', 'Mst Kamrunnahar', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Jorepukuria', 'Jorepukuria', '1744212256', '', '', 'Bangladesh', '', 6, 13, 9, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(65, 'STU20250060', 'Md', 'Muttakin', 'Md Atiar Rohman', 'Mst Hosneara Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Jorepukuria', 'Jorepukuria', '1813628335', '', '', 'Bangladesh', '', 6, 13, 10, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(66, 'STU20250061', 'Mst Nusrat Jahan', 'Nur', 'Md Rayhan Uddin', 'Mst Kakoli Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Jorepukuria', 'Jorepukuria', '1855682075', '', '', 'Bangladesh', '', 6, 13, 11, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(67, 'STU20250062', 'Md Sajjad Hossain', 'Jisan', 'MD Ripon Ali', 'Mst Tumpa Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Shimultola ', 'Shimultola ', '1724843866', '', '', 'Bangladesh', '', 6, 13, 12, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(68, 'STU20250063', 'Raj', 'Ahmed', 'Md Nazmul Haque', 'Shatiara', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Akubpur ', 'Akubpur ', '1307306796', '', '', 'Bangladesh', '', 6, 13, 13, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(69, 'STU20250064', 'Md', 'sanaullah', 'Md Mohibul Huqe', 'Murashida', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Terail Jorepukuria', 'Terail Jorepukuria', '1305956657', '', '', 'Bangladesh', '', 6, 13, 14, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(70, 'STU20250065', 'Mst Rotna', 'Khatun', 'Md Rofikul Islam', 'Mst Nargisa Begom', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Dharmochaki', 'Dharmochaki', '1767914653', '', '', 'Bangladesh', '', 6, 13, 15, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(71, 'STU20250066', 'Md', 'Tamim', 'Md Zillur Rohoman', 'Mst Khadija Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Terail Jorepukuria', 'Terail Jorepukuria', '1893272418', '', '', 'Bangladesh', '', 6, 13, 16, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(72, 'STU20250067', 'Md', 'Abdullah', 'Md Ashraful Islam', 'Mst Roni Ara Khatun 74', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Durlavpur', 'Durlavpur', '1740112172', '', '', 'Bangladesh', '', 6, 13, 17, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(73, 'STU20250068', '', 'Saiful', 'Md', 'Mst Asma Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Jorepukur', 'Jorepukur', '1765147288', '', '', 'Bangladesh', '', 6, 13, 18, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(74, 'STU20250069', 'Anika Akther', 'Adila', 'Md.Ariful Islam', 'Rumana Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', '0', '0', '1766233152', '', '', 'Bangladesh', '', 6, 13, 19, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(75, 'STU20250070', 'Md Sumaiya', 'Khatun', 'Abdul Hanif', 'Mst Sova Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Munda Badiapara', 'Munda Badiapara', '1311299839', '', '', 'Bangladesh', '', 6, 13, 20, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(76, 'STU20250071', 'Md TamIm', 'Iqbal', 'Md Mahabbot Ali', 'Mst Tunuara', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Olinagor', 'Olinagor', '1969237695', '', '', 'Bangladesh', '', 6, 13, 21, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(77, 'STU20250072', 'Nayeem', 'Hasan', 'Md Kaber Ali', 'Mst Shiuli Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Olinagor', 'Olinagor', '1974326652', '', '', 'Bangladesh', '', 6, 13, 22, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(78, 'STU20250073', 'Oliur', 'Rahman', 'Md Mahfuzur Rahman ', 'Mst Rahana Katun ', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Simultala ', 'Simultala ', '1767962896', '', '', 'Bangladesh', '', 6, 13, 23, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(79, 'STU20250074', 'Md', 'Siam', 'Milon Hosen', 'Mst Shamoly Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Durlovpur ', 'Durlovpur ', '1718704252', '', '', 'Bangladesh', '', 7, 14, 1, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(80, 'STU20250075', 'Mst Tahiya', 'Afroj', 'Md Khairul Islam ', 'Mst Ria Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Moheshpur', 'Moheshpur', '1642901286', '', '', 'Bangladesh', '', 7, 14, 2, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(81, 'STU20250076', 'Md Jihad', 'Hosen', 'MD Shamsul Haque', 'Mst Angura Kahtun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Jorpukuria', 'Jorpukuria', '1852879100', '', '', 'Bangladesh', '', 7, 14, 3, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(82, 'STU20250077', 'Mst Sneha Aktar', 'Suraiya', 'Md Shohel Rana', 'MSt Bina Khatun', NULL, 'পিতা', '', '2012-05-21', 'female', '', 'Islam', 'Jorepukuria ', 'Jorepukuria ', '1779065423', '', '', 'Bangladesh', '1757641538_halim.jpg', 7, 14, 4, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-12 01:45:38'),
+(83, 'STU20250078', 'Md Mustakin', 'Ahmed', 'Md Nasim Ahammed', 'Mst Bobita Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Chatian', 'Chatian', '1727379973', '', '', 'Bangladesh', '', 7, 14, 5, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(84, 'STU20250079', 'Md Shafin', 'Reja', 'Md Hamidul Haque', 'Mst Majada Khatun ', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Bhomordaha', 'Bhomordaha', '1876843351', '', '', 'Bangladesh', '', 7, 14, 6, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(85, 'STU20250080', 'Md Abu', 'Laich', 'Bozlu Rahman', 'Mst Munmun Faarjana', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Dharmochaki', 'Dharmochaki', '1939215580', '', '', 'Bangladesh', '', 7, 14, 7, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(86, 'STU20250081', 'Mst Khatune', 'Jannat', 'Md Baridul ', 'Mst Rozina Begum ', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Terail', 'Terail', '1742605237', '', '', 'Bangladesh', '', 7, 14, 8, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(87, 'STU20250082', 'Mst', 'Nisat', 'Md Bokul ali', 'Mst Taslima Aktar Chumki', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Nishipur Bamondi', 'Nishipur Bamondi', '1973638261', '', '', 'Bangladesh', '', 7, 14, 9, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(88, 'STU20250083', '', 'Md', 'Md', '', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '0', '', '', 'Bangladesh', '', 7, 14, 10, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(89, 'STU20250084', 'Md', 'Siam', 'Md Kaosar Ali', 'Mst Nur Easmin ', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Terail', 'Terail', '1316266806', '', '', 'Bangladesh', '', 7, 14, 11, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(90, 'STU20250085', 'Md TamIm', 'Iqbal', 'Ziaur', 'Mst Tunuara', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Nowda Motmura', 'Nowda Motmura', '1779070967', '', '', 'Bangladesh', '', 7, 14, 12, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(91, 'STU20250086', '', 'Shahria', 'Md.Montu', 'Mst Nasrin', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1782594628', '', '', 'Bangladesh', '', 7, 14, 13, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(92, 'STU20250087', 'Mst Jinia', 'aktar', 'Md Jinarul Islam ', 'Mst sharmin Aktar', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Motmura', 'Motmura', '1319940408', '', '', 'Bangladesh', '', 7, 14, 14, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(93, 'STU20250088', 'MD Mostakim Hoseen', 'Siam', 'Md Sohel Rana', 'Mst Shirina Begum', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Jorpukuria', 'Jorpukuria', '1773189964', '', '', 'Bangladesh', '', 7, 14, 15, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(94, 'STU20250089', 'Tasmia', 'Tahmid', 'Md Azad Ali', 'Mst champa Kali', NULL, '', '', '2012-05-21', 'female', '', 'Islam', '', '', '1787283350', '', '', 'Bangladesh', '', 7, 14, 16, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(95, 'STU20250090', 'Md', 'Nahid', 'Shamsher Ali ', 'MSt champa Kali', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'M', 'M', '1742863788', '', '', 'Bangladesh', '', 7, 14, 17, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(96, 'STU20250091', '', 'Sabbir', 'Md Sohel Rana', 'Mst.Rupa', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1967563772', '', '', 'Bangladesh', '', 7, 14, 18, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(97, 'STU20250092', 'Mst', 'Ruhi', 'Rasel ', 'Mst Nahida Aktar Riya', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Motmura ', 'Motmura ', '1838479552', '', '', 'Bangladesh', '', 7, 14, 19, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(98, 'STU20250093', '', 'Sonjib', 'Md', '', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1798453110', '', '', 'Bangladesh', '', 7, 14, 20, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(99, 'STU20250094', 'Md Rifat', 'Hosen', 'Md Rahin ', 'Mst Sanjida Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Jorepukuria', 'Jorepukuria', '1931237279', '', '', 'Bangladesh', '', 7, 14, 21, NULL, 0, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:39:27'),
+(100, 'STU20250095', '', 'Ranok', 'Md', '', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1788974370', '', '', 'Bangladesh', '', 8, 15, 1, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(101, 'STU20250096', '', 'Sumaiya', 'Md', '', NULL, '', '', '2012-05-21', 'female', '', 'Islam', '', '', '1797067719', '', '', 'Bangladesh', '', 8, 15, 2, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(102, 'STU20250097', 'MD Al', 'Imran', 'MdMaruf Hossain', 'Mst Esmotara', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Jorepukuria', 'Jorepukuria', '1754999166', '', '', 'Bangladesh', '', 8, 15, 3, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(103, 'STU20250098', 'Sadifur', 'Rohman', 'Md Mijanur Rohman', 'Sathi Aktar', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'jorepukuria', 'jorepukuria', '1779634877', '', '', 'Bangladesh', '', 8, 15, 4, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(104, 'STU20250099', 'Mst Mukta', 'Khatun', 'Md Abudl Motin', 'Mst Arzina Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Bhorat ', 'Bhorat ', '1751102567', '', '', 'Bangladesh', '', 8, 15, 5, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(105, 'STU20250100', '', 'Alif', 'Md', '', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1963742940', '', '', 'Bangladesh', '', 8, 15, 6, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(106, 'STU20250101', 'MSt Samia', 'Aktar', 'Md Bacchu Mia', 'Mst Sabina Easmin', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Moheshpur', 'Moheshpur', '1706270520', '', '', 'Bangladesh', '', 8, 15, 7, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(107, 'STU20250102', '', 'Alif', 'Md ', '', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1330525489', '', '', 'Bangladesh', '', 8, 15, 8, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(108, 'STU20250103', 'Md Al', '', 'Md Khirul Islam ', 'Mst Rahina Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Bhomordah', 'Bhomordah', '1724143853', '', '', 'Bangladesh', '', 8, 15, 9, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(109, 'STU20250104', 'Md Rabiul', 'Islam', 'Ziaul', 'Mst Bilkis Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Jorepukuria', 'Jorepukuria', '1821110431', '', '', 'Bangladesh', '', 8, 15, 10, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(110, 'STU20250105', '', 'Jisan', 'Md', '', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1768050596', '', '', 'Bangladesh', '', 8, 15, 11, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(111, 'STU20250106', 'Md', 'Shalfi', 'MD Tahaz Uddin ', 'Mst Taslima Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Terail', 'Terail', '1723164293', '', '', 'Bangladesh', '', 8, 15, 12, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(112, 'STU20250107', 'Md', 'Tamim', 'Md Eklach Ali', 'Mst kanchon Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Sholotaka', 'Sholotaka', '1731221475', '', '', 'Bangladesh', '', 8, 15, 13, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(113, 'STU20250108', 'Mst Maria', 'Khatun', 'Md Helal ', 'Mst Helena Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Chatian', 'Chatian', '1300367871', '', '', 'Bangladesh', '', 8, 15, 14, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(114, 'STU20250109', 'MD Firoz Ahmed', 'famim', 'Md Based Mondol', 'Mst Firoza Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'jorepukuria', 'jorepukuria', '1798243130', '', '', 'Bangladesh', '', 8, 15, 15, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(115, 'STU20250110', 'Jerin', 'Tasnim', 'Md Zamat Ali', 'Mst Sathi Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Jorpukuria', 'Jorpukuria', '1703245343', '', '', 'Bangladesh', '', 8, 15, 16, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(116, 'STU20250111', 'Md Junaeid', 'Ahmad', 'Md Shiman ', 'Mst Khalede Khatun ', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Durlovpur ', 'Durlovpur ', '1842429214', '', '', 'Bangladesh', '', 8, 15, 17, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(117, 'STU20250112', 'Md Jeshan', 'Hossain', 'Md Tutul Hossain', 'Mst Rajia Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Jorepukuria', 'Jorepukuria', '1768050596', '', '', 'Bangladesh', '', 8, 15, 18, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(118, 'STU20250113', 'Md Safid Hossen', 'Sohan', 'Md Sadekur Rahman ', 'Shimu Akhtar', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Durlovpur Bamondi', 'Durlovpur Bamondi', '1869904247', '', '', 'Bangladesh', '', 8, 15, 19, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(119, 'STU20250114', 'Md Safi', 'Reza', 'Nd Shahin reza', 'Mst Lotifa Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Sholotaka', 'Sholotaka', '1989785515', '', '', 'Bangladesh', '', 8, 15, 20, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(120, 'STU20250115', 'Md Parvej', 'Hasan', 'Md Mehedi Hasan ', 'Mst Parvina Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Chatian', 'Chatian', '1608433801', '', '', 'Bangladesh', '', 8, 15, 21, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(121, 'STU20250116', '', 'Borsha', 'Md ', '', NULL, '', '', '2012-05-21', 'female', '', 'Islam', '', '', '1795034137', '', '', 'Bangladesh', '', 8, 15, 22, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(122, 'STU20250117', 'Md', 'Limon', 'Md Habibur Rohman', 'Mst Lima Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Bholardar Haravanga', 'Bholardar Haravanga', '1752115824', '', '', 'Bangladesh', '', 8, 15, 23, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(123, 'STU20250118', '', 'Masum', 'Md ', '', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1741936923', '', '', 'Bangladesh', '', 8, 15, 24, NULL, 0, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:40:00'),
+(124, 'STU20250119', 'Mst Kamini', 'Khatun', 'Md kamal Hosen', 'Mst Sikha Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Moheshpur', 'Moheshpur', '1918435135', '', '', 'Bangladesh', '', 9, 12, 1, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(125, 'STU20250120', 'Md', 'Abdullah', 'MD sahidul ', 'Mst Rikta Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', ' Sholotaka', ' Sholotaka', '1608213900', '', '', 'Bangladesh', '', 9, 12, 2, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(126, 'STU20250121', '', 'Sadia', 'Md ', '', NULL, '', '', '2012-05-21', 'female', '', 'Islam', '', '', '1722635933', '', '', 'Bangladesh', '', 9, 12, 3, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(127, 'STU20250122', '', 'Ahona', 'Md Jamat Ali', 'Rita Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', '', '', '1722162429', '', '', 'Bangladesh', '', 9, 12, 4, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(128, 'STU20250123', 'Md Siam', 'Farhan', 'Jalal Uddin', 'Mis Shabnur Aktar', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Bharat', 'Bharat', '1301225005', '', '', 'Bangladesh', '', 9, 12, 5, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(129, 'STU20250124', '', 'Ripon', 'Md', '', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1727439171', '', '', 'Bangladesh', '', 9, 12, 6, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(130, 'STU20250125', 'Md', 'Mutazzihan', ' Ali', 'Mst Nilufa Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Bhorat', 'Bhorat', '1768002309', '', '', 'Bangladesh', '', 9, 12, 7, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(131, 'STU20250126', 'Md Sabbir', 'Husain', 'MD Mohon Hossain', 'Shathiara Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Bharat', 'Bharat', '1627902334', '', '', 'Bangladesh', '', 9, 12, 8, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(132, 'STU20250127', 'Md Sakibul', 'Islam', 'Md Faroque', 'Mst Sumi Aktar', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Olinagor', 'Olinagor', '1409154944', '', '', 'Bangladesh', '', 9, 12, 9, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(133, 'STU20250128', '', 'Lamim', 'Md', 'Mst', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'G', 'G', '1777820539', '', '', 'Bangladesh', '', 9, 12, 10, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(134, 'STU20250129', 'Md Ali', '', 'Md Rubel Hsen ', 'Mst Rita Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Olinagor', 'Olinagor', '1409105569', '', '', 'Bangladesh', '', 9, 12, 11, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(135, 'STU20250130', '', '', 'Md Golam Kibria', 'Mst Rikta Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Bhorat', 'Bhorat', '1924126503', '', '', 'Bangladesh', '', 9, 12, 12, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(136, 'STU20250131', 'Md Shimul', '', 'Md Shariful Islam ', 'Mst Sumita Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'House  no-47 Karamdi ', 'House  no-47 Karamdi ', '1321954114', '', '', 'Bangladesh', '', 9, 12, 13, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(137, 'STU20250132', 'Al Mahmud', 'Abdullah', 'Md Asraful Islam ', 'Mst Dalia Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Jorpukuria', 'Jorpukuria', '1770607926', '', '', 'Bangladesh', '', 9, 12, 14, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(138, 'STU20250133', 'Md', 'Mujahid', 'Md Israfil  Hossain', 'Mst Momena Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Chatian', 'Chatian', '1761604315', '', '', 'Bangladesh', '', 9, 12, 15, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(139, 'STU20250134', 'Md JunaId', 'Ahmmed', 'Md Sahab Uddin', 'Mst Asma Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Jorepukuria', 'Jorepukuria', '1817162621', '', '', 'Bangladesh', '', 9, 12, 16, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(140, 'STU20250135', 'Md Jubaid', 'Ahmed', 'MD Jomsed Ali', 'Rotna Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Terail', 'Terail', '1710117702', '', '', 'Bangladesh', '', 9, 12, 17, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(141, 'STU20250136', 'MD Neyeem', '', 'Md Nazrul Islam ', 'Mst Farjana Shopna', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Terail', 'Terail', '1790235111', '', '', 'Bangladesh', '', 9, 12, 18, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(142, 'STU20250137', 'Md Abdullahil', 'Maruf', 'Md Tipu Sultan', 'Mst Halima Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Jorepukuria', 'Jorepukuria', '1624193377', '', '', 'Bangladesh', '', 9, 12, 19, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(143, 'STU20250138', 'Md', 'Saim', 'Md Eajul ', 'Mst shilpi', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Terail ', 'Terail ', '1758837875', '', '', 'Bangladesh', '', 9, 12, 20, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-07 21:00:41'),
+(144, 'STU20250139', 'Md', 'Hossain', 'Md Ripon ', 'Mst Ruma Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Bholardar Haravanga', 'Bholardar Haravanga', '1745359765', '', '', 'Bangladesh', '', 10, 16, 1, NULL, 0, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:40:55'),
+(145, 'STU20250140', '', 'Hussain', 'Md.Kamrul Islam', 'Mst.Sharmina Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1764162984', '', '', 'Bangladesh', '', 10, 16, 2, NULL, 0, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:42:40'),
+(146, 'STU20250141', ' ', 'Jisan', 'Md.Aslam Hossain', 'Mst.Rani Begum', NULL, 'পিতা', '', '2012-05-21', 'male', 'A-', 'Islam', 'টকবকত', 'টকবকত', '01762396713', '', '', 'Bangladesh', '', 10, 16, 3, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-20 18:46:04'),
+(147, 'STU20250142', 'Omor', 'Faruk', 'Md Osman Ali', 'Mst.Julekha Khatun', NULL, 'পিতা', '', '2012-05-21', 'male', 'A+', 'Islam', 'াব্ব', 'াব্ব', '01780195092', '', '', 'Bangladesh', '', 10, 16, 4, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-20 18:45:23'),
+(148, 'STU20250143', 'Md Hamim', 'Ali', 'Md Ekramul Hoque', 'Mst Helena Khatun', NULL, 'পিতা', '', '2012-05-21', 'male', 'A-', 'Islam', 'Bharat', 'Bharat', '01885926363', '', '', 'Bangladesh', '', 10, 16, 5, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-20 18:44:51'),
+(149, 'STU20250144', 'Sohel', 'Rana', 'Md.Sahin', 'Mst.Rojifa', NULL, 'পিতা', '', '2012-05-21', 'male', 'B-', 'Islam', 'জোড়পুকুরিয়া', 'জোড়পুকুরিয়া', '01531349963', '', '', 'Bangladesh', '1757602648_1757304574714.jpg', 10, 16, 6, NULL, 0, '2025-01-01', 'active', '2025-09-07 21:00:41', '2025-09-21 19:43:59'),
+(150, 'STU20250145', 'MD Manzarul', 'Islam', 'Md Aslam Ali', 'Mst Shalina Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Bhomordah', 'Bhomordah', '1752495616', '', '', 'Bangladesh', '', 10, 16, 7, NULL, 0, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:42:46'),
+(151, 'STU20250146', '', 'Siyam', 'Md Eamin ', 'Mst.Shamoly Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1723355243', '', '', 'Bangladesh', '', 10, 16, 8, NULL, 0, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:42:31'),
+(152, 'STU20250147', 'Md Abdullah', 'Hossian', 'Md Jeaur Rahaman', 'Mst Mukta Khayun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Jorepukuria', 'Jorepukuria', '1731787862', '', '', 'Bangladesh', '', 10, 16, 9, NULL, 0, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:42:23'),
+(153, 'STU20250148', '', 'Sohan', 'Md', '', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '0', '', '', 'Bangladesh', '', 10, 16, 10, NULL, 0, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:41:04'),
+(154, 'STU20250149', 'Mst', 'sadiya', 'Md Golam Mostofa', 'Mst Rebeka Khatun', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'Moheshpur', 'Moheshpur', '1730891303', '', '', 'Bangladesh', '', 10, 16, 11, NULL, 0, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:41:10'),
+(155, 'STU20250150', '', 'Mahfuj', 'Md Easer', 'Mst.Jolama', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1703613407', '', '', 'Bangladesh', '', 10, 16, 12, NULL, 0, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:41:18'),
+(156, 'STU20250151', 'Md Imran', 'Ali', 'Md Ripon Ali', 'Mst Morzina Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Moheshpur', 'Moheshpur', '1798010770', '', '', 'Bangladesh', '', 10, 16, 13, NULL, 0, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:41:27'),
+(157, 'STU20250152', 'Md Naeem', 'Islam', 'Md Raihan Ali ', 'Mst Laki Khatun ', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Jorepukuria ', 'Jorepukuria ', '1315014107', '', '', 'Bangladesh', '', 10, 16, 14, NULL, 0, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:41:33'),
+(158, 'STU20250153', 'Abu', 'Hurayra', 'Md.Shoriful', 'Mst.Layli Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1743285050', '', '', 'Bangladesh', '', 10, 16, 15, NULL, 0, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:41:37'),
+(159, 'STU20250154', 'Md', 'Sazim', 'Md Torikul', 'Mst Shamoly Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Terail Jorpukuria', 'Terail Jorpukuria', '1796511240', '', '', 'Bangladesh', '', 10, 16, 16, NULL, 0, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:41:41'),
+(160, 'STU20250155', '', 'Istiak', 'Md.Baral', 'Mst.Chaina', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1758902731', '', '', 'Bangladesh', '', 10, 16, 17, NULL, 0, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:41:46'),
+(161, 'STU20250156', '', 'Shoyaib', 'Md', 'Mst', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '0', '', '', 'Bangladesh', '', 10, 16, 18, NULL, 0, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:41:57'),
+(162, 'STU20250157', 'Md', 'Shafinull', 'Md Hamidul Haque', 'Mst.Shima', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Bhomordaha', 'Bhomordaha', '1317522731', '', '', 'Bangladesh', '', 10, 16, 19, NULL, 0, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:41:50'),
+(163, 'STU20250158', '', 'Mahmudullah', 'Md', '', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '0', '', '', 'Bangladesh', '', 10, 16, 20, NULL, 0, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:40:43'),
+(164, 'STU20250159', 'Md TamIm', 'Iqbal', 'Md Faruk Ali', 'Julaka Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Olinagor', 'Olinagor', '1777497318', '', '', 'Bangladesh', '', 10, 16, 21, NULL, 0, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:40:40'),
+(165, 'STU20250160', 'Md Jibon', 'Hossain', 'Md Jintu Mia ', 'Mst Tania Khatun ', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Maheshpur ', 'Maheshpur ', '1706176080', '', '', 'Bangladesh', '', 10, 16, 22, NULL, 0, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:40:34'),
+(166, 'STU20250161', '', 'Arafat', 'Md.Alhag', 'Mst.Ati', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1788735582', '', '', 'Bangladesh', '', 10, 16, 23, NULL, 0, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:40:31'),
+(167, 'STU20250162', 'Md Pollob', 'Hossen', 'Md Romzan Ali', 'Mst Poly Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Durlovpur ', 'Durlovpur ', '1734515144', '', '', 'Bangladesh', '', 10, 16, 24, NULL, 0, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:40:28'),
+(168, 'STU20250163', '', 'Nurnbi', 'Jaynal', 'Mst chompa Khatun', NULL, '', '', '2012-05-21', 'male', '', 'Islam', 'Bhomordah', 'Bhomordah', '1705085424', '', '', 'Bangladesh', '', 10, 16, 25, NULL, 0, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:40:25'),
+(169, 'STU20250164', 'Mst Jannatul', 'Mouwa', 'Md.Abdur Rasid', 'Mst Nahida Aktar Riya', NULL, '', '', '2012-05-21', 'female', '', 'Islam', '', '', '1786286167', '', '', 'Bangladesh', '', 10, 16, 26, NULL, 0, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:40:21'),
+(170, 'STU20250165', 'Yeasir Arafat', 'Araf', 'Md Masum', 'Mst Umme Habiba Sultana ', NULL, '', '', '2012-05-21', 'male', '', 'Islam', '', '', '1733279377', '', '', 'Bangladesh', '', 10, 16, 27, NULL, 0, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:40:18'),
+(171, 'STU20250166', 'Umme', 'Habiba', 'Md', 'Mst', NULL, '', '', '2012-05-21', 'female', '', 'Islam', 'G', 'G', '1732803330', '', '', 'Bangladesh', '', 10, 16, 28, NULL, 0, '2025-01-01', 'inactive', '2025-09-07 21:00:41', '2025-09-20 18:40:13'),
+(173, 'STU20256633', 'আহমেদ', 'বাশার', 'হক মওলা', 'বিবি জান', NULL, 'মাতা', NULL, '2025-09-01', 'female', 'B-', NULL, 'জোড়পুকুরিয়া', 'জোড়পুকুরিয়া', '01885926363', NULL, NULL, NULL, 'stu_1760111285_2788.jpg', 1, 1, 80, NULL, 2, '2025-09-09', 'active', '2025-09-12 03:57:38', '2025-10-10 15:48:05'),
+(174, 'STU20253073', 'নিশাত আমান', 'রাফি', 'সামসুল আমান সেন্টু', 'মনিরা নাছরিন রাঙা', NULL, 'পিতা', '', '2007-12-25', 'male', 'O+', '', 'জোড়পুকুরিয়া, গাংনী, মেহেরপুর', 'জোড়পুকুরিয়া, গাংনী, মেহেরপুর', '01603321944', NULL, NULL, NULL, 'stu_1758526968_3664.png', 10, 16, 48, 21, 0, '2025-01-01', 'active', '2025-09-22 07:42:48', '2025-09-22 07:45:23'),
+(175, 'STU20253711', 'মোঃ আবুল হাসনাত', 'উৎস', 'মোঃ আফিরুল ইসলাম', 'মোছাঃ হাসেনা বেগম', NULL, 'মাতা', NULL, '2008-09-09', 'male', 'O+', 'ইসলাম', 'জোড়পুকুরিয়া', 'জোড়পুকুরিয়া', '01319447505', NULL, NULL, NULL, 'stu_1760034825_6820.jpg', 10, 16, 49, 22, 0, '2025-01-01', 'active', '2025-09-23 06:35:06', '2025-10-09 18:33:45'),
+(176, 'STU20259367', 'আহমেদ', 'শরিফ', 'আফজাল হোসেন', 'খাদিজা খাতুন', NULL, 'পিতা', NULL, '2025-09-01', 'male', 'O+', 'ইসলাম', 'জোড়পুকুরিয়া, গাংনী, মেহেরপুর', 'জোড়পুকুরিয়া, গাংনী, মেহেরপুর', '01885926363', NULL, NULL, NULL, '1760033419_IMG_20250918_123819 copy.jpg', 10, 16, 50, NULL, 2, '2025-09-10', 'active', '2025-09-23 14:03:58', '2025-10-10 15:46:12'),
+(177, 'STU20253299', 'বাদশা', 'ফরহাদ', 'কবির আহমেদ', 'ময়না খাতুন', NULL, 'পিতা', '20145714773112512', '2014-02-04', 'male', 'A+', 'ইসলাম', 'গ্রামঃ জোড়পুকুরিয়া, ডাকঘরঃ জোড়পুকুরিয়া, উপজেলাঃ গাংনী, জেলাঃ মেহেরপুর', 'গ্রামঃ বেতবাড়ীয়া, ডাকঘরঃ বেতবাড়ীয়া, উপজেলাঃ গাংনী, জেলাঃ মেহেরপুর', '01780195092', NULL, NULL, NULL, 'stu_1760104555_7669.jpg', 10, 16, 12, 24, 2, '2025-10-01', 'active', '2025-10-10 13:49:51', '2025-10-10 15:46:24');
 
 -- --------------------------------------------------------
 
@@ -1889,11 +1837,11 @@ INSERT INTO `students` (`id`, `student_id`, `first_name`, `last_name`, `father_n
 --
 
 CREATE TABLE `student_subjects` (
-  `id` int NOT NULL,
-  `student_id` int NOT NULL,
-  `class_id` int NOT NULL,
-  `subject_id` int NOT NULL,
-  `assigned_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+  `id` int(11) NOT NULL,
+  `student_id` int(11) NOT NULL,
+  `class_id` int(11) NOT NULL,
+  `subject_id` int(11) NOT NULL,
+  `assigned_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -1970,7 +1918,39 @@ INSERT INTO `student_subjects` (`id`, `student_id`, `class_id`, `subject_id`, `a
 (71, 176, 10, 3, '2025-09-29 18:00:51'),
 (72, 176, 10, 4, '2025-09-29 18:00:51'),
 (73, 176, 10, 5, '2025-09-29 18:00:51'),
-(74, 176, 10, 6, '2025-09-29 18:00:51');
+(74, 176, 10, 6, '2025-09-29 18:00:51'),
+(75, 78, 6, 10, '2025-10-08 17:43:56'),
+(76, 78, 6, 11, '2025-10-08 17:43:56'),
+(77, 78, 6, 12, '2025-10-08 17:43:56'),
+(78, 78, 6, 13, '2025-10-08 17:43:56'),
+(79, 78, 6, 3, '2025-10-08 17:43:56'),
+(80, 78, 6, 6, '2025-10-08 17:43:56'),
+(81, 78, 6, 4, '2025-10-08 17:43:56'),
+(82, 78, 6, 5, '2025-10-08 17:43:56'),
+(83, 78, 6, 7, '2025-10-08 17:43:56'),
+(84, 77, 6, 10, '2025-10-08 17:43:58'),
+(85, 77, 6, 11, '2025-10-08 17:43:58'),
+(86, 77, 6, 12, '2025-10-08 17:43:58'),
+(87, 77, 6, 13, '2025-10-08 17:43:58'),
+(88, 77, 6, 3, '2025-10-08 17:43:58'),
+(89, 77, 6, 6, '2025-10-08 17:43:58'),
+(90, 77, 6, 4, '2025-10-08 17:43:58'),
+(91, 77, 6, 5, '2025-10-08 17:43:58'),
+(92, 77, 6, 7, '2025-10-08 17:43:58'),
+(93, 76, 6, 10, '2025-10-08 17:45:00'),
+(94, 76, 6, 3, '2025-10-08 17:45:00'),
+(95, 175, 10, 1, '2025-10-09 17:40:50'),
+(96, 175, 10, 2, '2025-10-09 17:40:50'),
+(97, 175, 10, 3, '2025-10-09 17:40:50'),
+(98, 175, 10, 4, '2025-10-09 17:40:50'),
+(99, 175, 10, 5, '2025-10-09 17:40:50'),
+(100, 175, 10, 6, '2025-10-09 17:40:50'),
+(101, 177, 10, 1, '2025-10-10 13:56:04'),
+(102, 177, 10, 2, '2025-10-10 13:56:04'),
+(103, 177, 10, 3, '2025-10-10 13:56:04'),
+(104, 177, 10, 4, '2025-10-10 13:56:04'),
+(105, 177, 10, 5, '2025-10-10 13:56:04'),
+(106, 177, 10, 6, '2025-10-10 13:56:04');
 
 -- --------------------------------------------------------
 
@@ -1979,13 +1959,13 @@ INSERT INTO `student_subjects` (`id`, `student_id`, `class_id`, `subject_id`, `a
 --
 
 CREATE TABLE `subjects` (
-  `id` int NOT NULL,
-  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `code` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci,
-  `status` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `id` int(11) NOT NULL,
+  `name` varchar(100) NOT NULL,
+  `code` varchar(20) DEFAULT NULL,
+  `description` text DEFAULT NULL,
+  `status` varchar(10) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -2012,15 +1992,15 @@ INSERT INTO `subjects` (`id`, `name`, `code`, `description`, `status`, `created_
 --
 
 CREATE TABLE `tabulation_cache` (
-  `id` int NOT NULL,
-  `exam_id` int NOT NULL,
-  `student_id` int NOT NULL,
-  `total_marks` decimal(10,2) DEFAULT '0.00',
-  `subjects_passed` int DEFAULT '0',
-  `subjects_failed` int DEFAULT '0',
-  `position` int DEFAULT NULL,
-  `result_status` enum('pass','fail') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT 'fail',
-  `computed_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP
+  `id` int(11) NOT NULL,
+  `exam_id` int(11) NOT NULL,
+  `student_id` int(11) NOT NULL,
+  `total_marks` decimal(10,2) DEFAULT 0.00,
+  `subjects_passed` int(11) DEFAULT 0,
+  `subjects_failed` int(11) DEFAULT 0,
+  `position` int(11) DEFAULT NULL,
+  `result_status` enum('pass','fail') DEFAULT 'fail',
+  `computed_at` timestamp NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -2059,9 +2039,11 @@ INSERT INTO `tabulation_cache` (`id`, `exam_id`, `student_id`, `total_marks`, `s
 (29, 2, 63, 201.00, 3, 6, 7, 'fail', '2025-10-02 04:52:50'),
 (30, 2, 64, 112.00, 2, 7, 9, 'fail', '2025-10-02 04:52:52'),
 (31, 2, 65, 106.00, 2, 7, 10, 'fail', '2025-10-02 04:52:53'),
-(32, 2, 66, 62.00, 1, 8, 11, 'fail', '2025-10-02 04:52:54'),
-(33, 2, 67, 57.00, 1, 8, 12, 'fail', '2025-10-02 04:52:56'),
-(34, 2, 68, 35.00, 1, 8, 13, 'fail', '2025-10-02 04:52:58');
+(32, 2, 66, 62.00, 1, 8, 12, 'fail', '2025-10-02 04:52:54'),
+(33, 2, 67, 57.00, 1, 8, 13, 'fail', '2025-10-02 04:52:56'),
+(34, 2, 68, 35.00, 1, 8, 15, 'fail', '2025-10-02 04:52:58'),
+(35, 2, 77, 50.00, 1, 8, 14, 'fail', '2025-10-08 17:45:30'),
+(36, 2, 78, 70.00, 1, 8, 11, 'fail', '2025-10-08 17:45:33');
 
 -- --------------------------------------------------------
 
@@ -2070,18 +2052,18 @@ INSERT INTO `tabulation_cache` (`id`, `exam_id`, `student_id`, `total_marks`, `s
 --
 
 CREATE TABLE `teacher_attendance` (
-  `id` int NOT NULL,
-  `teacher_id` int NOT NULL,
+  `id` int(11) NOT NULL,
+  `teacher_id` int(11) NOT NULL,
   `date` date NOT NULL,
   `check_in` time DEFAULT NULL,
   `check_out` time DEFAULT NULL,
-  `status` enum('Early','Present','Absent','Late') CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci DEFAULT 'Absent',
-  `check_in_photo` varchar(255) CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci DEFAULT NULL,
-  `check_out_photo` varchar(255) CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci DEFAULT NULL,
-  `check_in_location` varchar(100) CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci DEFAULT NULL,
-  `check_out_location` varchar(100) CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `status` enum('Early','Present','Absent','Late') CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT 'Absent',
+  `check_in_photo` varchar(255) CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL,
+  `check_out_photo` varchar(255) CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL,
+  `check_in_location` varchar(100) CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL,
+  `check_out_location` varchar(100) CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -2106,7 +2088,8 @@ INSERT INTO `teacher_attendance` (`id`, `teacher_id`, `date`, `check_in`, `check
 (29, 20, '2025-10-02', '09:06:19', NULL, 'Late', 'uploads/attendance/20_1759374379.jpg', NULL, '23.8615937,88.7783331', NULL, '2025-10-02 03:06:19', '2025-10-02 03:06:19'),
 (30, 17, '2025-10-04', '10:05:52', '13:09:28', 'Late', 'uploads/attendance/17_1759550752.jpg', 'uploads/attendance/17_1759561768.jpg', '23.8616225,88.7781284', '23.8615787,88.778336', '2025-10-04 04:05:52', '2025-10-04 07:09:28'),
 (31, 20, '2025-10-04', '10:07:18', '13:08:56', 'Late', 'uploads/attendance/20_1759550838.jpg', 'uploads/attendance/20_1759561736.jpg', '23.8616225,88.7781284', '23.8615787,88.778336', '2025-10-04 04:07:18', '2025-10-04 07:08:56'),
-(32, 17, '2025-10-05', '21:33:58', NULL, 'Late', 'uploads/attendance/17_1759678438.jpg', NULL, '23.8557037,88.7777644', NULL, '2025-10-05 15:33:58', '2025-10-05 15:33:58');
+(32, 17, '2025-10-05', '21:33:58', NULL, 'Late', 'uploads/attendance/17_1759678438.jpg', NULL, '23.8557037,88.7777644', NULL, '2025-10-05 15:33:58', '2025-10-05 15:33:58'),
+(33, 17, '2025-10-08', '23:57:17', '23:57:23', 'Late', 'uploads/attendance/17_1759946237.jpg', 'uploads/attendance/17_1759946243.jpg', '23.93,88.77', '23.93,88.77', '2025-10-08 17:57:17', '2025-10-08 17:57:23');
 
 -- --------------------------------------------------------
 
@@ -2115,16 +2098,16 @@ INSERT INTO `teacher_attendance` (`id`, `teacher_id`, `date`, `check_in`, `check
 --
 
 CREATE TABLE `teacher_evaluations` (
-  `id` int NOT NULL,
-  `teacher_id` int NOT NULL,
-  `student_id` int NOT NULL,
-  `class_id` int NOT NULL,
-  `section_id` int NOT NULL,
+  `id` int(11) NOT NULL,
+  `teacher_id` int(11) NOT NULL,
+  `student_id` int(11) NOT NULL,
+  `class_id` int(11) NOT NULL,
+  `section_id` int(11) NOT NULL,
   `evaluation_date` date NOT NULL,
-  `rating` int NOT NULL,
-  `comments` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `rating` int(11) NOT NULL,
+  `comments` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -2134,7 +2117,7 @@ CREATE TABLE `teacher_evaluations` (
 -- (See below for the actual view)
 --
 CREATE TABLE `teacher_list_view` (
-`id` int
+`id` int(11)
 ,`username` varchar(50)
 ,`email` varchar(100)
 ,`phone` varchar(20)
@@ -2152,8 +2135,8 @@ CREATE TABLE `teacher_list_view` (
 ,`joining_date` date
 ,`qualification` text
 ,`experience` text
-,`total_classes` bigint
-,`total_subjects` bigint
+,`total_classes` bigint(21)
+,`total_subjects` bigint(21)
 ,`created_at` timestamp
 ,`updated_at` timestamp
 );
@@ -2165,21 +2148,21 @@ CREATE TABLE `teacher_list_view` (
 --
 
 CREATE TABLE `teacher_profiles` (
-  `id` int NOT NULL,
-  `teacher_id` int NOT NULL,
-  `father_name` varchar(255) CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci DEFAULT NULL,
-  `mother_name` varchar(255) CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci DEFAULT NULL,
+  `id` int(11) NOT NULL,
+  `teacher_id` int(11) NOT NULL,
+  `father_name` varchar(255) CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL,
+  `mother_name` varchar(255) CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL,
   `date_of_birth` date DEFAULT NULL,
-  `gender` enum('male','female','other') CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci DEFAULT NULL,
-  `blood_group` enum('A+','A-','B+','B-','AB+','AB-','O+','O-') CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci DEFAULT NULL,
-  `religion` enum('Islam','Hinduism','Christianity','Buddhism','Other') CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci DEFAULT NULL,
-  `address` text CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci,
+  `gender` enum('male','female','other') CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL,
+  `blood_group` enum('A+','A-','B+','B-','AB+','AB-','O+','O-') CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL,
+  `religion` enum('Islam','Hinduism','Christianity','Buddhism','Other') CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL,
+  `address` text CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL,
   `joining_date` date DEFAULT NULL,
-  `qualification` text CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci,
-  `experience` text CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci,
-  `photo` varchar(255) CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP
+  `qualification` text CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL,
+  `experience` text CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL,
+  `photo` varchar(255) CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -2200,19 +2183,19 @@ INSERT INTO `teacher_profiles` (`id`, `teacher_id`, `father_name`, `mother_name`
 --
 
 CREATE TABLE `users` (
-  `id` int NOT NULL,
-  `username` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `password` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `role` enum('super_admin','teacher','guardian') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `email` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `phone` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `full_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `address` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci,
-  `photo` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `status` enum('active','inactive') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT 'active',
+  `id` int(11) NOT NULL,
+  `username` varchar(50) NOT NULL,
+  `password` varchar(255) NOT NULL,
+  `role` enum('super_admin','teacher','guardian') NOT NULL,
+  `email` varchar(100) DEFAULT NULL,
+  `phone` varchar(20) DEFAULT NULL,
+  `full_name` varchar(100) NOT NULL,
+  `address` text DEFAULT NULL,
+  `photo` varchar(255) DEFAULT NULL,
+  `status` enum('active','inactive') DEFAULT 'active',
   `last_login` timestamp NULL DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -2220,15 +2203,16 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `username`, `password`, `role`, `email`, `phone`, `full_name`, `address`, `photo`, `status`, `last_login`, `created_at`, `updated_at`) VALUES
-(1, 'admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'super_admin', 'admin@school.com', '+8801XXXXXXXXX', 'সুপার অ্যাডমিন', NULL, 'user_1_1758039436.jpeg', 'active', NULL, '2025-09-07 18:32:53', '2025-09-16 16:17:16'),
-(3, 'karim', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'teacher', 'karim@school.com', '01722222222', 'করিম উদ্দিন', 'গুলশান, ঢাকা', '1757349604_erasebg-transformed (19) (1).png', '', NULL, '2025-09-08 15:57:07', '2025-09-19 15:06:11'),
-(14, 'abul', '$2y$10$La66X.OPwkLTvurU8jaR6eKL7l1xCnNiTprjB5g/jnbLtNiMwMXOq', 'teacher', 'abul@mail.com', '017885926363', 'আবুল হোসেন', 'জোড়পুকুরিয়া, গাংনী, মেহেরপুর', '1757350819_1757310266070.jpg', '', NULL, '2025-09-08 17:00:19', '2025-09-19 15:06:02'),
+(1, 'admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'super_admin', 'admin@school.com', '+8801XXXXXXXXX', 'সুপার অ্যাডমিন', NULL, 'user_1_1760032254.jpg', 'active', NULL, '2025-09-07 18:32:53', '2025-10-09 17:50:54'),
+(3, 'karim', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'teacher', 'karim@school.com', '01722222222', 'করিম উদ্দিন', 'গুলশান, ঢাকা', '1757349604_erasebg-transformed (19) (1).png', 'active', NULL, '2025-09-08 15:57:07', '2025-10-08 19:05:00'),
+(14, 'abul', '$2y$10$La66X.OPwkLTvurU8jaR6eKL7l1xCnNiTprjB5g/jnbLtNiMwMXOq', 'teacher', 'abul@mail.com', '017885926363', 'আবুল হোসেন', 'জোড়পুকুরিয়া, গাংনী, মেহেরপুর', '1757350819_1757310266070.jpg', 'active', NULL, '2025-09-08 17:00:19', '2025-10-08 19:04:52'),
 (17, 'sun.halim', '$2y$10$iG4i23M270oY58t34ibXT.pisXbrtcb4a9GnRzRp5nKz3zl/e.HDS', 'teacher', 'halimtalk9@gmail.com', '01762396713', 'আব্দুল হালিম', 'Hhv', '1758230291_halim.jpg', 'active', NULL, '2025-09-12 16:39:33', '2025-09-18 21:18:11'),
-(18, 'sun.lalon', '$2y$10$h3HQ3EzzVMocAa49PzTI/OTZGg.ePNFpiAkTjR0cweO5Fgx9arMlq', 'teacher', 'lalon@site.com', '0176239673', 'Lalon', '', '1757876257_jss_logo.png', '', NULL, '2025-09-14 18:57:37', '2025-09-19 15:05:50'),
+(18, 'sun.lalon', '$2y$10$h3HQ3EzzVMocAa49PzTI/OTZGg.ePNFpiAkTjR0cweO5Fgx9arMlq', 'teacher', 'lalon@site.com', '0176239673', 'Lalon', '', '1757876257_jss_logo.png', 'active', NULL, '2025-09-14 18:57:37', '2025-10-08 19:04:45'),
 (20, 'sun.rafi', '$2y$10$OxPwu02eSnyyWJdb/A.wzu5hLBtOIO/BPEG97049JdQZ4IsJJBQEq', 'teacher', 'rafi@hfsh.com', '01722113324', 'নিশাত আমান রাফি', '', '1758216943_12.jpg', 'active', NULL, '2025-09-18 17:35:43', '2025-09-20 04:51:55'),
 (21, 'STU20253073', '$2y$10$lhgkISXN8QpdQZpfisap2uDl8d8uxihND2HSei3Jen49FEmlZMYRC', 'guardian', '', '01603321944', 'সামসুল আমান সেন্টু', 'জোড়পুকুরিয়া, গাংনী, মেহেরপুর', NULL, 'active', NULL, '2025-09-22 07:42:48', '2025-09-22 07:42:48'),
-(22, 'STU20253711', '$2y$10$WpM1c8sKg2QvkrqQ73Rf9.TdAwKxjDU9m5p4gZQEQdJZyEtkZjpQ.', 'guardian', '', '01319447505', 'মোঃ আফিরুল ইসলাম', 'জোড়পুকুরিয়া', NULL, 'active', NULL, '2025-09-23 06:35:06', '2025-09-23 06:35:06'),
-(23, 'STU20259367', '$2y$10$5pikRNQ5DSYRG9ah9KyYTOJHYpUZM9BVCPm0CDHamFpGK0MRXLRkK', 'guardian', '', '01885926363', 'খাদিজা খাতুন', 'জোড়পুকুরিয়া, গাংনী, মেহেরপুর', NULL, 'active', NULL, '2025-09-23 14:03:58', '2025-09-23 14:03:58');
+(22, 'STU20253711', '$2y$10$WpM1c8sKg2QvkrqQ73Rf9.TdAwKxjDU9m5p4gZQEQdJZyEtkZjpQ.', 'guardian', '', '01319447505', 'মোছাঃ হাসেনা বেগম', 'জোড়পুকুরিয়া', NULL, 'active', NULL, '2025-09-23 06:35:06', '2025-10-09 18:33:45'),
+(23, 'STU20259367', '$2y$10$5pikRNQ5DSYRG9ah9KyYTOJHYpUZM9BVCPm0CDHamFpGK0MRXLRkK', 'guardian', '', '01885926363', 'খাদিজা খাতুন', 'জোড়পুকুরিয়া, গাংনী, মেহেরপুর', NULL, 'active', NULL, '2025-09-23 14:03:58', '2025-09-23 14:03:58'),
+(24, 'STU20253299', '$2y$10$jQ1Mzq.H2kteu3vAR8yqBOlAQlakA.jj0uS0eeSpg5tu4sC6uAh76', 'guardian', '', '01780195092', 'কবির আহমেদ', 'গ্রামঃ জোড়পুকুরিয়া, ডাকঘরঃ জোড়পুকুরিয়া, উপজেলাঃ গাংনী, জেলাঃ মেহেরপুর', NULL, 'active', NULL, '2025-10-10 13:49:51', '2025-10-10 13:49:51');
 
 -- --------------------------------------------------------
 
@@ -2237,12 +2221,12 @@ INSERT INTO `users` (`id`, `username`, `password`, `role`, `email`, `phone`, `fu
 --
 
 CREATE TABLE `weekly_holidays` (
-  `id` int NOT NULL,
-  `day_name` varchar(20) CHARACTER SET utf8mb3 NOT NULL,
+  `id` int(11) NOT NULL,
+  `day_name` varchar(20) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL,
   `day_number` tinyint(1) NOT NULL COMMENT '1=Sunday, 2=Monday, ..., 7=Saturday',
-  `status` enum('active','inactive') CHARACTER SET utf8mb3 NOT NULL DEFAULT 'active',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `status` enum('active','inactive') CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL DEFAULT 'active',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -2265,7 +2249,7 @@ INSERT INTO `weekly_holidays` (`id`, `day_name`, `day_number`, `status`, `create
 --
 DROP TABLE IF EXISTS `teacher_list_view`;
 
-CREATE ALGORITHM=UNDEFINED DEFINER=`jorepuku`@`localhost` SQL SECURITY DEFINER VIEW `teacher_list_view`  AS SELECT `u`.`id` AS `id`, `u`.`username` AS `username`, `u`.`email` AS `email`, `u`.`phone` AS `phone`, `u`.`full_name` AS `full_name`, `u`.`address` AS `address`, `u`.`status` AS `status`, `u`.`photo` AS `user_photo`, `tp`.`photo` AS `profile_photo`, `tp`.`father_name` AS `father_name`, `tp`.`mother_name` AS `mother_name`, `tp`.`date_of_birth` AS `date_of_birth`, `tp`.`gender` AS `gender`, `tp`.`blood_group` AS `blood_group`, `tp`.`religion` AS `religion`, `tp`.`joining_date` AS `joining_date`, `tp`.`qualification` AS `qualification`, `tp`.`experience` AS `experience`, count(distinct `ct`.`class_id`) AS `total_classes`, count(distinct `cst`.`subject_id`) AS `total_subjects`, `u`.`created_at` AS `created_at`, `u`.`updated_at` AS `updated_at` FROM (((`users` `u` left join `teacher_profiles` `tp` on((`u`.`id` = `tp`.`teacher_id`))) left join `class_teachers` `ct` on((`u`.`id` = `ct`.`teacher_id`))) left join `class_subject_teachers` `cst` on((`u`.`id` = `cst`.`teacher_id`))) WHERE (`u`.`role` = 'teacher') GROUP BY `u`.`id` ;
+CREATE ALGORITHM=UNDEFINED DEFINER=`jorepuku`@`localhost` SQL SECURITY DEFINER VIEW `teacher_list_view`  AS SELECT `u`.`id` AS `id`, `u`.`username` AS `username`, `u`.`email` AS `email`, `u`.`phone` AS `phone`, `u`.`full_name` AS `full_name`, `u`.`address` AS `address`, `u`.`status` AS `status`, `u`.`photo` AS `user_photo`, `tp`.`photo` AS `profile_photo`, `tp`.`father_name` AS `father_name`, `tp`.`mother_name` AS `mother_name`, `tp`.`date_of_birth` AS `date_of_birth`, `tp`.`gender` AS `gender`, `tp`.`blood_group` AS `blood_group`, `tp`.`religion` AS `religion`, `tp`.`joining_date` AS `joining_date`, `tp`.`qualification` AS `qualification`, `tp`.`experience` AS `experience`, count(distinct `ct`.`class_id`) AS `total_classes`, count(distinct `cst`.`subject_id`) AS `total_subjects`, `u`.`created_at` AS `created_at`, `u`.`updated_at` AS `updated_at` FROM (((`users` `u` left join `teacher_profiles` `tp` on(`u`.`id` = `tp`.`teacher_id`)) left join `class_teachers` `ct` on(`u`.`id` = `ct`.`teacher_id`)) left join `class_subject_teachers` `cst` on(`u`.`id` = `cst`.`teacher_id`)) WHERE `u`.`role` = 'teacher' GROUP BY `u`.`id` ;
 
 --
 -- Indexes for dumped tables
@@ -2336,23 +2320,13 @@ ALTER TABLE `events`
 --
 ALTER TABLE `exams`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `class_id` (`class_id`),
-  ADD KEY `exam_type_id` (`exam_type_id`);
+  ADD KEY `class_id` (`class_id`);
 
 --
 -- Indexes for table `exam_heads`
 --
 ALTER TABLE `exam_heads`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `code` (`code`);
-
---
--- Indexes for table `exam_results`
---
-ALTER TABLE `exam_results`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `exam_id` (`exam_id`),
-  ADD KEY `student_id` (`student_id`);
+  ADD PRIMARY KEY (`id`);
 
 --
 -- Indexes for table `exam_result_rules`
@@ -2364,22 +2338,36 @@ ALTER TABLE `exam_result_rules`
 -- Indexes for table `exam_settings`
 --
 ALTER TABLE `exam_settings`
-  ADD PRIMARY KEY (`id`);
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `term_exam_id` (`term_exam_id`);
 
 --
 -- Indexes for table `exam_subjects`
 --
 ALTER TABLE `exam_subjects`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `exam_id` (`exam_id`),
-  ADD KEY `subject_id` (`subject_id`);
+  ADD KEY `subject_id` (`subject_id`),
+  ADD KEY `exam_id` (`exam_id`);
+
+--
+-- Indexes for table `exam_term_tutorial_links`
+--
+ALTER TABLE `exam_term_tutorial_links`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `term_exam_id` (`term_exam_id`),
+  ADD KEY `tutorial_exam_id` (`tutorial_exam_id`);
+
+--
+-- Indexes for table `exam_tutorial_links`
+--
+ALTER TABLE `exam_tutorial_links`
+  ADD PRIMARY KEY (`id`);
 
 --
 -- Indexes for table `exam_types`
 --
 ALTER TABLE `exam_types`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `code` (`code`);
+  ADD PRIMARY KEY (`id`);
 
 --
 -- Indexes for table `fee_categories`
@@ -2403,6 +2391,13 @@ ALTER TABLE `fee_structures`
   ADD PRIMARY KEY (`id`),
   ADD KEY `class_id` (`class_id`),
   ADD KEY `fee_category_id` (`fee_category_id`);
+
+--
+-- Indexes for table `five_pass_certificate_info`
+--
+ALTER TABLE `five_pass_certificate_info`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `student_id` (`student_id`);
 
 --
 -- Indexes for table `guardian_relations`
@@ -2449,9 +2444,10 @@ ALTER TABLE `lesson_evaluation`
 --
 ALTER TABLE `marks`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `ux_marks_student_subject` (`exam_subject_id`,`student_id`),
   ADD KEY `student_id` (`student_id`),
-  ADD KEY `idx_marks_exam_subject` (`exam_id`,`exam_subject_id`);
+  ADD KEY `exam_id` (`exam_id`),
+  ADD KEY `subject_id` (`subject_id`),
+  ADD KEY `head_id` (`head_id`);
 
 --
 -- Indexes for table `notices`
@@ -2586,235 +2582,247 @@ ALTER TABLE `weekly_holidays`
 -- AUTO_INCREMENT for table `academic_years`
 --
 ALTER TABLE `academic_years`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `attendance`
 --
 ALTER TABLE `attendance`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=733;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=740;
 
 --
 -- AUTO_INCREMENT for table `classes`
 --
 ALTER TABLE `classes`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT for table `class_periods`
 --
 ALTER TABLE `class_periods`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
 
 --
 -- AUTO_INCREMENT for table `class_subjects`
 --
 ALTER TABLE `class_subjects`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=45;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=45;
 
 --
 -- AUTO_INCREMENT for table `class_subject_teachers`
 --
 ALTER TABLE `class_subject_teachers`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=119;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=136;
 
 --
 -- AUTO_INCREMENT for table `class_teachers`
 --
 ALTER TABLE `class_teachers`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=40;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=48;
 
 --
 -- AUTO_INCREMENT for table `events`
 --
 ALTER TABLE `events`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `exams`
 --
 ALTER TABLE `exams`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT for table `exam_heads`
 --
 ALTER TABLE `exam_heads`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
-
---
--- AUTO_INCREMENT for table `exam_results`
---
-ALTER TABLE `exam_results`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `exam_result_rules`
 --
 ALTER TABLE `exam_result_rules`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `exam_settings`
 --
 ALTER TABLE `exam_settings`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `exam_subjects`
 --
 ALTER TABLE `exam_subjects`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=32;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+
+--
+-- AUTO_INCREMENT for table `exam_term_tutorial_links`
+--
+ALTER TABLE `exam_term_tutorial_links`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `exam_tutorial_links`
+--
+ALTER TABLE `exam_tutorial_links`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `exam_types`
 --
 ALTER TABLE `exam_types`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `fee_categories`
 --
 ALTER TABLE `fee_categories`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `fee_payments`
 --
 ALTER TABLE `fee_payments`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `fee_structures`
 --
 ALTER TABLE `fee_structures`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `five_pass_certificate_info`
+--
+ALTER TABLE `five_pass_certificate_info`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT for table `guardian_relations`
 --
 ALTER TABLE `guardian_relations`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT for table `holidays`
 --
 ALTER TABLE `holidays`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT for table `homework`
 --
 ALTER TABLE `homework`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `leave_applications`
 --
 ALTER TABLE `leave_applications`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `lesson_evaluation`
 --
 ALTER TABLE `lesson_evaluation`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18;
 
 --
 -- AUTO_INCREMENT for table `marks`
 --
 ALTER TABLE `marks`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=92;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `notices`
 --
 ALTER TABLE `notices`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `routines`
 --
 ALTER TABLE `routines`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
 
 --
 -- AUTO_INCREMENT for table `school_info`
 --
 ALTER TABLE `school_info`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `sections`
 --
 ALTER TABLE `sections`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18;
 
 --
 -- AUTO_INCREMENT for table `sms_logs`
 --
 ALTER TABLE `sms_logs`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=49;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=52;
 
 --
 -- AUTO_INCREMENT for table `sms_templates`
 --
 ALTER TABLE `sms_templates`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `students`
 --
 ALTER TABLE `students`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=177;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=178;
 
 --
 -- AUTO_INCREMENT for table `student_subjects`
 --
 ALTER TABLE `student_subjects`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=75;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=107;
 
 --
 -- AUTO_INCREMENT for table `subjects`
 --
 ALTER TABLE `subjects`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
 
 --
 -- AUTO_INCREMENT for table `tabulation_cache`
 --
 ALTER TABLE `tabulation_cache`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=35;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=37;
 
 --
 -- AUTO_INCREMENT for table `teacher_attendance`
 --
 ALTER TABLE `teacher_attendance`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=33;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=34;
 
 --
 -- AUTO_INCREMENT for table `teacher_evaluations`
 --
 ALTER TABLE `teacher_evaluations`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `teacher_profiles`
 --
 ALTER TABLE `teacher_profiles`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=24;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=25;
 
 --
 -- AUTO_INCREMENT for table `weekly_holidays`
 --
 ALTER TABLE `weekly_holidays`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- Constraints for dumped tables
@@ -2857,25 +2865,24 @@ ALTER TABLE `events`
   ADD CONSTRAINT `events_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`);
 
 --
--- Constraints for table `exams`
+-- Constraints for table `exam_settings`
 --
-ALTER TABLE `exams`
-  ADD CONSTRAINT `exams_ibfk_1` FOREIGN KEY (`class_id`) REFERENCES `classes` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `exams_ibfk_2` FOREIGN KEY (`exam_type_id`) REFERENCES `exam_types` (`id`) ON DELETE CASCADE;
-
---
--- Constraints for table `exam_results`
---
-ALTER TABLE `exam_results`
-  ADD CONSTRAINT `exam_results_ibfk_1` FOREIGN KEY (`exam_id`) REFERENCES `exams` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `exam_results_ibfk_2` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE;
+ALTER TABLE `exam_settings`
+  ADD CONSTRAINT `exam_settings_ibfk_1` FOREIGN KEY (`term_exam_id`) REFERENCES `exams` (`id`);
 
 --
 -- Constraints for table `exam_subjects`
 --
 ALTER TABLE `exam_subjects`
-  ADD CONSTRAINT `exam_subjects_ibfk_1` FOREIGN KEY (`exam_id`) REFERENCES `exams` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `exam_subjects_ibfk_2` FOREIGN KEY (`subject_id`) REFERENCES `subjects` (`id`) ON DELETE CASCADE;
+  ADD CONSTRAINT `exam_subjects_ibfk_1` FOREIGN KEY (`exam_id`) REFERENCES `exams` (`id`),
+  ADD CONSTRAINT `exam_subjects_ibfk_2` FOREIGN KEY (`subject_id`) REFERENCES `subjects` (`id`);
+
+--
+-- Constraints for table `exam_term_tutorial_links`
+--
+ALTER TABLE `exam_term_tutorial_links`
+  ADD CONSTRAINT `exam_term_tutorial_links_ibfk_1` FOREIGN KEY (`term_exam_id`) REFERENCES `exams` (`id`),
+  ADD CONSTRAINT `exam_term_tutorial_links_ibfk_2` FOREIGN KEY (`tutorial_exam_id`) REFERENCES `exams` (`id`);
 
 --
 -- Constraints for table `fee_payments`
@@ -2891,6 +2898,12 @@ ALTER TABLE `fee_payments`
 ALTER TABLE `fee_structures`
   ADD CONSTRAINT `fee_structures_ibfk_1` FOREIGN KEY (`class_id`) REFERENCES `classes` (`id`),
   ADD CONSTRAINT `fee_structures_ibfk_2` FOREIGN KEY (`fee_category_id`) REFERENCES `fee_categories` (`id`);
+
+--
+-- Constraints for table `five_pass_certificate_info`
+--
+ALTER TABLE `five_pass_certificate_info`
+  ADD CONSTRAINT `five_pass_certificate_info_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `homework`
@@ -2920,9 +2933,10 @@ ALTER TABLE `lesson_evaluation`
 -- Constraints for table `marks`
 --
 ALTER TABLE `marks`
-  ADD CONSTRAINT `marks_ibfk_1` FOREIGN KEY (`exam_id`) REFERENCES `exams` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `marks_ibfk_2` FOREIGN KEY (`exam_subject_id`) REFERENCES `exam_subjects` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `marks_ibfk_3` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE;
+  ADD CONSTRAINT `marks_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`),
+  ADD CONSTRAINT `marks_ibfk_2` FOREIGN KEY (`exam_id`) REFERENCES `exams` (`id`),
+  ADD CONSTRAINT `marks_ibfk_3` FOREIGN KEY (`subject_id`) REFERENCES `subjects` (`id`),
+  ADD CONSTRAINT `marks_ibfk_4` FOREIGN KEY (`head_id`) REFERENCES `exam_heads` (`id`);
 
 --
 -- Constraints for table `notices`

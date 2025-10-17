@@ -246,6 +246,12 @@
                                         <p>প্রত্যয়পত্র প্রিন্ট</p>
                                     </a>
                                 </li>
+                                <li class="nav-item">
+                                    <a href="<?php echo BASE_URL; ?>admin/certificates/issued_certificates.php" class="nav-link">
+                                        <i class="far fa-list-alt nav-icon"></i>
+                                        <p>প্রদানকৃত প্রত্যয়নপত্র</p>
+                                    </a>
+                                </li>
                             </ul>
                         </li>
                     </ul>

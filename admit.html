@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>প্রবেশপত্র (Admit Card)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #1e5799;
+            --accent: #ff9800;
+            --muted: #6b7280;
+            --border: #e5e7eb;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: #f3f4f6;
+            color: #111827;
+            font-family: 'Noto Sans Bengali', 'Hind Siliguri', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        }
+        .sheet {
+            width: 210mm;
+            margin: 0 auto;
+            padding: 10mm 10mm 16mm;
+        }
+        .admit-card {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8mm;
+            margin-bottom: 6mm;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+            min-height: 135mm; /* about half of A4 minus margins */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            page-break-inside: avoid;
+        }
+        .card-head {
+            display: grid;
+            grid-template-columns: 28mm 1fr 30mm;
+            align-items: center;
+            gap: 8mm;
+            margin-bottom: 4mm;
+        }
+        .logo-box {
+            width: 28mm; height: 28mm;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden; background: #fff;
+        }
+        .logo-box img { max-width: 100%; max-height: 100%; }
+        .school-info { text-align: center; }
+        .school-name { font-weight: 700; font-size: 18pt; line-height: 1.2; color: var(--primary); }
+        .school-meta { font-size: 10pt; color: var(--muted); margin-top: 2mm; }
+        .photo-box {
+            width: 30mm; height: 36mm;
+            border: 1px dashed var(--border);
+            border-radius: 4px; overflow: hidden;
+            display: flex; align-items: center; justify-content: center; font-size: 9pt; color: #9ca3af;
+            background: #fafafa;
+        }
+        .photo-box img { width: 100%; height: 100%; object-fit: cover; }
+        .exam-title {
+            text-align: center;
+            font-weight: 700; font-size: 14pt; color: #0f172a;
+            padding: 3mm 0; margin-bottom: 2mm;
+            border-top: 2px solid var(--border); border-bottom: 2px solid var(--border);
+        }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; }
+        .section { border: 1px solid var(--border); border-radius: 6px; padding: 4mm; }
+        .section-title { font-weight: 700; color: var(--primary); margin-bottom: 3mm; font-size: 11pt; }
+        .info-list { display: grid; grid-template-columns: 1fr 1fr; gap: 2mm 6mm; font-size: 10pt; }
+        .info-item { display: flex; gap: 3mm; }
+        .label { color: #374151; font-weight: 600; min-width: 28mm; }
+        .value { color: #111827; }
+        table { border-collapse: collapse; width: 100%; font-size: 10pt; }
+        th, td { border-bottom: 1px solid var(--border); padding: 6px 8px; text-align: left; }
+        th { background: #f9fafb; color: #111827; font-weight: 700; }
+        .instructions { font-size: 10pt; }
+        .instructions ul { margin: 2mm 0 0 5mm; }
+        .sign-row { display: flex; justify-content: space-between; gap: 10mm; margin-top: 6mm; }
+        .sign-col { flex: 1; text-align: center; }
+        .sign-line { margin: 12mm 0 2mm; border-top: 1px solid #4b5563; }
+        .sign-label { font-weight: 600; color: #111827; }
+        .branding { text-align: center; font-size: 9pt; color: #6b7280; margin-top: 4mm; }
+        .cut-line {
+            margin: 2mm 0 6mm; position: relative; text-align: center; color: #9ca3af; font-weight: 700;
+        }
+        .cut-line:before { content: ""; position: absolute; top: 50%; left: 0; right: 0; border-top: 1px dashed #9ca3af; }
+        .cut-line span { background: #f3f4f6; padding: 0 6px; position: relative; }
+        .actions { text-align: center; margin: 16px 0 24px; }
+        .print-btn {
+            background: var(--primary); color: #fff; border: none; border-radius: 6px; padding: 10px 18px; cursor: pointer; font-size: 14px;
+        }
+        .print-btn:hover { background: #154274; }
+        @media print {
+            @page { size: A4 portrait; margin: 10mm; }
+            body { background: #fff; }
+            .actions { display: none; }
+            .sheet { padding: 0; }
+            .cut-line span { background: #fff; }
+            .admit-card { box-shadow: none; }
+        }
+        @media (max-width: 900px) {
+            .sheet { width: 100%; padding: 10px; }
+            .card-head { grid-template-columns: 24mm 1fr 28mm; gap: 10px; }
+            .grid-2 { grid-template-columns: 1fr; }
+        }
+    </style>
+    </head>
+    <body>
+    <div class="actions">
+        <button class="print-btn" onclick="window.print()">প্রিন্ট করুন</button>
+    </div>
+    <div class="sheet">
+        <!-- Admit Card 1 -->
+        <div class="admit-card">
+            <div>
+                <div class="card-head">
+                    <div class="logo-box">
+                        <!-- Replace with actual logo -->
+                        <img src="uploads/logo/1757281102_jss_logo.png" alt="School Logo" onerror="this.remove()">
+                    </div>
+                    <div class="school-info">
+                        <div class="school-name">সরকারি প্রাথমিক বিদ্যালয়, ঢাকা</div>
+                        <div class="school-meta">ডাকঘর: ঢাকা-১২০০, থানা: রমনা, জেলা: ঢাকা | মোবাইল: ০১৭১২৩৪৫৬৭৮</div>
+                    </div>
+                    <div class="photo-box">
+                        <!-- Replace with student photo if available -->
+                        শিক্ষার্থীর ছবি
+                    </div>
+                </div>
+                <div class="exam-title">বার্ষিক পরীক্ষা ২০২৪ - প্রবেশপত্র</div>
+
+                <div class="grid-2">
+                    <div class="section">
+                        <div class="section-title">শিক্ষার্থীর তথ্য</div>
+                        <div class="info-list">
+                            <div class="info-item"><div class="label">নাম</div><div class="value">আনিকা ইসলাম</div></div>
+                            <div class="info-item"><div class="label">রোল</div><div class="value">১২</div></div>
+                            <div class="info-item"><div class="label">পিতার নাম</div><div class="value">মোঃ রফিকুল ইসলাম</div></div>
+                            <div class="info-item"><div class="label">মাতার নাম</div><div class="value">মোসাঃ সেলিনা আক্তার</div></div>
+                            <div class="info-item"><div class="label">শ্রেণি</div><div class="value">পঞ্চম</div></div>
+                            <div class="info-item"><div class="label">আইডি</div><div class="value">PSC-2024-0123</div></div>
+                        </div>
+                    </div>
+                    <div class="section">
+                        <div class="section-title">পরীক্ষার সময়সূচী</div>
+                        <table>
+                            <thead>
+                                <tr><th>তারিখ</th><th>বিষয়</th><th>সময়</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>২০ নভেম্বর, ২০২৪</td><td>বাংলা</td><td>১০:৩০ - ১:০০</td></tr>
+                                <tr><td>২১ নভেম্বর, ২০২৪</td><td>ইংরেজি</td><td>১০:৩০ - ১:০০</td></tr>
+                                <tr><td>২২ নভেম্বর, ২০২৪</td><td>গণিত</td><td>১০:৩০ - ১:০০</td></tr>
+                                <tr><td>২৪ নভেম্বর, ২০২৪</td><td>বিজ্ঞান</td><td>১০:৩০ - ১:০০</td></tr>
+                                <tr><td>২৫ নভেম্বর, ২০২৪</td><td>বাংলাদেশ ও বিশ্বপরিচয়</td><td>১০:৩০ - ১:০০</td></tr>
+                                <tr><td>২৬ নভেম্বর, ২০২৪</td><td>ইসলাম ও নৈতিক শিক্ষা</td><td>১০:৩০ - ১:০০</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="section instructions" style="margin-top: 4mm;">
+                    <div class="section-title">পরীক্ষার নির্দেশাবলী</div>
+                    <ul>
+                        <li>পরীক্ষা শুরুর ৩০ মিনিট আগে পরীক্ষা কক্ষে উপস্থিত হতে হবে।</li>
+                        <li>প্রবেশপত্র ছাড়া পরীক্ষা কেন্দ্রে প্রবেশ করা যাবে না।</li>
+                        <li>পরীক্ষার সময় মোবাইল ফোন বা ইলেকট্রনিক ডিভাইস ব্যবহার করা যাবে না।</li>
+                        <li>পরীক্ষার হলে নকল করা সম্পূর্ণ নিষিদ্ধ।</li>
+                        <li>প্রশ্নপত্র ও উত্তরপত্রে নাম, রোল নং ইত্যাদি সঠিকভাবে লিখতে হবে।</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div>
+                <div class="sign-row">
+                    <div class="sign-col">
+                        <div class="sign-line"></div>
+                        <div class="sign-label">শ্রেণি শিক্ষক</div>
+                    </div>
+                    <div class="sign-col">
+                        <div class="sign-line"></div>
+                        <div class="sign-label">প্রধান শিক্ষক</div>
+                    </div>
+                </div>
+                <div class="branding">কারিগরি সহযোগীতায়ঃ <strong>বাতিঘর কম্পিউটার’স</strong> | মোবাইলঃ 0176239671</div>
+            </div>
+        </div>
+
+        <div class="cut-line"><span>--- কাটার দাগ ---</span></div>
+
+        <!-- Admit Card 2 (duplicate layout for second student on same A4 page) -->
+        <div class="admit-card">
+            <div>
+                <div class="card-head">
+                    <div class="logo-box">
+                        <img src="uploads/logo/1757281102_jss_logo.png" alt="School Logo" onerror="this.remove()">
+                    </div>
+                    <div class="school-info">
+                        <div class="school-name">সরকারি প্রাথমিক বিদ্যালয়, ঢাকা</div>
+                        <div class="school-meta">ডাকঘর: ঢাকা-১২০০, থানা: রমনা, জেলা: ঢাকা | মোবাইল: ০১৭১২৩৪৫৬৭৮</div>
+                    </div>
+                    <div class="photo-box">শিক্ষার্থীর ছবি</div>
+                </div>
+                <div class="exam-title">বার্ষিক পরীক্ষা ২০২৪ - প্রবেশপত্র</div>
+
+                <div class="grid-2">
+                    <div class="section">
+                        <div class="section-title">শিক্ষার্থীর তথ্য</div>
+                        <div class="info-list">
+                            <div class="info-item"><div class="label">নাম</div><div class="value">রাবেয়া খাতুন</div></div>
+                            <div class="info-item"><div class="label">রোল</div><div class="value">১৩</div></div>
+                            <div class="info-item"><div class="label">পিতার নাম</div><div class="value">মোঃ জসিম উদ্দিন</div></div>
+                            <div class="info-item"><div class="label">মাতার নাম</div><div class="value">মোছাঃ রওশন আরা</div></div>
+                            <div class="info-item"><div class="label">শ্রেণি</div><div class="value">পঞ্চম</div></div>
+                            <div class="info-item"><div class="label">আইডি</div><div class="value">PSC-2024-0124</div></div>
+                        </div>
+                    </div>
+                    <div class="section">
+                        <div class="section-title">পরীক্ষার সময়সূচী</div>
+                        <table>
+                            <thead>
+                                <tr><th>তারিখ</th><th>বিষয়</th><th>সময়</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>২০ নভেম্বর, ২০২৪</td><td>বাংলা</td><td>১০:৩০ - ১:০০</td></tr>
+                                <tr><td>২১ নভেম্বর, ২০২৪</td><td>ইংরেজি</td><td>১০:৩০ - ১:০০</td></tr>
+                                <tr><td>২২ নভেম্বর, ২০২৪</td><td>গণিত</td><td>১০:৩০ - ১:০০</td></tr>
+                                <tr><td>২৪ নভেম্বর, ২০২৪</td><td>বিজ্ঞান</td><td>১০:৩০ - ১:০০</td></tr>
+                                <tr><td>২৫ নভেম্বর, ২০২৪</td><td>বাংলাদেশ ও বিশ্বপরিচয়</td><td>১০:৩০ - ১:০০</td></tr>
+                                <tr><td>২৬ নভেম্বর, ২০২৪</td><td>ইসলাম ও নৈতিক শিক্ষা</td><td>১০:৩০ - ১:০০</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="section instructions" style="margin-top: 4mm;">
+                    <div class="section-title">পরীক্ষার নির্দেশাবলী</div>
+                    <ul>
+                        <li>পরীক্ষা শুরুর ৩০ মিনিট আগে পরীক্ষা কক্ষে উপস্থিত হতে হবে।</li>
+                        <li>প্রবেশপত্র ছাড়া পরীক্ষা কেন্দ্রে প্রবেশ করা যাবে না।</li>
+                        <li>পরীক্ষার সময় মোবাইল ফোন বা ইলেকট্রনিক ডিভাইস ব্যবহার করা যাবে না।</li>
+                        <li>পরীক্ষার হলে নকল করা সম্পূর্ণ নিষিদ্ধ।</li>
+                        <li>প্রশ্নপত্র ও উত্তরপত্রে নাম, রোল নং ইত্যাদি সঠিকভাবে লিখতে হবে।</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div>
+                <div class="sign-row">
+                    <div class="sign-col">
+                        <div class="sign-line"></div>
+                        <div class="sign-label">শ্রেণি শিক্ষক</div>
+                    </div>
+                    <div class="sign-col">
+                        <div class="sign-line"></div>
+                        <div class="sign-label">প্রধান শিক্ষক</div>
+                    </div>
+                </div>
+                <div class="branding">কারিগরি সহযোগীতায়ঃ <strong>বাতিঘর কম্পিউটার’স</strong> | মোবাইলঃ 0176239671</div>
+            </div>
+        </div>
+    </div>
+    </body>
+    </html>

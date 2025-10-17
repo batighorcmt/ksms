@@ -10,10 +10,12 @@ if (!isAuthenticated() || !hasRole(['super_admin','teacher'])) {
 
 // Fetch classes
 $classes = $pdo->query("SELECT id, name FROM classes ORDER BY id")->fetchAll();
+// Fetch academic years (active)
+$years = $pdo->query("SELECT id, year, is_current FROM academic_years WHERE status='active' ORDER BY year DESC")->fetchAll(PDO::FETCH_ASSOC);
 // Fetch certificate types
 $certificate_types = [
     'running' => 'বর্তমান শিক্ষার্থী',
-    'ex_student' => 'পূর্বে অধ্যয়নকৃত শিক্ষার্থী'
+    //'ex_student' => 'পূর্বে অধ্যয়নকৃত শিক্ষার্থী'
 ];
 
 // Handle AJAX for sections
@@ -23,10 +25,19 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'sections' && isset($_GET['class_i
     echo json_encode($stmt->fetchAll());
     exit;
 }
-// Handle AJAX for students
+// Handle AJAX for students (only active students) - now filtered by academic year as well
 if (isset($_GET['ajax']) && $_GET['ajax'] === 'students' && isset($_GET['class_id']) && isset($_GET['section_id'])) {
-    $stmt = $pdo->prepare("SELECT id, first_name, last_name FROM students WHERE class_id = ? AND section_id = ? ORDER BY first_name, last_name");
-    $stmt->execute([intval($_GET['class_id']), intval($_GET['section_id'])]);
+    $class_id = intval($_GET['class_id']);
+    $section_id = intval($_GET['section_id']);
+    $year_id = isset($_GET['academic_year_id']) ? intval($_GET['academic_year_id']) : 0;
+
+    if ($year_id) {
+        $stmt = $pdo->prepare("SELECT id, first_name, last_name FROM students WHERE class_id = ? AND section_id = ? AND year_id = ? AND (status = 'active' OR status IS NULL) ORDER BY first_name, last_name");
+        $stmt->execute([$class_id, $section_id, $year_id]);
+    } else {
+        $stmt = $pdo->prepare("SELECT id, first_name, last_name FROM students WHERE class_id = ? AND section_id = ? AND (status = 'active' OR status IS NULL) ORDER BY first_name, last_name");
+        $stmt->execute([$class_id, $section_id]);
+    }
     echo json_encode($stmt->fetchAll());
     exit;
 }
@@ -45,14 +56,20 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'students' && isset($_GET['class_i
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
     <link href="https://fonts.maateen.me/solaiman-lipi/font.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         body { font-family: 'SolaimanLipi', Arial, sans-serif; background: #f5f5f5; }
-    .cert-container { max-width: 600px; margin: 40px auto; background: #fff; box-shadow: 0 0 10px #ccc; padding: 30px; border-radius: 8px; }
-        h2 { text-align: center; margin-bottom: 25px; color: #006400; }
-        label { font-weight: bold; margin-top: 12px; display: block; }
-        select, button { width: 100%; padding: 10px; margin-top: 6px; border-radius: 5px; border: 1px solid #ccc; font-size: 16px; }
-        button { background: #006400; color: #fff; border: none; cursor: pointer; margin-top: 18px; }
+        .cert-container { max-width: 720px; margin: 20px auto; background: #fff; box-shadow: 0 0 10px #ccc; padding: 20px; border-radius: 8px; }
+        h2 { text-align: center; margin-bottom: 18px; color: #006400; font-size: 1.5rem; }
+        label { font-weight: bold; margin-top: 8px; display: block; }
+        select, button, input { width: 100%; padding: 10px; margin-top: 6px; border-radius: 5px; border: 1px solid #ccc; font-size: 16px; }
+        button { background: #006400; color: #fff; border: none; cursor: pointer; margin-top: 12px; }
         button:hover { background: #004d00; }
+        @media (max-width: 576px) {
+            .cert-container { padding: 14px; margin: 10px; }
+            h2 { font-size: 1.25rem; }
+            .form-row { display: block; }
+        }
     </style>
 </head>
 <body class="hold-transition sidebar-mini">
@@ -79,33 +96,53 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'students' && isset($_GET['class_i
                         <div class="cert-container">
                             <h2>সার্টিফিকেট প্রিন্ট অপশন</h2>
                             <form method="get" action="" id="certificateForm">
-                                <label for="certificate_type">সার্টিফিকেটের ধরন:</label>
-                                <select name="certificate_type" id="certificate_type" required>
-                                    <option value="">নির্বাচন করুন</option>
-                                    <?php foreach ($certificate_types as $key => $label): ?>
-                                        <option value="<?php echo $key; ?>"><?php echo $label; ?></option>
-                                    <?php endforeach; ?>
-                                </select>
+                                <div class="row gx-2 gy-2">
+                                    <div class="col-12 col-md-6">
+                                        <label for="certificate_type">সার্টিফিকেটের ধরন:</label>
+                                        <select name="certificate_type" id="certificate_type" required>
+                                            <option value="">নির্বাচন করুন</option>
+                                            <?php foreach ($certificate_types as $key => $label): ?>
+                                                <option value="<?php echo $key; ?>"><?php echo $label; ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <div class="col-12 col-md-6">
+                                        <label for="class_id">শ্রেণি:</label>
+                                        <select name="class_id" id="class_id" required>
+                                            <option value="">নির্বাচন করুন</option>
+                                            <?php foreach ($classes as $class): ?>
+                                                <option value="<?php echo $class['id']; ?>"><?php echo htmlspecialchars($class['name']); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
 
-                                <label for="class_id">শ্রেণি:</label>
-                                <select name="class_id" id="class_id" required>
-                                    <option value="">নির্বাচন করুন</option>
-                                    <?php foreach ($classes as $class): ?>
-                                        <option value="<?php echo $class['id']; ?>"><?php echo htmlspecialchars($class['name']); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
+                                    <div class="col-12 col-md-6">
+                                        <label for="academic_year_id">শিক্ষাবর্ষ (বছর):</label>
+                                        <select name="academic_year_id" id="academic_year_id" required class="form-control">
+                                            <option value="">নির্বাচন করুন</option>
+                                            <?php foreach($years as $y): ?>
+                                                <option value="<?= $y['id'] ?>" <?= !empty($y['is_current']) ? 'selected' : '' ?>><?= htmlspecialchars($y['year']) ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
 
-                                <label for="section_id">শাখা:</label>
-                                <select name="section_id" id="section_id" required>
-                                    <option value="">প্রথমে শ্রেণি নির্বাচন করুন</option>
-                                </select>
+                                    <div class="col-12 col-md-6">
+                                        <label for="section_id">শাখা:</label>
+                                        <select name="section_id" id="section_id" required>
+                                            <option value="">প্রথমে শ্রেণি নির্বাচন করুন</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-12 col-md-6">
+                                        <label for="student_id">শিক্ষার্থীর নাম:</label>
+                                        <select name="student_id" id="student_id" required>
+                                            <option value="">প্রথমে শাখা নির্বাচন করুন</option>
+                                        </select>
+                                    </div>
 
-                                <label for="student_id">শিক্ষার্থীর নাম:</label>
-                                <select name="student_id" id="student_id" required>
-                                    <option value="">প্রথমে শাখা নির্বাচন করুন</option>
-                                </select>
-
-                                <button type="submit">সার্টিফিকেট দেখুন/প্রিন্ট করুন</button>
+                                    <div class="col-12 text-center mt-2">
+                                        <button type="submit" class="btn btn-success btn-lg">সার্টিফিকেট দেখুন/প্রিন্ট করুন</button>
+                                    </div>
+                                </div>
                             </form>
                         </div>
                     </div>
@@ -140,7 +177,10 @@ classSelect.addEventListener('change', function() {
 });
 sectionSelect.addEventListener('change', function() {
     studentSelect.innerHTML = '<option>লোড হচ্ছে...</option>';
-    fetch('?ajax=students&class_id=' + classSelect.value + '&section_id=' + sectionSelect.value)
+    // include selected academic year in the request so students are filtered by year
+    const yearVal = document.getElementById('academic_year_id') ? document.getElementById('academic_year_id').value : '';
+    const qs = '?ajax=students&class_id=' + encodeURIComponent(classSelect.value) + '&section_id=' + encodeURIComponent(sectionSelect.value) + (yearVal ? '&academic_year_id=' + encodeURIComponent(yearVal) : '');
+    fetch(qs)
         .then(res => res.json())
         .then(data => {
             let html = '<option value="">নির্বাচন করুন</option>';
@@ -150,20 +190,49 @@ sectionSelect.addEventListener('change', function() {
             studentSelect.innerHTML = html;
         });
 });
-// On submit, redirect to correct certificate page
+// On submit, record certificate first (AJAX) then redirect to certificate page with certificate_number
 const form = document.getElementById('certificateForm');
 form.addEventListener('submit', function(e) {
     e.preventDefault();
     const type = document.getElementById('certificate_type').value;
     const studentId = document.getElementById('student_id').value;
     if (!type || !studentId) return;
-    let url = '';
+    let targetPage = '';
     if (type === 'running') {
-        url = 'running_student_certificate.php?id=' + studentId;
+        targetPage = 'running_student_certificate.php';
     } else if (type === 'ex_student') {
-        url = 'ex_student_certificate.php?id=' + studentId;
+        targetPage = 'ex_student_certificate.php';
     }
-    if (url) window.location.href = url;
+    if (!targetPage) return;
+
+    // Post to record endpoint (same folder) — include credentials so session cookie is sent
+    const yearId = document.getElementById('academic_year_id') ? document.getElementById('academic_year_id').value : '';
+    fetch('record_certificate_issue.php', {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin',
+        body: new URLSearchParams({ student_id: studentId, certificate_type: type, academic_year_id: yearId })
+    }).then(r => {
+        if (r.status === 401) {
+            // Not authenticated — send the user to login
+            window.location.href = '../../login.php';
+            return Promise.reject(new Error('unauthorized'));
+        }
+        return r.json().catch(() => ({}));
+    }).then(j => {
+        if (j && j.success) {
+            // Redirect to print page with student id and certificate_number so print page shows existing record
+            const redirectUrl = targetPage + '?id=' + encodeURIComponent(studentId) + '&certificate_number=' + encodeURIComponent(j.certificate_number);
+            window.location.href = redirectUrl;
+        } else {
+            // fallback: just go to page with id
+            window.location.href = targetPage + '?id=' + studentId;
+        }
+    }).catch(err => {
+        if (err && err.message === 'unauthorized') return;
+        console.error(err);
+        window.location.href = targetPage + '?id=' + studentId;
+    });
 });
 </script>
 </body>
