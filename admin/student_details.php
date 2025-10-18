@@ -54,8 +54,7 @@ $marks_stmt = $pdo->prepare("
     SELECT m.*, e.name AS exam_name, e.exam_date, sub.name AS subject_name
     FROM marks m
     JOIN exams e ON m.exam_id = e.id
-    JOIN exam_subjects es ON m.exam_subject_id = es.id
-    LEFT JOIN subjects sub ON es.subject_id = sub.id
+    LEFT JOIN subjects sub ON m.subject_id = sub.id
     WHERE m.student_id = ?
     ORDER BY e.exam_date DESC
 ");
@@ -383,10 +382,10 @@ $fee_payments_data = $fee_payments->fetchAll();
                                                         <td><?php echo $row['exam_name']; ?></td>
                                                         <td><?php echo $row['subject_name'] ?: '-'; ?></td>
                                                         <td><?php echo !empty($row['exam_date']) ? date('d/m/Y', strtotime($row['exam_date'])) : '-'; ?></td>
-                                                        <td><?php echo number_format((float)$row['obtained_marks'], 2); ?></td>
+                                                        <td><?php echo number_format((float)$row['marks_obtained'], 2); ?></td>
                                                         <td>
                                                             <?php 
-                                                                $m = (float)$row['obtained_marks'];
+                                                                $m = (float)$row['marks_obtained'];
                                                                 if ($m >= 80) echo '<span class="badge badge-success">A+</span>';
                                                                 elseif ($m >= 70) echo '<span class="badge badge-primary">A</span>';
                                                                 elseif ($m >= 60) echo '<span class="badge badge-info">A-</span>';
