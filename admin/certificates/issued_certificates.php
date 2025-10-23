@@ -7,14 +7,15 @@ if (!isAuthenticated() || !hasRole(['super_admin','teacher'])) {
 // filters
 $q_student = trim($_GET['student'] ?? '');
 $q_class = intval($_GET['class_id'] ?? 0);
+$q_year = intval($_GET['academic_year_id'] ?? 0); // optional year filter
 $q_type = trim($_GET['certificate_type'] ?? '');
 $from = trim($_GET['from'] ?? '');
 $to = trim($_GET['to'] ?? '');
 
 $where = [];
 $params = [];
-if ($q_student !== '') { $where[] = '(s.first_name LIKE ? OR s.last_name LIKE ? OR s.roll_number LIKE ?)'; $like = "%$q_student%"; $params = array_merge($params, [$like,$like,$like]); }
-if ($q_class) { $where[] = 's.class_id = ?'; $params[] = $q_class; }
+if ($q_student !== '') { $where[] = '(s.first_name LIKE ? OR s.last_name LIKE ? OR se.roll_number LIKE ?)'; $like = "%$q_student%"; $params = array_merge($params, [$like,$like,$like]); }
+if ($q_class) { $where[] = 'se.class_id = ?'; $params[] = $q_class; }
 if ($q_type !== '') { $where[] = 'ci.certificate_type = ?'; $params[] = $q_type; }
 if ($from) { $where[] = 'ci.issued_at >= ?'; $params[] = $from . ' 00:00:00'; }
 if ($to) { $where[] = 'ci.issued_at <= ?'; $params[] = $to . ' 23:59:59'; }
@@ -22,33 +23,50 @@ if ($to) { $where[] = 'ci.issued_at <= ?'; $params[] = $to . ' 23:59:59'; }
 // (paginated query is executed below)
 
 // load filters data
-$classes = $pdo->query("SELECT id, name FROM classes WHERE status='active' ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+$classes = $pdo->query("SELECT id, name FROM classes WHERE status='active' ORDER BY numeric_value ASC, name ASC")->fetchAll(PDO::FETCH_ASSOC);
 // server-side pagination: read page and per_page from GET
 $page = max(1, intval($_GET['page'] ?? 1));
 $per_page = max(1, intval($_GET['per_page'] ?? 25));
 
+// Resolve target academic year: GET param -> current year -> fallback to latest enrollment per student
+$targetAcademicYearId = 0;
+if ($q_year > 0) {
+  $targetAcademicYearId = $q_year;
+} else {
+  $cur = $pdo->query("SELECT id FROM academic_years WHERE is_current = 1 LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+  if (!empty($cur['id'])) $targetAcademicYearId = (int)$cur['id'];
+}
+
 // build base FROM/JOIN and WHERE for count and select
+$joinParams = [];
 $baseFrom = "FROM certificate_issues ci
-  LEFT JOIN students s ON s.id = ci.student_id
-  LEFT JOIN classes c ON c.id = s.class_id
-  LEFT JOIN users u ON u.id = ci.issued_by";
+  LEFT JOIN students s ON s.id = ci.student_id\n";
+if ($targetAcademicYearId > 0) {
+  $baseFrom .= "  LEFT JOIN students_enrollment se ON se.student_id = ci.student_id AND se.academic_year_id = ?\n";
+  $joinParams[] = $targetAcademicYearId;
+} else {
+  // fallback to latest enrollment per student
+  $baseFrom .= "  LEFT JOIN students_enrollment se ON se.student_id = ci.student_id AND se.academic_year_id = (SELECT MAX(se2.academic_year_id) FROM students_enrollment se2 WHERE se2.student_id = ci.student_id)\n";
+}
+$baseFrom .= "  LEFT JOIN classes c ON c.id = se.class_id\n  LEFT JOIN users u ON u.id = ci.issued_by";
 $whereSql = '';
 if (!empty($where)) $whereSql = ' WHERE ' . implode(' AND ', $where);
 
 // total count
 $countSql = 'SELECT COUNT(*) as cnt ' . $baseFrom . $whereSql;
 $countStmt = $pdo->prepare($countSql);
-$countStmt->execute($params);
+$allParams = array_merge($joinParams, $params);
+$countStmt->execute($allParams);
 $totalRow = $countStmt->fetch(PDO::FETCH_ASSOC);
 $total = $totalRow ? (int)$totalRow['cnt'] : 0;
 $total_pages = $total ? (int)ceil($total / $per_page) : 1;
 
 // fetch page rows
 $offset = ($page - 1) * $per_page;
-$sql = "SELECT ci.*, s.first_name, s.last_name, s.roll_number, s.id as student_id, c.name as class_name, u.full_name as issued_by_name "
+$sql = "SELECT ci.*, s.first_name, s.last_name, se.roll_number, s.id as student_id, c.name as class_name, u.full_name as issued_by_name "
   . $baseFrom . $whereSql . " ORDER BY ci.issued_at DESC LIMIT " . (int)$per_page . " OFFSET " . (int)$offset;
 $stmt = $pdo->prepare($sql);
-$stmt->execute($params);
+$stmt->execute($allParams);
 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 ?>

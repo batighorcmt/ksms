@@ -1,10 +1,19 @@
+# index.php ছাড়া ডিরেক্টরি অ্যাক্সেস হলে 403 দেবে
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteCond %{REQUEST_FILENAME}/index.php !-f
+RewriteRule ^.*$ /403.php [L]
+
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
-    # Handle 404 errors
+    # Directory listing বন্ধ (যদি index.* না থাকে তবে 403 দেবে)
+    Options -Indexes
+
+    # 403 ও 404 Error পেজ সেট করুন
+    ErrorDocument 403 /403.php
     ErrorDocument 404 /404.php
 
-    # If the requested file or directory does not exist, then rewrite to 404.php
+    # যদি অনুরোধ করা ফাইল বা ফোল্ডার না থাকে, তাহলে 404.php দেখাও
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteRule ^(.*)$ 404.php [L]

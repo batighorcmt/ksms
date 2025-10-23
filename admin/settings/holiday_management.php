@@ -3,7 +3,7 @@ require_once '../../config.php';
 
 // Authentication check - only super_admin can manage holidays
 if (!isAuthenticated() || !hasRole(['super_admin'])) {
-    header('Location: ../login.php');
+    header('Location: ' . BASE_URL . 'login.php');
     exit;
 }
 
@@ -199,8 +199,8 @@ $weekly_holidays = $pdo->query("SELECT * FROM weekly_holidays ORDER BY day_numbe
                     </div>
                     <div class="col-sm-6">
                         <ol class="breadcrumb float-sm-right">
-                            <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>dashboard.php">হোম</a></li>
-                            <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>admin/settings.php">সেটিংস</a></li>
+                            <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>admin/dashboard.php">হোম</a></li>
+                            <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>admin/settings/attendance_settings.php">সেটিংস</a></li>
                             <li class="breadcrumb-item active">ছুটির দিন ব্যবস্থাপনা</li>
                         </ol>
                     </div>
@@ -398,7 +398,14 @@ $weekly_holidays = $pdo->query("SELECT * FROM weekly_holidays ORDER BY day_numbe
                                             </div>
                                             <div class="card-body">
                                                 <?php
-                                                $active_weekly_holidays = $pdo->query("SELECT * FROM weekly_holidays WHERE status = 'active' ORDER BY day_number ASC")->fetchAll();
+                                                $active_weekly_holidays = [];
+                                                try {
+                                                    if ($pdo instanceof PDO) {
+                                                        $active_weekly_holidays = $pdo->query("SELECT * FROM weekly_holidays WHERE status = 'active' ORDER BY day_number ASC")->fetchAll();
+                                                    }
+                                                } catch (Throwable $e) {
+                                                    $active_weekly_holidays = [];
+                                                }
                                                 if(count($active_weekly_holidays) > 0): ?>
                                                     <div class="row">
                                                         <?php foreach($active_weekly_holidays as $day): ?>

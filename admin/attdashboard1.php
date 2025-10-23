@@ -1,5 +1,7 @@
 <?php
 require_once '../config.php';
+require_once __DIR__ . '/inc/enrollment_helpers.php';
+/** @var PDO $pdo */
 
 // Authentication check
 if (!isAuthenticated() || !hasRole(['super_admin', 'teacher'])) {
@@ -8,55 +10,110 @@ if (!isAuthenticated() || !hasRole(['super_admin', 'teacher'])) {
 
 // বর্তমান তারিখ
 $current_date = date('Y-m-d');
+// বর্তমান শিক্ষাবর্ষ
+$current_year_id = function_exists('current_academic_year_id') ? current_academic_year_id($pdo) : null;
 
-// ড্যাশবোর্ড সামারি ডেটা
-$total_students = $pdo->query("SELECT COUNT(*) as total FROM students WHERE status='active'")->fetch()['total'];
-$present_today = $pdo->query("SELECT COUNT(DISTINCT student_id) as present FROM attendance WHERE date = '$current_date' AND status IN ('present', 'late')")->fetch()['present'];
-$absent_today = $total_students - $present_today;
-$attendance_rate = $total_students > 0 ? round(($present_today / $total_students) * 100, 2) : 0;
+// ড্যাশবোর্ড সামারি ডেটা (enrollment-aware)
+if ($current_year_id && function_exists('enrollment_table_exists') && enrollment_table_exists($pdo)) {
+    $ts = $pdo->prepare("SELECT COUNT(*) AS total FROM students_enrollment WHERE academic_year_id = ? AND (status = 'active' OR status IS NULL)");
+    $ts->execute([$current_year_id]);
+    $total_students = (int)($ts->fetch()['total'] ?? 0);
+    $ps = $pdo->prepare("SELECT COUNT(DISTINCT a.student_id) as present FROM attendance a JOIN students_enrollment se ON se.student_id = a.student_id AND se.academic_year_id = ? WHERE a.date = ? AND a.status IN ('present','late','half_day')");
+    $ps->execute([$current_year_id, $current_date]);
+    $present_today = (int)($ps->fetch()['present'] ?? 0);
+    $absent_today = max(0, $total_students - $present_today);
+    $attendance_rate = $total_students > 0 ? round(($present_today / $total_students) * 100, 2) : 0;
+} else {
+    $total_students = (int)($pdo->query("SELECT COUNT(*) as total FROM students WHERE status='active'")->fetch()['total'] ?? 0);
+    $present_today = (int)($pdo->query("SELECT COUNT(DISTINCT student_id) as present FROM attendance WHERE date = '$current_date' AND status IN ('present', 'late','half_day')")->fetch()['present'] ?? 0);
+    $absent_today = max(0, $total_students - $present_today);
+    $attendance_rate = $total_students > 0 ? round(($present_today / $total_students) * 100, 2) : 0;
+}
 
-// শ্রেণি ও শাখাভিত্তিক উপস্থিতি ডেটা
-$class_attendance = $pdo->query("
-    SELECT 
-        c.name as class_name,
-        s.name as section_name,
-        sec.name as section_name,
-        SUM(CASE WHEN st.gender = 'male' THEN 1 ELSE 0 END) as total_boys,
-        SUM(CASE WHEN st.gender = 'female' THEN 1 ELSE 0 END) as total_girls,
-        SUM(CASE WHEN st.gender = 'male' AND a.status IN ('present', 'late') THEN 1 ELSE 0 END) as present_boys,
-        SUM(CASE WHEN st.gender = 'female' AND a.status IN ('present', 'late') THEN 1 ELSE 0 END) as present_girls,
-        SUM(CASE WHEN st.gender = 'male' AND a.status = 'absent' THEN 1 ELSE 0 END) as absent_boys,
-        SUM(CASE WHEN st.gender = 'female' AND a.status = 'absent' THEN 1 ELSE 0 END) as absent_girls,
-        COUNT(a.student_id) as total_attendance,
-        COUNT(DISTINCT st.id) as total_students_section
-    FROM classes c
-    LEFT JOIN sections sec ON c.id = sec.class_id
-    LEFT JOIN students st ON sec.id = st.section_id AND st.status = 'active'
-    LEFT JOIN attendance a ON st.id = a.student_id AND a.date = '$current_date'
-    WHERE c.status = 'active' AND sec.status = 'active'
-    GROUP BY c.id, sec.id
-    ORDER BY c.numeric_value, sec.name
-")->fetchAll();
+// শ্রেণি ও শাখাভিত্তিক উপস্থিতি ডেটা (enrollment-aware)
+if ($current_year_id && function_exists('enrollment_table_exists') && enrollment_table_exists($pdo)) {
+    $stmt = $pdo->prepare("
+        SELECT 
+            c.name as class_name,
+            sec.name as section_name,
+            SUM(CASE WHEN st.gender = 'male' THEN 1 ELSE 0 END) as total_boys,
+            SUM(CASE WHEN st.gender = 'female' THEN 1 ELSE 0 END) as total_girls,
+            SUM(CASE WHEN st.gender = 'male' AND a.status IN ('present', 'late','half_day') THEN 1 ELSE 0 END) as present_boys,
+            SUM(CASE WHEN st.gender = 'female' AND a.status IN ('present', 'late','half_day') THEN 1 ELSE 0 END) as present_girls,
+            SUM(CASE WHEN st.gender = 'male' AND (a.status = 'absent' OR a.status IS NULL) THEN 1 ELSE 0 END) as absent_boys,
+            SUM(CASE WHEN st.gender = 'female' AND (a.status = 'absent' OR a.status IS NULL) THEN 1 ELSE 0 END) as absent_girls,
+            COUNT(se.student_id) as total_attendance,
+            COUNT(DISTINCT se.student_id) as total_students_section
+        FROM classes c
+        LEFT JOIN sections sec ON c.id = sec.class_id
+        LEFT JOIN students_enrollment se ON se.class_id = c.id AND se.section_id = sec.id AND se.academic_year_id = ? AND (se.status = 'active' OR se.status IS NULL)
+        LEFT JOIN students st ON st.id = se.student_id
+        LEFT JOIN attendance a ON st.id = a.student_id AND a.date = ?
+        WHERE c.status = 'active' AND sec.status = 'active'
+        GROUP BY c.id, sec.id
+        ORDER BY c.numeric_value, sec.name
+    ");
+    $stmt->execute([$current_year_id, $current_date]);
+    $class_attendance = $stmt->fetchAll();
+} else {
+    $class_attendance = $pdo->query("
+        SELECT 
+            c.name as class_name,
+            sec.name as section_name,
+            SUM(CASE WHEN st.gender = 'male' THEN 1 ELSE 0 END) as total_boys,
+            SUM(CASE WHEN st.gender = 'female' THEN 1 ELSE 0 END) as total_girls,
+            SUM(CASE WHEN st.gender = 'male' AND a.status IN ('present', 'late','half_day') THEN 1 ELSE 0 END) as present_boys,
+            SUM(CASE WHEN st.gender = 'female' AND a.status IN ('present', 'late','half_day') THEN 1 ELSE 0 END) as present_girls,
+            SUM(CASE WHEN st.gender = 'male' AND a.status = 'absent' THEN 1 ELSE 0 END) as absent_boys,
+            SUM(CASE WHEN st.gender = 'female' AND a.status = 'absent' THEN 1 ELSE 0 END) as absent_girls,
+            COUNT(a.student_id) as total_attendance,
+            COUNT(DISTINCT st.id) as total_students_section
+        FROM classes c
+        LEFT JOIN sections sec ON c.id = sec.class_id
+        LEFT JOIN students st ON sec.id = st.section_id AND st.status = 'active'
+        LEFT JOIN attendance a ON st.id = a.student_id AND a.date = '$current_date'
+        WHERE c.status = 'active' AND sec.status = 'active'
+        GROUP BY c.id, sec.id
+        ORDER BY c.numeric_value, sec.name
+    ")->fetchAll();
+}
 
-// অনুপস্থিত শিক্ষার্থীদের তালিকা
-$absent_students = $pdo->query("
-    SELECT 
-        st.id,
-        st.first_name,
-        st.last_name,
-        st.roll_number,
-        st.mobile,
-        st.village,
-        c.name as class_name,
-        sec.name as section_name
-    FROM students st
-    JOIN classes c ON st.class_id = c.id
-    JOIN sections sec ON st.section_id = sec.id
-    LEFT JOIN attendance a ON st.id = a.student_id AND a.date = '$current_date'
-    WHERE (a.status = 'absent' OR a.id IS NULL) 
-    AND st.status = 'active'
-    ORDER BY c.numeric_value, sec.name, st.roll_number
-")->fetchAll();
+// অনুপস্থিত শিক্ষার্থীদের তালিকা (enrollment-aware; missing record = absent)
+if ($current_year_id && function_exists('enrollment_table_exists') && enrollment_table_exists($pdo)) {
+    $stmt = $pdo->prepare("
+        SELECT 
+            st.id, st.first_name, st.last_name, se.roll_number, st.mobile_number AS mobile, st.present_address AS village,
+            c.name as class_name, sec.name as section_name
+        FROM students_enrollment se
+        JOIN students st ON st.id = se.student_id
+        JOIN classes c ON se.class_id = c.id
+        LEFT JOIN sections sec ON se.section_id = sec.id
+        LEFT JOIN attendance a ON st.id = a.student_id AND a.date = ?
+        WHERE se.academic_year_id = ? AND (se.status = 'active' OR se.status IS NULL) AND (a.status = 'absent' OR a.status IS NULL)
+        ORDER BY c.numeric_value, sec.name, se.roll_number
+    ");
+    $stmt->execute([$current_date, $current_year_id]);
+    $absent_students = $stmt->fetchAll();
+} else {
+    $absent_students = $pdo->query("
+        SELECT 
+            st.id,
+            st.first_name,
+            st.last_name,
+            st.roll_number,
+            st.mobile_number AS mobile,
+            st.present_address AS village,
+            c.name as class_name,
+            sec.name as section_name
+        FROM students st
+        JOIN classes c ON st.class_id = c.id
+        JOIN sections sec ON st.section_id = sec.id
+        LEFT JOIN attendance a ON st.id = a.student_id AND a.date = '$current_date'
+        WHERE (a.status = 'absent' OR a.id IS NULL) 
+        AND st.status = 'active'
+        ORDER BY c.numeric_value, sec.name, st.roll_number
+    ")->fetchAll();
+}
 
 // Include header
 include 'inc/header.php';

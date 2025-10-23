@@ -1,8 +1,49 @@
 <?php
 require_once '../config.php';
+require_once __DIR__ . '/inc/enrollment_helpers.php';
 
-// Fetch all students
-$students = $pdo->query("SELECT st.id, st.first_name, st.last_name, st.class_id, c.name as class_name FROM students st JOIN classes c ON st.class_id = c.id WHERE st.status = 'active' ORDER BY c.numeric_value, st.first_name, st.last_name")->fetchAll();
+// Helper: check if student_subjects has academic_year_id column
+$ss_has_year = false;
+try {
+    $colChk = $pdo->query("SHOW COLUMNS FROM student_subjects LIKE 'academic_year_id'");
+    $ss_has_year = $colChk && $colChk->fetch() ? true : false;
+} catch (Exception $e) {
+    $ss_has_year = false;
+}
+
+// Helper: check if academic_years has a 'name' column (schema varies across envs)
+$ay_has_name = false;
+try {
+    $ayChk = $pdo->query("SHOW COLUMNS FROM academic_years LIKE 'name'");
+    $ay_has_name = $ayChk && $ayChk->fetch() ? true : false;
+} catch (Exception $e) {
+    $ay_has_name = false;
+}
+
+// Academic year selection
+$selected_year_id = isset($_GET['year_id']) ? (int)$_GET['year_id'] : (current_academic_year_id($pdo) ?: null);
+$years = [];
+try {
+    if ($ay_has_name) {
+        $years = $pdo->query("SELECT id, name, year, is_current FROM academic_years ORDER BY id DESC")->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } else {
+        $years = $pdo->query("SELECT id, year, is_current FROM academic_years ORDER BY id DESC")->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+} catch (Exception $e) {
+    $years = [];
+}
+
+// Ensure we always have a selected year for display and operations
+if (empty($selected_year_id)) {
+    // Prefer the one marked current in the loaded list
+    foreach ($years as $y) {
+        if (!empty($y['is_current'])) { $selected_year_id = (int)$y['id']; break; }
+    }
+    // Fallback to first available (latest by id desc)
+    if (empty($selected_year_id) && !empty($years)) {
+        $selected_year_id = (int)$years[0]['id'];
+    }
+}
 
 // Determine student id from GET (from students.php) or from search
 $searched_student_id = '';
@@ -11,44 +52,155 @@ if (isset($_GET['student_id']) && trim($_GET['student_id']) !== '') {
 } elseif (isset($_GET['search_student_id']) && trim($_GET['search_student_id']) !== '') {
     $searched_student_id = trim($_GET['search_student_id']);
 }
-$selected_student = null;
-$class_subjects = [];
-$assigned_subjects = [];
+
+$selected_student = null;            // row from students
+$enrollment = null;                  // row from students_enrollment for selected year
+$class_subjects = [];                // subjects for the (year-aware) class
+$assigned_subjects = [];             // already assigned subject ids
+$class_id_for_year = null;           // year-aware class id
+
 if ($searched_student_id !== '') {
-    $stmt = $pdo->prepare("SELECT st.*, c.name as class_name FROM students st JOIN classes c ON st.class_id = c.id WHERE st.student_id = ?");
+    // Base student (no legacy class join)
+    $stmt = $pdo->prepare("SELECT st.* FROM students st WHERE st.student_id = ?");
     $stmt->execute([$searched_student_id]);
-    $selected_student = $stmt->fetch();
+    $selected_student = $stmt->fetch(PDO::FETCH_ASSOC);
+
     if ($selected_student) {
-        $class_subjects = $pdo->prepare("SELECT s.id, s.name FROM subjects s JOIN class_subjects cs ON cs.subject_id = s.id WHERE cs.class_id = ? AND s.status = 'active' ORDER BY cs.numeric_value");
-        $class_subjects->execute([$selected_student['class_id']]);
-        $class_subjects = $class_subjects->fetchAll();
-        // Get already assigned subjects
-        $assigned_stmt = $pdo->prepare("SELECT subject_id FROM student_subjects WHERE student_id = ?");
-        $assigned_stmt->execute([$selected_student['id']]);
-        $assigned_subjects = array_column($assigned_stmt->fetchAll(), 'subject_id');
-        // If no assigned subjects, select all by default
-        if (empty($assigned_subjects)) {
-            $assigned_subjects = array_column($class_subjects, 'id');
+        // Try find enrollment for selected year
+        if ($selected_year_id && function_exists('enrollment_table_exists') && enrollment_table_exists($pdo)) {
+            $enq = $pdo->prepare("SELECT se.class_id, se.section_id, se.roll_number, se.academic_year_id, c.name AS class_name, sc.name AS section_name
+                                   FROM students_enrollment se
+                                   JOIN classes c ON c.id = se.class_id
+                                   LEFT JOIN sections sc ON sc.id = se.section_id
+                                   WHERE se.student_id = ? AND se.academic_year_id = ? LIMIT 1");
+            $enq->execute([(int)$selected_student['id'], (int)$selected_year_id]);
+            $enrollment = $enq->fetch(PDO::FETCH_ASSOC) ?: null;
+        }
+
+        // Fallback to latest enrollment if specific year not found
+        if (!$enrollment && function_exists('enrollment_table_exists') && enrollment_table_exists($pdo)) {
+            $enq = $pdo->prepare("SELECT se.class_id, se.section_id, se.roll_number, se.academic_year_id, c.name AS class_name, sc.name AS section_name
+                                   FROM students_enrollment se
+                                   JOIN classes c ON c.id = se.class_id
+                                   LEFT JOIN sections sc ON sc.id = se.section_id
+                                   WHERE se.student_id = ?
+                                   ORDER BY se.academic_year_id DESC
+                                   LIMIT 1");
+            $enq->execute([(int)$selected_student['id']]);
+            $enrollment = $enq->fetch(PDO::FETCH_ASSOC) ?: null;
+        }
+
+        $class_id_for_year = $enrollment && !empty($enrollment['class_id']) ? (int)$enrollment['class_id'] : 0;
+
+        // Resolve display year name: prefer enrollment's academic_year_id, else selected_year_id, else current
+        $display_year_id = null;
+        if ($enrollment && !empty($enrollment['academic_year_id'])) {
+            $display_year_id = (int)$enrollment['academic_year_id'];
+        } elseif (!empty($selected_year_id)) {
+            $display_year_id = (int)$selected_year_id;
+        } else {
+            try {
+                $cur = $pdo->query("SELECT id FROM academic_years WHERE is_current = 1 LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+                if (!empty($cur['id'])) $display_year_id = (int)$cur['id'];
+            } catch (Exception $e) { /* ignore */ }
+        }
+
+        $display_year_name = '';
+        if (!empty($display_year_id)) {
+            if ($ay_has_name) {
+                $yrs = $pdo->prepare("SELECT name, year FROM academic_years WHERE id = ? LIMIT 1");
+            } else {
+                $yrs = $pdo->prepare("SELECT year FROM academic_years WHERE id = ? LIMIT 1");
+            }
+            $yrs->execute([$display_year_id]);
+            $yr = $yrs->fetch(PDO::FETCH_ASSOC);
+            if ($yr) { $display_year_name = $yr['name'] ?? ($yr['year'] ?? ''); }
+        }
+
+        // Load class subjects for resolved class
+        if ($class_id_for_year) {
+            $cs = $pdo->prepare("SELECT s.id, s.name
+                                  FROM subjects s
+                                  JOIN class_subjects cs ON cs.subject_id = s.id
+                                  WHERE cs.class_id = ? AND s.status = 'active'
+                                  ORDER BY cs.numeric_value, s.name");
+            $cs->execute([$class_id_for_year]);
+            $class_subjects = $cs->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        }
+
+        // Already assigned subjects (year-aware when column exists)
+        if (!empty($selected_student['id'])) {
+            if ($ss_has_year && $selected_year_id) {
+                $assigned_stmt = $pdo->prepare("SELECT subject_id FROM student_subjects WHERE student_id = ? AND (academic_year_id = ? OR academic_year_id IS NULL)");
+                $assigned_stmt->execute([(int)$selected_student['id'], (int)$selected_year_id]);
+            } else {
+                $assigned_stmt = $pdo->prepare("SELECT subject_id FROM student_subjects WHERE student_id = ?");
+                $assigned_stmt->execute([(int)$selected_student['id']]);
+            }
+            $assigned_subjects = array_map('intval', array_column($assigned_stmt->fetchAll(PDO::FETCH_ASSOC) ?: [], 'subject_id'));
+            // Restrict to subjects available in this class
+            if (!empty($class_subjects) && !empty($assigned_subjects)) {
+                $class_sub_ids = array_map('intval', array_column($class_subjects, 'id'));
+                $assigned_subjects = array_values(array_intersect($assigned_subjects, $class_sub_ids));
+            }
+        }
+
+        // If no assigned subjects exist (after restriction), select all by default
+        if (empty($assigned_subjects) && !empty($class_subjects)) {
+            $assigned_subjects = array_map('intval', array_column($class_subjects, 'id'));
         }
     }
 }
 
-// Handle form submission
+// Handle form submission (save assignments)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['student_id'])) {
-    $student_id = intval($_POST['student_id']);
-    $subjects = isset($_POST['subjects']) ? $_POST['subjects'] : [];
-    // Remove old assignments
-    $pdo->prepare("DELETE FROM student_subjects WHERE student_id = ?")->execute([$student_id]);
+    $student_id = (int)($_POST['student_id']);               // students.id
+    $subjects   = isset($_POST['subjects']) && is_array($_POST['subjects']) ? array_map('intval', $_POST['subjects']) : [];
+    $post_year  = isset($_POST['year_id']) ? (int)$_POST['year_id'] : ($selected_year_id ?: null);
+
+    // Resolve class for the posted year (prefer enrollment)
+    $post_class_id = null;
+    if ($post_year && function_exists('enrollment_table_exists') && enrollment_table_exists($pdo)) {
+        $st = $pdo->prepare("SELECT class_id FROM students_enrollment WHERE student_id = ? AND academic_year_id = ? LIMIT 1");
+        $st->execute([$student_id, $post_year]);
+        $post_class_id = $st->fetchColumn();
+    }
+    if (!$post_class_id && function_exists('enrollment_table_exists') && enrollment_table_exists($pdo)) {
+        // Fallback to latest enrollment class if specific year not found
+        $st = $pdo->prepare("SELECT class_id FROM students_enrollment WHERE student_id = ? ORDER BY academic_year_id DESC LIMIT 1");
+        $st->execute([$student_id]);
+        $post_class_id = $st->fetchColumn();
+    }
+
+    // Delete old assignments for the scope
+    if ($ss_has_year && $post_year) {
+        // Remove year-specific rows for this year, and also remove any NULL-year (global) rows for this class to avoid overlap
+        $del = $pdo->prepare("DELETE FROM student_subjects WHERE student_id = ? AND academic_year_id = ?");
+        $del->execute([$student_id, $post_year]);
+        if ($post_class_id) {
+            $delNull = $pdo->prepare("DELETE FROM student_subjects WHERE student_id = ? AND class_id = ? AND academic_year_id IS NULL");
+            $delNull->execute([$student_id, (int)$post_class_id]);
+        }
+    } else {
+        $del = $pdo->prepare("DELETE FROM student_subjects WHERE student_id = ?");
+        $del->execute([$student_id]);
+    }
+
     // Insert new assignments
-    if (!empty($subjects)) {
-        $student = $pdo->prepare("SELECT class_id FROM students WHERE id = ?");
-        $student->execute([$student_id]);
-        $class_id = $student->fetchColumn();
-        $insert = $pdo->prepare("INSERT INTO student_subjects (student_id, class_id, subject_id) VALUES (?, ?, ?)");
-        foreach ($subjects as $subject_id) {
-            $insert->execute([$student_id, $class_id, $subject_id]);
+    if (!empty($subjects) && $post_class_id) {
+        if ($ss_has_year && $post_year) {
+            $ins = $pdo->prepare("INSERT INTO student_subjects (student_id, class_id, subject_id, academic_year_id) VALUES (?,?,?,?)");
+            foreach ($subjects as $subject_id) {
+                $ins->execute([$student_id, (int)$post_class_id, (int)$subject_id, (int)$post_year]);
+            }
+        } else {
+            $ins = $pdo->prepare("INSERT INTO student_subjects (student_id, class_id, subject_id) VALUES (?,?,?)");
+            foreach ($subjects as $subject_id) {
+                $ins->execute([$student_id, (int)$post_class_id, (int)$subject_id]);
+            }
         }
     }
+
     // After save, redirect to students.php with success message
     $_SESSION['success'] = 'বিষয় নির্ধারণ সফলভাবে সম্পন্ন হয়েছে!';
     header("Location: students.php");
@@ -142,6 +294,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['student_id'])) {
             <form method="get" class="mb-4 d-flex flex-column flex-md-row align-items-center justify-content-center" style="gap:1rem;">
                 <label for="search_student_id" class="select-student-label mb-0"><i class="fas fa-search"></i> শিক্ষার্থী আইডি:</label>
                 <input type="text" name="search_student_id" id="search_student_id" class="form-control" placeholder="উদাহরণ: STU20251234" value="<?php echo htmlspecialchars($searched_student_id); ?>" style="max-width:260px;font-size:1.1rem;font-weight:600;letter-spacing:1px;" required>
+                <select name="year_id" class="form-control" style="min-width:200px;">
+                    <?php foreach ($years as $y): ?>
+                        <option value="<?php echo (int)$y['id']; ?>" <?php echo (!empty($selected_year_id) && (int)$selected_year_id === (int)$y['id']) ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($y['name'] ?? ($y['year'] ?? ('Year '.$y['id']))); ?><?php echo !empty($y['is_current']) ? ' (বর্তমান)' : ''; ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
                 <button type="submit" class="btn btn-info" style="font-weight:600;font-size:1.1rem;"><i class="fas fa-search"></i> খুঁজুন</button>
             </form>
         <?php endif; ?>
@@ -159,12 +318,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['student_id'])) {
                 </div>
                 <div>
                     <h5 style="margin-bottom:0.2rem;"><i class="fas fa-user"></i> <?php echo htmlspecialchars($selected_student['first_name'] . ' ' . $selected_student['last_name']); ?></h5>
-                    <p style="margin-bottom:0.2rem"><span style="color:#6366f1;font-weight:600"><i class="fas fa-chalkboard"></i> ক্লাস:</span> <?php echo htmlspecialchars($selected_student['class_name']); ?></p>
+                    <p style="margin-bottom:0.2rem"><span style="color:#6366f1;font-weight:600"><i class="fas fa-chalkboard"></i> ক্লাস:</span>
+                        <?php
+                        $display_class = $enrollment && !empty($enrollment['class_name']) ? $enrollment['class_name'] : '';
+                        $display_section = $enrollment && !empty($enrollment['section_name']) ? (' - ' . $enrollment['section_name']) : '';
+                        echo htmlspecialchars($display_class . $display_section);
+                        ?>
+                    </p>
+                    <p style="margin-bottom:0.2rem"><span style="color:#6366f1;font-weight:600"><i class="fas fa-calendar"></i> শিক্ষাবর্ষ:</span>
+                        <?php echo htmlspecialchars($display_year_name ?: '-'); ?>
+                    </p>
                     <p style="margin-bottom:0.2rem"><span style="color:#6366f1;font-weight:600"><i class="fas fa-id-badge"></i> আইডি:</span> <?php echo htmlspecialchars($selected_student['student_id']); ?></p>
                 </div>
             </div>
             <form method="post">
                 <input type="hidden" name="student_id" value="<?php echo $selected_student['id']; ?>">
+                <?php if ($selected_year_id): ?>
+                    <input type="hidden" name="year_id" value="<?php echo (int)$selected_year_id; ?>">
+                <?php endif; ?>
                 <div class="form-group mb-4">
                     <label style="font-weight:600;color:#6366f1;font-size:1.1rem"><i class="fas fa-book"></i> বিষয়সমূহ:</label>
                     <?php if ($class_subjects): ?>

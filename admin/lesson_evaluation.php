@@ -1,6 +1,7 @@
 <?php
 require_once '../config.php';
 require_once 'print_common.php';
+require_once __DIR__ . '/inc/enrollment_helpers.php';
 
 // Authentication check
 if (!isAuthenticated() || !hasRole(['teacher', 'super_admin'])) {
@@ -80,12 +81,28 @@ $eval_stmt = $pdo->prepare("SELECT le.*, c.name as class_name, s.name as section
 $eval_stmt->execute();
 $evaluations = $eval_stmt->fetchAll();
 
-// For student select2
+// For student select2 (current academic year via enrollment)
 $students = [];
 if (isset($_GET['class_id']) && isset($_GET['section_id'])) {
-    $st_stmt = $pdo->prepare("SELECT id, roll_number, first_name, last_name FROM students WHERE class_id=? AND section_id=? AND status='active' ORDER BY roll_number ASC");
-    $st_stmt->execute([$_GET['class_id'], $_GET['section_id']]);
-    $students = $st_stmt->fetchAll();
+    $classId = intval($_GET['class_id']);
+    $sectionId = intval($_GET['section_id']);
+    if (function_exists('enrollment_table_exists') && enrollment_table_exists($pdo)) {
+        $yearId = current_academic_year_id($pdo);
+        $sql = "SELECT s.id, se.roll_number, s.first_name, s.last_name
+                FROM students s
+                JOIN students_enrollment se ON se.student_id = s.id
+                WHERE se.academic_year_id = ? AND se.class_id = ? AND se.section_id = ?
+                  AND (se.status='active' OR se.status IS NULL OR se.status='Active' OR se.status=1 OR se.status='1')
+                ORDER BY se.roll_number ASC, s.id ASC";
+        $st_stmt = $pdo->prepare($sql);
+        $st_stmt->execute([$yearId, $classId, $sectionId]);
+        $students = $st_stmt->fetchAll();
+    } else {
+        // Fallback when enrollment table is not available: select without relying on students.roll_number (may not exist)
+        $st_stmt = $pdo->prepare("SELECT id, first_name, last_name, NULL AS roll_number FROM students WHERE class_id=? AND section_id=? AND status='active' ORDER BY first_name ASC, last_name ASC");
+        $st_stmt->execute([$classId, $sectionId]);
+        $students = $st_stmt->fetchAll();
+    }
 }
 
 // Print mode
@@ -128,16 +145,56 @@ if ($is_print) {
                     $st_ids = json_decode($ev['evaluated_students'], true) ?? []; 
                     if ($st_ids) {
                         $in = str_repeat('?,', count($st_ids)-1) . '?';
-                        $st_stmt = $pdo->prepare("SELECT id, roll_number, first_name, last_name FROM students WHERE id IN ($in)");
-                        $st_stmt->execute($st_ids);
                         $st_map = [];
-                        foreach($st_stmt->fetchAll() as $st) {
-                            $st_map[$st['id']] = $st;
+                        if (function_exists('enrollment_table_exists') && enrollment_table_exists($pdo)) {
+                            $yearId = current_academic_year_id($pdo);
+                            // 1) Try: current year + class/section
+                            $params1 = array_merge([$yearId, $ev['class_id'], $ev['section_id']], $st_ids);
+                            $st_stmt = $pdo->prepare("SELECT s.id, se.roll_number, s.first_name, s.last_name
+                                                       FROM students s
+                                                       JOIN students_enrollment se ON se.student_id = s.id
+                                                       WHERE se.academic_year_id = ? AND se.class_id = ? AND se.section_id = ? AND s.id IN ($in)");
+                            $st_stmt->execute($params1);
+                            foreach($st_stmt->fetchAll() as $st) { $st_map[(int)$st['id']] = $st; }
+
+                            // 2) Fallback: any year but same class/section
+                            $presentIds = array_map('intval', array_keys($st_map));
+                            $missing = array_values(array_diff(array_map('intval', $st_ids), $presentIds));
+                            if (!empty($missing)) {
+                                $in2 = str_repeat('?,', count($missing)-1) . '?';
+                                $params2 = array_merge([$ev['class_id'], $ev['section_id']], $missing);
+                                $st_stmt2 = $pdo->prepare("SELECT s.id, se.roll_number, s.first_name, s.last_name
+                                                           FROM students s
+                                                           JOIN students_enrollment se ON se.student_id = s.id
+                                                           WHERE se.class_id = ? AND se.section_id = ? AND s.id IN ($in2)");
+                                $st_stmt2->execute($params2);
+                                foreach($st_stmt2->fetchAll() as $st) { $st_map[(int)$st['id']] = $st; }
+                            }
+
+                            // 3) Final fallback: students table only (no roll)
+                            $presentIds = array_map('intval', array_keys($st_map));
+                            $missing = array_values(array_diff(array_map('intval', $st_ids), $presentIds));
+                            if (!empty($missing)) {
+                                $in3 = str_repeat('?,', count($missing)-1) . '?';
+                                $st_stmt3 = $pdo->prepare("SELECT id, first_name, last_name FROM students WHERE id IN ($in3)");
+                                $st_stmt3->execute($missing);
+                                foreach($st_stmt3->fetchAll() as $st) { $st_map[(int)$st['id']] = ['id'=>$st['id'], 'first_name'=>$st['first_name'], 'last_name'=>$st['last_name'], 'roll_number'=>null]; }
+                            }
+                        } else {
+                            // Fallback without enrollment: avoid selecting non-existent students.roll_number
+                            $st_stmt = $pdo->prepare("SELECT id, first_name, last_name, NULL AS roll_number FROM students WHERE id IN ($in)");
+                            $st_stmt->execute($st_ids);
+                            foreach($st_stmt->fetchAll() as $st) { $st_map[(int)$st['id']] = $st; }
                         }
                         foreach($st_ids as $sid) {
-                            if(isset($st_map[$sid])) {
-                                $st = $st_map[$sid];
-                                echo '<span class="badge">'.htmlspecialchars($st['roll_number']).' - '.htmlspecialchars($st['first_name'].' '.$st['last_name']).'</span> ';
+                            $key = (int)$sid;
+                            if(isset($st_map[$key])) {
+                                $st = $st_map[$key];
+                                $name = trim(($st['first_name'] ?? '').' '.($st['last_name'] ?? ''));
+                                $roll = isset($st['roll_number']) && $st['roll_number'] !== null && $st['roll_number'] !== '' ? (string)$st['roll_number'] : '';
+                                // Format: roll-name (no spaces)
+                                $label = $roll !== '' ? ($roll.'-'.$name) : $name;
+                                echo '<span class="badge">'.htmlspecialchars($label).'</span> ';
                             } else {
                                 echo '<span class="badge">'.$sid.'</span> ';
                             }
@@ -483,7 +540,8 @@ if ($is_print) {
                                             $last_name = htmlspecialchars($st['last_name'] ?? '');
                                             $roll = isset($st['roll_number']) && $st['roll_number'] !== null ? htmlspecialchars($st['roll_number']) : '';
                                             $is_selected = in_array($student_id, $selected_students ?? []) ? 'selected' : '';
-                                            $option_text = ($roll !== '' ? $roll . ' - ' : '') . $first_name . ' ' . $last_name;
+                                            // Format: roll-name (no spaces), e.g., 18-হালিম
+                                            $option_text = ($roll !== '' ? $roll . '-' : '') . $first_name . ' ' . $last_name;
                                         ?>
                                         <option value="<?php echo $student_id; ?>" <?php echo $is_selected; ?>><?php echo $option_text; ?></option>
                                     <?php endforeach; ?>
@@ -665,16 +723,50 @@ $(function(){
                                         $st_ids = json_decode($ev['evaluated_students'], true) ?? []; 
                                         if ($st_ids) {
                                             $in = str_repeat('?,', count($st_ids)-1) . '?';
-                                            $st_stmt = $pdo->prepare("SELECT id, roll_number, first_name, last_name FROM students WHERE id IN ($in)");
-                                            $st_stmt->execute($st_ids);
+                                            // Prefer enrollment for roll numbers when available
                                             $st_map = [];
-                                            foreach($st_stmt->fetchAll() as $st) {
-                                                $st_map[$st['id']] = $st;
+                                            if (function_exists('enrollment_table_exists') && enrollment_table_exists($pdo)) {
+                                                $yearId = current_academic_year_id($pdo);
+                                                // 1) Try: current year + class/section
+                                                $params1 = array_merge([$yearId, $ev['class_id'], $ev['section_id']], $st_ids);
+                                                $st_stmt = $pdo->prepare("SELECT s.id, se.roll_number, s.first_name, s.last_name FROM students s JOIN students_enrollment se ON se.student_id = s.id WHERE se.academic_year_id = ? AND se.class_id = ? AND se.section_id = ? AND s.id IN ($in)");
+                                                $st_stmt->execute($params1);
+                                                foreach($st_stmt->fetchAll() as $st) { $st_map[(int)$st['id']] = $st; }
+
+                                                // 2) Fallback: any year but same class/section, for remaining
+                                                $presentIds = array_map('intval', array_keys($st_map));
+                                                $missing = array_values(array_diff(array_map('intval', $st_ids), $presentIds));
+                                                if (!empty($missing)) {
+                                                    $in2 = str_repeat('?,', count($missing)-1) . '?';
+                                                    $params2 = array_merge([$ev['class_id'], $ev['section_id']], $missing);
+                                                    $st_stmt2 = $pdo->prepare("SELECT s.id, se.roll_number, s.first_name, s.last_name FROM students s JOIN students_enrollment se ON se.student_id = s.id WHERE se.class_id = ? AND se.section_id = ? AND s.id IN ($in2)");
+                                                    $st_stmt2->execute($params2);
+                                                    foreach($st_stmt2->fetchAll() as $st) { $st_map[(int)$st['id']] = $st; }
+                                                }
+
+                                                // 3) Final fallback: students table only (no roll)
+                                                $presentIds = array_map('intval', array_keys($st_map));
+                                                $missing = array_values(array_diff(array_map('intval', $st_ids), $presentIds));
+                                                if (!empty($missing)) {
+                                                    $in3 = str_repeat('?,', count($missing)-1) . '?';
+                                                    $st_stmt3 = $pdo->prepare("SELECT id, first_name, last_name FROM students WHERE id IN ($in3)");
+                                                    $st_stmt3->execute($missing);
+                                                    foreach($st_stmt3->fetchAll() as $st) { $st_map[(int)$st['id']] = ['id'=>$st['id'], 'first_name'=>$st['first_name'], 'last_name'=>$st['last_name'], 'roll_number'=>null]; }
+                                                }
+                                            } else {
+                                                $st_stmt = $pdo->prepare("SELECT id, first_name, last_name, NULL AS roll_number FROM students WHERE id IN ($in)");
+                                                $st_stmt->execute($st_ids);
+                                                foreach($st_stmt->fetchAll() as $st) { $st_map[(int)$st['id']] = $st; }
                                             }
                                             foreach($st_ids as $sid) {
-                                                if(isset($st_map[$sid])) {
-                                                    $st = $st_map[$sid];
-                                                    echo '<span class="badge badge-info">'.htmlspecialchars($st['roll_number']).' - '.htmlspecialchars($st['first_name'].' '.$st['last_name']).'</span> ';
+                                                $key = (int)$sid;
+                                                if(isset($st_map[$key])) {
+                                                    $st = $st_map[$key];
+                                                    $name = trim(($st['first_name'] ?? '').' '.($st['last_name'] ?? ''));
+                                                    $roll = isset($st['roll_number']) && $st['roll_number'] !== null && $st['roll_number'] !== '' ? (string)$st['roll_number'] : '';
+                                                    // Format: roll-name (no spaces)
+                                                    $label = $roll !== '' ? ($roll.'-'.$name) : $name;
+                                                    echo '<span class="badge badge-info">'.htmlspecialchars($label).'</span> ';
                                                 } else {
                                                     echo '<span class="badge badge-secondary">'.$sid.'</span> ';
                                                 }

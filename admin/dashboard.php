@@ -1,30 +1,68 @@
 <?php
 require_once '../config.php';
+require_once __DIR__ . '/inc/enrollment_helpers.php';
 
 // Authentication check
 if (!isAuthenticated() || !hasRole(['super_admin'])) {
     redirect('../login.php');
 }
 
-// Fetch stats for dashboard
-$total_students = $pdo->query("SELECT COUNT(*) as total FROM students WHERE status='active'")->fetch()['total'];
+// Fetch stats for dashboard (enrollment-aware)
+$current_year_id = function_exists('current_academic_year_id') ? current_academic_year_id($pdo) : null;
+if ($current_year_id && function_exists('enrollment_table_exists') && enrollment_table_exists($pdo)) {
+    $stmt = $pdo->prepare("SELECT COUNT(*) AS total FROM students_enrollment WHERE academic_year_id = ? AND (status = 'active' OR status IS NULL)");
+    $stmt->execute([$current_year_id]);
+    $total_students = (int)($stmt->fetch()['total'] ?? 0);
+} else {
+    // Fallback in case students.status doesn't exist
+    try {
+        $total_students = (int)($pdo->query("SELECT COUNT(*) AS total FROM students WHERE status='active'")->fetch()['total'] ?? 0);
+    } catch (Exception $e) {
+        $total_students = (int)($pdo->query("SELECT COUNT(*) AS total FROM students")->fetch()['total'] ?? 0);
+    }
+}
 $total_teachers = $pdo->query("SELECT COUNT(*) as total FROM users WHERE role='teacher' AND status=1")->fetch()['total'];
 $total_classes = $pdo->query("SELECT COUNT(*) as total FROM classes WHERE status='active'")->fetch()['total'];
 
-// Today's attendance
-
-// আজকের উপস্থিতি (attendance_overview.php-এর লজিক অনুসরণে)
+// Today's attendance (year-aware via enrollment)
+// আজকের উপস্থিতি (enrollment অনুসারে)
 $today = date('Y-m-d');
-$attendance_stats = $pdo->prepare("
-    SELECT 
-        COUNT(st.id) as total_students,
-        SUM(CASE WHEN a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) as present,
-        SUM(CASE WHEN a.status = 'absent' OR a.status IS NULL THEN 1 ELSE 0 END) as absent
-    FROM students st
-    LEFT JOIN attendance a ON st.id = a.student_id AND a.date = ?
-    WHERE st.status = 'active'
-");
-$attendance_stats->execute([$today]);
+if ($current_year_id && function_exists('enrollment_table_exists') && enrollment_table_exists($pdo)) {
+    $attendance_stats = $pdo->prepare("
+        SELECT 
+            COUNT(se.student_id) AS total_students,
+            SUM(CASE WHEN a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) AS present,
+            SUM(CASE WHEN a.status = 'absent' OR a.status IS NULL THEN 1 ELSE 0 END) AS absent
+        FROM students_enrollment se
+        JOIN students s ON s.id = se.student_id
+        LEFT JOIN attendance a ON a.student_id = s.id AND a.date = ?
+        WHERE se.academic_year_id = ? AND (se.status = 'active' OR se.status IS NULL)
+    ");
+    $attendance_stats->execute([$today, $current_year_id]);
+} else {
+    try {
+        $attendance_stats = $pdo->prepare("
+            SELECT 
+                COUNT(st.id) as total_students,
+                SUM(CASE WHEN a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) as present,
+                SUM(CASE WHEN a.status = 'absent' OR a.status IS NULL THEN 1 ELSE 0 END) as absent
+            FROM students st
+            LEFT JOIN attendance a ON st.id = a.student_id AND a.date = ?
+            WHERE st.status = 'active'
+        ");
+        $attendance_stats->execute([$today]);
+    } catch (Exception $e) {
+        $attendance_stats = $pdo->prepare("
+            SELECT 
+                COUNT(st.id) as total_students,
+                SUM(CASE WHEN a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) as present,
+                SUM(CASE WHEN a.status = 'absent' OR a.status IS NULL THEN 1 ELSE 0 END) as absent
+            FROM students st
+            LEFT JOIN attendance a ON st.id = a.student_id AND a.date = ?
+        ");
+        $attendance_stats->execute([$today]);
+    }
+}
 $stats = $attendance_stats->fetch();
 $present_students = $stats['present'] ?? 0;
 $attendance_percentage = $stats['total_students'] > 0 ? round(($present_students / $stats['total_students']) * 100, 2) : 0;
@@ -60,27 +98,59 @@ $monthly_fees = $pdo->query("
     ORDER BY year, month
 ")->fetchAll();
 
-// Student gender ratio for chart
-$gender_ratio = $pdo->query("
-    SELECT 
-        gender,
-        COUNT(*) as count
-    FROM students 
-    WHERE status='active'
-    GROUP BY gender
-")->fetchAll();
+// Student gender ratio for chart (year-aware)
+if ($current_year_id && function_exists('enrollment_table_exists') && enrollment_table_exists($pdo)) {
+    $gr = $pdo->prepare("
+        SELECT s.gender, COUNT(*) AS count
+        FROM students_enrollment se
+        JOIN students s ON s.id = se.student_id
+        WHERE se.academic_year_id = ? AND (se.status = 'active' OR se.status IS NULL)
+        GROUP BY s.gender
+    ");
+    $gr->execute([$current_year_id]);
+    $gender_ratio = $gr->fetchAll();
+} else {
+    try {
+        $gender_ratio = $pdo->query("SELECT gender, COUNT(*) AS count FROM students WHERE status='active' GROUP BY gender")->fetchAll();
+    } catch (Exception $e) {
+        $gender_ratio = $pdo->query("SELECT gender, COUNT(*) AS count FROM students GROUP BY gender")->fetchAll();
+    }
+}
 
-// Class-wise student count
-$class_stats = $pdo->query("
-    SELECT 
-        c.name as class_name,
-        COUNT(s.id) as student_count
-    FROM classes c
-    LEFT JOIN students s ON c.id = s.class_id AND s.status='active'
-    WHERE c.status='active'
-    GROUP BY c.id
-    ORDER BY c.numeric_value
-")->fetchAll();
+// Class-wise student count (year-aware)
+if ($current_year_id && function_exists('enrollment_table_exists') && enrollment_table_exists($pdo)) {
+    $cs = $pdo->prepare("
+        SELECT c.name AS class_name, COUNT(se.student_id) AS student_count
+        FROM classes c
+        LEFT JOIN students_enrollment se
+          ON se.class_id = c.id AND se.academic_year_id = ? AND (se.status = 'active' OR se.status IS NULL)
+        WHERE c.status='active'
+        GROUP BY c.id
+        ORDER BY c.numeric_value
+    ");
+    $cs->execute([$current_year_id]);
+    $class_stats = $cs->fetchAll();
+} else {
+    try {
+        $class_stats = $pdo->query("
+            SELECT c.name AS class_name, COUNT(s.id) AS student_count
+            FROM classes c
+            LEFT JOIN students s ON c.id = s.class_id AND s.status='active'
+            WHERE c.status='active'
+            GROUP BY c.id
+            ORDER BY c.numeric_value
+        ")->fetchAll();
+    } catch (Exception $e) {
+        $class_stats = $pdo->query("
+            SELECT c.name AS class_name, COUNT(s.id) AS student_count
+            FROM classes c
+            LEFT JOIN students s ON c.id = s.class_id
+            WHERE c.status='active'
+            GROUP BY c.id
+            ORDER BY c.numeric_value
+        ")->fetchAll();
+    }
+}
 
 // Prepare data for charts
 $monthly_labels = [];

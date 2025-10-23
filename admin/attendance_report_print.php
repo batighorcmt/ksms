@@ -1,6 +1,7 @@
 <?php
 require_once '../config.php';
 require_once 'print_common.php';
+require_once __DIR__ . '/inc/enrollment_helpers.php';
 
 if (!isAuthenticated() || !hasRole(['super_admin', 'teacher'])) {
     header('location: login.php'); exit();
@@ -13,33 +14,37 @@ $date = isset($_GET['date']) ? $_GET['date'] : date('Y-m-d');
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) $date = date('Y-m-d');
 
 // reuse the same query logic as attendance_report.php
+$yearId = current_academic_year_id($pdo);
 if ($type === 'present') {
-    $sql = "SELECT s.id, s.first_name, s.last_name, s.roll_number, c.name as class_name, sec.name as section_name
+    $sql = "SELECT s.id, s.first_name, s.last_name, se.roll_number, c.name as class_name, sec.name as section_name
         FROM attendance a
         JOIN students s ON a.student_id = s.id
-        LEFT JOIN classes c ON s.class_id = c.id
-        LEFT JOIN sections sec ON s.section_id = sec.id
+        JOIN students_enrollment se ON se.student_id = s.id AND se.academic_year_id = ?
+        LEFT JOIN classes c ON c.id = se.class_id
+        LEFT JOIN sections sec ON sec.id = se.section_id
         WHERE a.date = ? AND a.status = 'present'";
-    $params = [$date];
+    $params = [$yearId, $date];
 } elseif ($type === 'absent') {
-    $sql = "SELECT s.id, s.first_name, s.last_name, s.roll_number, c.name as class_name, sec.name as section_name, a.remarks
+    $sql = "SELECT s.id, s.first_name, s.last_name, se.roll_number, c.name as class_name, sec.name as section_name, a.remarks
         FROM attendance a
         JOIN students s ON a.student_id = s.id
-        LEFT JOIN classes c ON s.class_id = c.id
-        LEFT JOIN sections sec ON s.section_id = sec.id
+        JOIN students_enrollment se ON se.student_id = s.id AND se.academic_year_id = ?
+        LEFT JOIN classes c ON c.id = se.class_id
+        LEFT JOIN sections sec ON sec.id = se.section_id
         WHERE a.date = ? AND a.status = 'absent'";
-    $params = [$date];
+    $params = [$yearId, $date];
 } else {
-    $sql = "SELECT s.id, s.first_name, s.last_name, s.roll_number, c.name as class_name, sec.name as section_name
+    $sql = "SELECT s.id, s.first_name, s.last_name, se.roll_number, c.name as class_name, sec.name as section_name
         FROM students s
-        LEFT JOIN classes c ON s.class_id = c.id
-        LEFT JOIN sections sec ON s.section_id = sec.id
-        WHERE s.status='active' AND s.id NOT IN (SELECT student_id FROM attendance WHERE date = ?)";
-    $params = [$date];
+        JOIN students_enrollment se ON se.student_id = s.id AND se.academic_year_id = ?
+        LEFT JOIN classes c ON c.id = se.class_id
+        LEFT JOIN sections sec ON sec.id = se.section_id
+        WHERE (se.status='active' OR se.status IS NULL) AND s.id NOT IN (SELECT student_id FROM attendance WHERE date = ?)";
+    $params = [$yearId, $date];
 }
-if ($class_id !== 'all') { $sql .= " AND s.class_id = ?"; $params[] = $class_id; }
-if ($section_id) { $sql .= " AND s.section_id = ?"; $params[] = $section_id; }
-$sql .= " ORDER BY c.numeric_value ASC, sec.name ASC, s.roll_number ASC, s.first_name ASC";
+if ($class_id !== 'all') { $sql .= " AND se.class_id = ?"; $params[] = $class_id; }
+if ($section_id) { $sql .= " AND se.section_id = ?"; $params[] = $section_id; }
+$sql .= " ORDER BY c.numeric_value ASC, sec.name ASC, se.roll_number ASC, s.first_name ASC";
 $stmt = $pdo->prepare($sql); $stmt->execute($params); $results = $stmt->fetchAll();
 
 ?>

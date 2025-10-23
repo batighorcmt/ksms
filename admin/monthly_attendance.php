@@ -1,5 +1,6 @@
 <?php
 require_once '../config.php';
+require_once __DIR__ . '/inc/enrollment_helpers.php';
 
 // Authentication check
 if (!isAuthenticated() || !hasRole(['super_admin', 'teacher'])) {
@@ -70,15 +71,90 @@ $w = date('w', strtotime("$year-$month-01"));
 // আপনার ডাটাবেজের ফরম্যাটে রূপান্তর (Sunday=1 ... Saturday=7)
 $first_day = $w + 1;
     
-    // শিক্ষার্থীদের লোড করুন
-    $students_stmt = $pdo->prepare("
-        SELECT id, first_name, last_name, roll_number 
-        FROM students 
-        WHERE class_id = ? AND section_id = ? AND status='active'
-        ORDER BY roll_number ASC
-    ");
-    $students_stmt->execute([$class_id, $section_id]);
-    $students = $students_stmt->fetchAll();
+        // বর্তমান শিক্ষাবর্ষ আইডি (যদি থাকে)
+        $current_year_row = $pdo->query("SELECT id FROM academic_years WHERE is_current = 1 LIMIT 1")->fetch();
+        $current_year_id = $current_year_row['id'] ?? null;
+
+        // শিক্ষার্থীদের লোড করুন (enrollment-aware)
+        $students = [];
+        $use_enrollment = function_exists('enrollment_table_exists') ? enrollment_table_exists($pdo) : false;
+        if ($use_enrollment) {
+            $sql = "SELECT s.id, s.first_name, s.last_name, se.roll_number\n                FROM students_enrollment se\n                JOIN students s ON s.id = se.student_id\n                WHERE se.class_id = ? AND se.section_id = ? "
+                    . ($current_year_id ? "AND se.academic_year_id = ? " : "") .
+                "AND (se.status = 'active' OR se.status IS NULL)\n                ORDER BY se.roll_number ASC, s.first_name ASC";
+            $params = [$class_id, $section_id];
+            if ($current_year_id) { $params[] = $current_year_id; }
+            $students_stmt = $pdo->prepare($sql);
+            $students_stmt->execute($params);
+            $students = $students_stmt->fetchAll();
+        } else {
+            // লিগেসি ফ্যালব্যাক: students টেবিলে প্রয়োজনীয় কলামগুলো আছে কিনা চেক করুন
+            $has_class = $has_section = $has_status = $has_roll = false;
+            try {
+                $cols = $pdo->query("SHOW COLUMNS FROM students")->fetchAll(PDO::FETCH_COLUMN);
+                $has_class = in_array('class_id', $cols);
+                $has_section = in_array('section_id', $cols);
+                $has_status = in_array('status', $cols);
+                $has_roll = in_array('roll_number', $cols);
+            } catch (Exception $e) {
+                // ignore
+            }
+            $selectRoll = $has_roll ? 'roll_number' : "NULL AS roll_number";
+            $sql = "SELECT id, first_name, last_name, {$selectRoll} FROM students WHERE 1=1";
+            $p = [];
+            if ($has_class) { $sql .= " AND class_id = ?"; $p[] = $class_id; }
+            if ($has_section) { $sql .= " AND section_id = ?"; $p[] = $section_id; }
+            if ($has_status) { $sql .= " AND status = 'active'"; }
+            $sql .= $has_roll ? " ORDER BY roll_number ASC" : " ORDER BY first_name ASC";
+            $students_stmt = $pdo->prepare($sql);
+            $students_stmt->execute($p);
+            $students = $students_stmt->fetchAll();
+        }
+
+        // Fallback: if no students resolved (due to enrollment year mismatch or legacy data),
+        // derive the roster from attendance records for the selected month.
+        if (empty($students)) {
+            try {
+                // Determine roll_number column source
+                $hasEnroll = $use_enrollment;
+                $joinEnroll = '';
+                $selectRoll = 'NULL AS roll_number';
+                if ($hasEnroll) {
+                    // If enrollment table exists, try to fetch roll for current year when available
+                    if ($current_year_id) {
+                        $joinEnroll = ' LEFT JOIN students_enrollment se ON se.student_id = s.id AND se.academic_year_id = :ayid';
+                        $selectRoll = 'se.roll_number';
+                    } else {
+                        $joinEnroll = ' LEFT JOIN students_enrollment se ON se.student_id = s.id';
+                        $selectRoll = 'se.roll_number';
+                    }
+                } else {
+                    // Check legacy students.roll_number
+                    try {
+                        $cols = $pdo->query("SHOW COLUMNS FROM students LIKE 'roll_number'")->fetch();
+                        if ($cols) { $selectRoll = 's.roll_number'; }
+                    } catch (Exception $e) { /* ignore */ }
+                }
+
+                $fbSql = "SELECT DISTINCT s.id, s.first_name, s.last_name, $selectRoll
+                          FROM attendance a
+                          JOIN students s ON s.id = a.student_id
+                          $joinEnroll
+                          WHERE a.class_id = :cid AND a.section_id = :sid
+                            AND MONTH(a.date) = :m AND YEAR(a.date) = :y
+                          ORDER BY COALESCE($selectRoll, 999999), s.first_name ASC";
+                $fb = $pdo->prepare($fbSql);
+                $fb->bindValue(':cid', $class_id, PDO::PARAM_INT);
+                $fb->bindValue(':sid', $section_id, PDO::PARAM_INT);
+                $fb->bindValue(':m', (int)$month, PDO::PARAM_INT);
+                $fb->bindValue(':y', (int)$year, PDO::PARAM_INT);
+                if ($use_enrollment && $current_year_id) { $fb->bindValue(':ayid', $current_year_id, PDO::PARAM_INT); }
+                $fb->execute();
+                $students = $fb->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            } catch (Exception $e) {
+                // keep empty
+            }
+        }
     
     // উপস্থিতি ডেটা লোড করুন
     $attendance_data = [];
@@ -626,9 +702,7 @@ $is_print_view = isset($_GET['print']) && $_GET['print'] == 'true';
                                         <!-- প্রধান শিক্ষকের স্বাক্ষর -->
                                         <div class="signature-area print-only">
                                             <div class="signature-line">
-                                                <p>প্রতিষ্ঠান প্রধানের স্বাক্ষর</p>
-                                                <p>নাম: _________________________</p>
-                                                <p>পদবী: _________________________</p>
+                                                <p>প্রতিষ্ঠান প্রধানের স্বাক্ষর</p> <br>
                                             </div>
                                         </div>
                                         

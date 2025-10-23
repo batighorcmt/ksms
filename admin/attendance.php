@@ -1,5 +1,6 @@
 <?php
 require_once '../config.php';
+require_once __DIR__ . '/inc/enrollment_helpers.php';
 require_once __DIR__ . '/inc/sms_api.php'; // Include SMS functionality
 
 // Authentication check
@@ -10,6 +11,10 @@ if (!isAuthenticated() || !hasRole(['super_admin', 'teacher'])) {
 
 // Get today's date for default selection
 $current_date = date('Y-m-d');
+
+// Get current academic year id (for filtering current-year active students)
+$current_year_row = $pdo->query("SELECT id FROM academic_years WHERE is_current = 1 LIMIT 1")->fetch();
+$current_year_id = $current_year_row['id'] ?? null;
 
 // Get classes and sections
 $classes = $pdo->query("SELECT * FROM classes WHERE status='active' ORDER BY numeric_value ASC")->fetchAll();
@@ -55,7 +60,8 @@ try {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_attendance'])) {
     $class_id = intval(isset($_POST['class_id']) ? $_POST['class_id'] : 0);
     $section_id = intval(isset($_POST['section_id']) ? $_POST['section_id'] : 0); // Section is mandatory
-    $date = isset($_POST['date']) ? $_POST['date'] : $current_date;
+    // Force to today's date only
+    $date = $current_date;
 
     // Permission check: only super_admin or the teacher assigned to the section may record attendance
     $allowed = false;
@@ -114,6 +120,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_attendance'])) {
         try {
             $pdo->beginTransaction();
 
+            // Server-side validation: ensure every student has a selected status (mandatory attendance)
+            $missingStatus = [];
+            if (!empty($_POST['attendance']) && is_array($_POST['attendance'])) {
+                foreach ($_POST['attendance'] as $sid => $data) {
+                    if (!isset($data['status']) || $data['status'] === '') {
+                        $missingStatus[] = $sid;
+                    }
+                }
+            }
+            if (!empty($missingStatus)) {
+                $pdo->rollBack();
+                $_SESSION['error'] = "সকল শিক্ষার্থীর হাজিরা নির্বাচন বাধ্যতামূলক।";
+                // Preserve selected values for re-render
+                $selected_class = $class_id;
+                $selected_section = $section_id;
+                $selected_date = $date;
+                header('Location: attendance.php?view_attendance=1&class_id=' . urlencode($class_id) . '&section_id=' . urlencode($section_id) . '&date=' . urlencode($current_date));
+                exit;
+            }
+
+            // Track changes for SMS on update
+            $changed_student_ids = [];
+            $changed_statuses = [];
             if ($is_existing_record) {
                 // Map previous statuses
                 $prev_stmt = $pdo->prepare("SELECT student_id, status FROM attendance WHERE class_id = ? AND section_id = ? AND date = ?");
@@ -128,6 +157,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_attendance'])) {
                 foreach ($_POST['attendance'] as $student_id => $data) {
                     $status = isset($data['status']) ? $data['status'] : '';
                     $remarks = isset($data['remarks']) ? $data['remarks'] : '';
+                    $prev_status = isset($prev_status_map[$student_id]) ? $prev_status_map[$student_id] : null;
+                    if ($prev_status !== $status) {
+                        $changed_student_ids[] = (int)$student_id;
+                        $changed_statuses[] = (string)$status;
+                    }
                     $update_stmt->execute([$status, $remarks, $student_id, $class_id, $section_id, $date]);
                 }
                 $_SESSION['success'] = "উপস্থিতি সফলভাবে আপডেট করা হয়েছে!";
@@ -147,25 +181,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_attendance'])) {
 
             // After saving attendance, send SMS to all students whose status is enabled in settings
             $enabled_statuses = [];
-            foreach (['present','absent','late','half_day'] as $st) {
+            foreach (['present','absent','late'] as $st) {
                 $key = 'sms_attendance_' . $st;
                 if (!empty($sms_settings[$key]) && $sms_settings[$key] == '1') {
                     $enabled_statuses[] = $st;
                 }
             }
 
-            if (!empty($enabled_statuses)) {
+            // On update: ignore settings and send only to changed students; On insert: honor settings
+            if ( ($is_existing_record && !empty($changed_student_ids)) || (!$is_existing_record && !empty($enabled_statuses)) ) {
                 // Allow long-running send and keep going even if client disconnects
                 if (function_exists('ignore_user_abort')) { @ignore_user_abort(true); }
                 if (function_exists('set_time_limit')) { @set_time_limit(300); }
-                $placeholders = implode(',', array_fill(0, count($enabled_statuses), '?'));
-                $sql = "SELECT a.student_id, a.status, s.first_name, s.last_name, s.roll_number, s.mobile_number
-                        FROM attendance a
-                        JOIN students s ON s.id = a.student_id
-                        WHERE a.class_id = ? AND a.section_id = ? AND a.date = ?
-                          AND s.status = 'active' AND a.status IN ($placeholders)";
+                $status_filter = $is_existing_record ? array_values(array_unique($changed_statuses)) : $enabled_statuses;
+                $ph_statuses = implode(',', array_fill(0, count($status_filter), '?'));
+                // On update, restrict to only changed students; on insert, send to all
+                $target_student_ids = ($is_existing_record && !empty($changed_student_ids)) ? array_values(array_unique($changed_student_ids)) : [];
+                $restrict_students = $is_existing_record ? count($target_student_ids) > 0 : false;
+                $ph_students = $restrict_students ? implode(',', array_fill(0, count($target_student_ids), '?')) : '';
+                // Prefer enrollment roll_number when available for SMS merge fields; avoid legacy students.roll_number when dropped
+                $use_enrollment = function_exists('enrollment_table_exists') ? enrollment_table_exists($pdo) : false;
+                if ($use_enrollment) {
+                    $sql = "SELECT a.student_id, a.status, s.first_name, s.last_name,
+                                     se.roll_number AS roll_number,
+                                     s.mobile_number
+                            FROM attendance a
+                            JOIN students s ON s.id = a.student_id
+                            LEFT JOIN students_enrollment se ON se.student_id = s.id AND se.class_id = a.class_id AND se.section_id = a.section_id
+                            WHERE a.class_id = ? AND a.section_id = ? AND a.date = ?
+                              AND (se.status = 'active' OR se.status IS NULL) AND a.status IN ($ph_statuses)";
+                    if ($restrict_students) {
+                        $sql .= " AND a.student_id IN ($ph_students)";
+                    }
+                } else {
+                    // Legacy fallback: only reference s.roll_number if column exists
+                    $student_has_roll = false;
+                    try {
+                        $cols = $pdo->query("SHOW COLUMNS FROM students")->fetchAll(PDO::FETCH_COLUMN);
+                        $student_has_roll = in_array('roll_number', $cols);
+                    } catch (Exception $e) {
+                        $student_has_roll = false;
+                    }
+                    $rollExpr = $student_has_roll ? 's.roll_number' : 'NULL';
+                    $sql = "SELECT a.student_id, a.status, s.first_name, s.last_name,
+                                     {$rollExpr} AS roll_number,
+                                     s.mobile_number
+                            FROM attendance a
+                            JOIN students s ON s.id = a.student_id
+                            WHERE a.class_id = ? AND a.section_id = ? AND a.date = ?
+                              AND a.status IN ($ph_statuses)";
+                    if ($restrict_students) {
+                        $sql .= " AND a.student_id IN ($ph_students)";
+                    }
+                }
                 $params = [$class_id, $section_id, $date];
-                foreach ($enabled_statuses as $st) { $params[] = $st; }
+                foreach ($status_filter as $st) { $params[] = $st; }
+                if ($restrict_students) {
+                    foreach ($target_student_ids as $sid) { $params[] = $sid; }
+                }
                 $qstmt = $pdo->prepare($sql);
                 $qstmt->execute($params);
                 $rows = $qstmt->fetchAll();
@@ -236,7 +309,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_attendance'])) {
 if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['view_attendance'])) {
     $selected_class = intval($_GET['class_id']);
     $selected_section = intval($_GET['section_id']); // Section is now mandatory
-    $selected_date = $_GET['date'];
+    // Force selected date to today regardless of input
+    $selected_date = $current_date;
     
     // Permission check: only super_admin or the section's assigned teacher may view/take attendance
     $allowed = false;
@@ -283,15 +357,39 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['view_attendance'])) {
         // Get attendance data for the selected date, class, and section
         $attendance_data = [];
         if ($is_existing_record) {
-            $attendance_stmt = $pdo->prepare("SELECT a.*, s.first_name, s.last_name, s.roll_number FROM attendance a JOIN students s ON a.student_id = s.id WHERE a.class_id = ? AND a.section_id = ? AND a.date = ? ORDER BY s.roll_number ASC");
+            // Prefer enrollment roll_number; avoid referencing legacy students.roll_number if dropped
+            $use_enrollment = function_exists('enrollment_table_exists') ? enrollment_table_exists($pdo) : false;
+            if ($use_enrollment) {
+                $attendance_stmt = $pdo->prepare("SELECT a.*, s.first_name, s.last_name, se.roll_number AS roll_number
+                                                  FROM attendance a 
+                                                  JOIN students s ON a.student_id = s.id
+                                                  LEFT JOIN students_enrollment se ON se.student_id = s.id AND se.class_id = a.class_id AND se.section_id = a.section_id
+                                                  WHERE a.class_id = ? AND a.section_id = ? AND a.date = ?
+                                                  ORDER BY se.roll_number IS NULL, se.roll_number ASC, s.first_name ASC");
+            } else {
+                // Legacy fallback: only reference s.roll_number if the column exists
+                $student_has_roll = false;
+                try {
+                    $cols = $pdo->query("SHOW COLUMNS FROM students")->fetchAll(PDO::FETCH_COLUMN);
+                    $student_has_roll = in_array('roll_number', $cols);
+                } catch (Exception $e) {
+                    $student_has_roll = false;
+                }
+                $rollExpr = $student_has_roll ? 's.roll_number' : 'NULL';
+                $orderBy = $student_has_roll ? 'ORDER BY s.roll_number ASC' : 'ORDER BY s.first_name ASC';
+                $attendance_sql = "SELECT a.*, s.first_name, s.last_name, {$rollExpr} AS roll_number
+                                   FROM attendance a 
+                                   JOIN students s ON a.student_id = s.id
+                                   WHERE a.class_id = ? AND a.section_id = ? AND a.date = ?
+                                   {$orderBy}";
+                $attendance_stmt = $pdo->prepare($attendance_sql);
+            }
             $attendance_stmt->execute([$selected_class, $selected_section, $selected_date]);
             $attendance_data = $attendance_stmt->fetchAll();
         }
 
-        // Get students list for the selected class and section
-        $student_stmt = $pdo->prepare("SELECT id, first_name, last_name, roll_number FROM students WHERE class_id = ? AND section_id = ? AND status='active' ORDER BY roll_number ASC");
-        $student_stmt->execute([$selected_class, $selected_section]);
-        $students = $student_stmt->fetchAll();
+        // Get students via enrollment helper (falls back to legacy if table absent)
+        $students = get_enrolled_students($pdo, (int)$selected_class, (int)$selected_section, $current_year_id);
     }
 }
 
@@ -383,12 +481,6 @@ if ($selected_class) {
             color: white;
             border-color: #ffc107;
         }
-        .radio-half_day input[type="radio"]:checked + .radio-label {
-            background-color: #17a2b8;
-            color: white;
-            border-color: #17a2b8;
-        }
-        
         input[type="radio"] {
             display: none;
         }
@@ -433,10 +525,7 @@ if ($selected_class) {
             background-color: #ffc107;
             color: white;
         }
-        .btn-attendance-header.active-half_day {
-            background-color: #17a2b8;
-            color: white;
-        }
+        /* Removed Half Day option */
         .required-field::after {
             content: " *";
             color: red;
@@ -535,8 +624,9 @@ if ($selected_class) {
                                         </div>
                                         <div class="col-md-3">
                                             <div class="form-group">
-                                                <label for="date" class="required-field">তারিখ</label>
-                                                <input type="date" class="form-control" id="date" name="date" value="<?php echo $selected_date; ?>" required>
+                                                <label for="date_display" class="required-field">তারিখ</label>
+                                                <input type="text" class="form-control" id="date_display" value="<?php echo date('d/m/Y', strtotime($current_date)); ?>" readonly>
+                                                <input type="hidden" id="date" name="date" value="<?php echo $current_date; ?>">
                                             </div>
                                         </div>
                                         <div class="col-md-3">
@@ -597,11 +687,7 @@ if ($selected_class) {
                                                                 <i class="fas fa-clock"></i><br>Late
                                                             </button>
                                                         </th>
-                                                        <th class="radio-cell">
-                                                            <button type="button" class="btn btn-attendance-header" data-status="half_day" id="select-all-half_day">
-                                                                <i class="fas fa-hourglass-half"></i><br>Half Day
-                                                            </button>
-                                                        </th>
+                                                        <!-- Half Day option removed -->
                                                         <th width="200">মন্তব্য</th>
                                                     </tr>
                                                 </thead>
@@ -651,13 +737,7 @@ if ($selected_class) {
                                                                 </label>
                                                             </td>
 
-                                                            <!-- Half Day Radio -->
-                                                            <td class="radio-half_day">
-                                                                <input type="radio" name="attendance[<?php echo $student_id; ?>][status]" id="half_day_<?php echo $student_id; ?>" value="half_day" <?php echo ($current_status == 'half_day') ? 'checked' : ''; ?>>
-                                                                <label for="half_day_<?php echo $student_id; ?>" class="radio-label">
-                                                                    <i class="fas fa-hourglass-half"></i>
-                                                                </label>
-                                                            </td>
+                                                            <!-- Half Day option removed per requirement -->
 
                                                             <td>
                                                                 <input type="text" class="form-control form-control-sm" name="attendance[<?php echo $student_id; ?>][remarks]" value="<?php echo $current_remarks; ?>" placeholder="মন্তব্য">
@@ -670,7 +750,7 @@ if ($selected_class) {
 
                                         <!-- Bottom Submit Button -->
                                         <div class="sticky-submit text-right mt-2">
-                                            <button type="submit" name="mark_attendance" class="btn btn-success btn-sm-compact">
+                                            <button type="submit" name="mark_attendance" class="btn btn-success btn-lg">
                                                 <i class="fas fa-save"></i> <?php echo $is_existing_record ? 'আপডেট করুন' : 'সংরক্ষণ করুন'; ?>
                                             </button>
                                         </div>
@@ -725,10 +805,10 @@ if ($selected_class) {
             var presentCount = $('input[value="present"]:checked').length;
             var absentCount = $('input[value="absent"]:checked').length;
             var lateCount = $('input[value="late"]:checked').length;
-            var halfDayCount = $('input[value="half_day"]:checked').length;
+            // Half Day removed
             
             // Remove active class from all header buttons
-            $('.btn-attendance-header').removeClass('active-present active-absent active-late active-half_day');
+            $('.btn-attendance-header').removeClass('active-present active-absent active-late');
 
             // If all students have the same status, activate the corresponding header button
             if (totalStudents > 0) {
@@ -738,13 +818,11 @@ if ($selected_class) {
                     $('#select-all-absent').addClass('active-absent');
                 } else if (lateCount === totalStudents) {
                     $('#select-all-late').addClass('active-late');
-                } else if (halfDayCount === totalStudents) {
-                    $('#select-all-half_day').addClass('active-half_day');
                 }
             }
         }
 
-        // Handle "select all" buttons
+        // Handle "select all" buttons (Half Day removed)
         $('.btn-attendance-header').click(function() {
             var statusToSelect = $(this).data('status');
             
@@ -766,6 +844,26 @@ if ($selected_class) {
 
         // Call the function on page load to set initial state
         updateHeaderButtons();
+
+        // Client-side validation: ensure every student has a selected status before submitting
+        $('#attendanceForm').on('submit', function(e) {
+            var allOk = true;
+            $('tbody tr').each(function() {
+                var row = $(this);
+                var hasChecked = row.find('input[type="radio"]').is(':checked');
+                if (!hasChecked) {
+                    allOk = false;
+                    row.addClass('table-danger');
+                } else {
+                    row.removeClass('table-danger');
+                }
+            });
+            if (!allOk) {
+                e.preventDefault();
+                alert('সকল শিক্ষার্থীর জন্য উপস্থিতি নির্বাচন বাধ্যতামূলক।');
+                return false;
+            }
+        });
 
         // Prevent form submission on Enter key in remark fields
         $('#attendanceForm').on('keyup keypress', function(e) {

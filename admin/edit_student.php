@@ -1,5 +1,7 @@
 <?php
 require_once '../config.php';
+// Enrollment helpers for current year and enrollment operations
+require_once __DIR__ . '/inc/enrollment_helpers.php';
 
 // Auth
 if (!isAuthenticated() || !hasRole(['super_admin','teacher'])) {
@@ -25,11 +27,41 @@ if (!$student) {
 }
 
 // Load helper data
-$classes = $pdo->query("SELECT * FROM classes ORDER BY name ASC")->fetchAll();
+$classes = $pdo->query("SELECT * FROM classes ORDER BY numeric_value ASC, name ASC")->fetchAll();
 $relations = $pdo->query("SELECT * FROM guardian_relations ORDER BY id ASC")->fetchAll();
-// Load academic years
-$years = $pdo->query("SELECT * FROM academic_years ORDER BY year DESC")->fetchAll();
+// Load academic years: only years where the student already has an enrollment
+$years = [];
+try {
+    $yStmt = $pdo->prepare("SELECT ay.*
+                            FROM academic_years ay
+                            JOIN students_enrollment se ON se.academic_year_id = ay.id
+                            WHERE se.student_id = ?
+                            ORDER BY ay.year DESC");
+    $yStmt->execute([$student_id]);
+    $years = $yStmt->fetchAll();
+} catch (Exception $e) {
+    // Fallback to all years if join fails
+    $years = $pdo->query("SELECT * FROM academic_years ORDER BY year DESC")->fetchAll();
+}
 $active_year = $pdo->query("SELECT * FROM academic_years WHERE is_current = 1 LIMIT 1")->fetch();
+
+// Determine current/initial academic year and load enrollment row
+$current_year_id = function_exists('current_academic_year_id') ? current_academic_year_id($pdo) : ($active_year['id'] ?? null);
+$enrollment = null;
+if ($current_year_id) {
+    $ese = $pdo->prepare("SELECT * FROM students_enrollment WHERE student_id = ? AND academic_year_id = ? LIMIT 1");
+    $ese->execute([$student_id, $current_year_id]);
+    $enrollment = $ese->fetch();
+}
+// Fallback to latest enrollment if current not found
+if (!$enrollment) {
+    $ese = $pdo->prepare("SELECT * FROM students_enrollment WHERE student_id = ? ORDER BY id DESC LIMIT 1");
+    $ese->execute([$student_id]);
+    $enrollment = $ese->fetch();
+}
+
+// Default year for form selects
+$year_id = $enrollment['academic_year_id'] ?? ($active_year['id'] ?? null);
 
 $errors = [];
 $success = '';
@@ -60,7 +92,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $section_id = !empty($_POST['section_id']) ? intval($_POST['section_id']) : null;
         $roll_number = trim($_POST['roll_number'] ?? '');
         $admission_date = $_POST['admission_date'] ?? null;
-    $year_id = !empty($_POST['year_id']) ? intval($_POST['year_id']) : ($student['year_id'] ?? ($active_year['id'] ?? null));
+        // Selected academic year for enrollment update
+        $year_id = !empty($_POST['year_id']) ? intval($_POST['year_id']) : ($enrollment['academic_year_id'] ?? ($active_year['id'] ?? null));
 
         // Resolve guardian_relation
         $guardian_relation_label = $guardian_relation;
@@ -146,14 +179,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 $pdo->beginTransaction();
 
-                // Update student
+                // Update core student info (no class/section/roll/year here)
                 $stmt = $pdo->prepare("UPDATE students SET
-                    first_name = ?, last_name = ?, father_name = ?, mother_name = ?, 
-                    guardian_relation = ?, birth_certificate_no = ?, date_of_birth = ?, 
-                    gender = ?, blood_group = ?, religion = ?, present_address = ?, 
-                    permanent_address = ?, mobile_number = ?, address = ?, city = ?, 
-                    country = ?, photo = ?, class_id = ?, section_id = ?, roll_number = ?, 
-                    admission_date = ?, year_id = ?
+                    first_name = ?, last_name = ?, father_name = ?, mother_name = ?,
+                    guardian_name = ?, guardian_relation = ?, birth_certificate_no = ?, date_of_birth = ?,
+                    gender = ?, blood_group = ?, religion = ?, present_address = ?,
+                    permanent_address = ?, mobile_number = ?, address = ?, city = ?,
+                    country = ?, photo = ?, admission_date = ?
                     WHERE id = ?");
 
                 $ok = $stmt->execute([
@@ -161,6 +193,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $last_name,
                     $father_name ?: null,
                     $mother_name ?: null,
+                    ($guardian_name !== '' ? $guardian_name : null),
                     $guardian_relation_label ?: null,
                     $birth_certificate_no ?: null,
                     $date_of_birth ?: null,
@@ -174,14 +207,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     null, // city
                     null, // country
                     $photo_file ?: null,
-                    $class_id,
-                    $section_id ?: 0,
-                    $roll_number !== '' ? intval($roll_number) : null,
                     $admission_date ?: null,
-                    $year_id, $student_id
+                    $student_id
                 ]);
 
-                if (!$ok) throw new Exception('শিক্ষার্থীর তথ্য আপডেট করতে ব্যর্থ।');
+                if (!$ok) throw new Exception('শিক্ষার্থীর বেসিক তথ্য আপডেট করতে ব্যর্থ।');
+
+                // Update ONLY existing students_enrollment for the selected year.
+                // Do NOT create new enrollment records from this form.
+                if (!empty($year_id) && $class_id > 0) {
+                    $sel = $pdo->prepare("SELECT id FROM students_enrollment WHERE student_id = ? AND academic_year_id = ? LIMIT 1");
+                    $sel->execute([$student_id, $year_id]);
+                    $row = $sel->fetch(PDO::FETCH_ASSOC);
+                    if ($row) {
+                        $upd = $pdo->prepare("UPDATE students_enrollment SET class_id = ?, section_id = ?, roll_number = ?, updated_at = NOW() WHERE id = ?");
+                        $upd->execute([
+                            $class_id,
+                            $section_id ?: null,
+                            ($roll_number !== '' ? intval($roll_number) : null),
+                            $row['id']
+                        ]);
+                    } else {
+                        throw new Exception('এই শিক্ষাবর্ষে শিক্ষার্থীর কোন ভর্তি রেকর্ড নেই — নতুন রেকর্ড তৈরি করা হবে না।');
+                    }
+                }
 
                 // Update guardian user if exists
                 if (!empty($student['guardian_id'])) {
@@ -204,6 +253,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt = $pdo->prepare("SELECT * FROM students WHERE id = ?");
                 $stmt->execute([$student_id]);
                 $student = $stmt->fetch();
+                // Refresh enrollment snapshot
+                if (!empty($year_id)) {
+                    $ese = $pdo->prepare("SELECT * FROM students_enrollment WHERE student_id = ? AND academic_year_id = ? LIMIT 1");
+                    $ese->execute([$student_id, $year_id]);
+                    $enrollment = $ese->fetch();
+                }
 
             } catch (Exception $e) {
                 $pdo->rollBack();
@@ -650,7 +705,7 @@ $sectionsAll = $pdo->query("SELECT * FROM sections ORDER BY name ASC")->fetchAll
                                                             <select name="class_id" id="class_id" class="form-control" required>
                                                                 <option value="">নির্বাচন করুন</option>
                                                                 <?php foreach($classes as $c): ?>
-                                                                    <option value="<?php echo $c['id']; ?>" <?php if(($student['class_id'] ?? 0)==$c['id']) echo 'selected'; ?>><?php echo htmlspecialchars($c['name']); ?></option>
+                                                                    <option value="<?php echo $c['id']; ?>" <?php if((($enrollment['class_id'] ?? 0))==$c['id']) echo 'selected'; ?>><?php echo htmlspecialchars($c['name']); ?></option>
                                                                 <?php endforeach; ?>
                                                             </select>
                                                         </div>
@@ -672,7 +727,7 @@ $sectionsAll = $pdo->query("SELECT * FROM sections ORDER BY name ASC")->fetchAll
                                                         <label>রোল নম্বর</label>
                                                         <div class="input-group">
                                                             <span class="input-group-text"><i class="fas fa-sort-numeric-down"></i></span>
-                                                            <input name="roll_number" class="form-control" value="<?php echo htmlspecialchars($student['roll_number'] ?? ''); ?>">
+                                                            <input name="roll_number" class="form-control" value="<?php echo htmlspecialchars($enrollment['roll_number'] ?? ''); ?>">
                                                         </div>
                                                     </div>
                                                 </div>
@@ -693,15 +748,16 @@ $sectionsAll = $pdo->query("SELECT * FROM sections ORDER BY name ASC")->fetchAll
                                                         <label>সাল (Year)</label>
                                                         <div class="input-group">
                                                             <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
-                                                <select name="year_id" id="year_id" class="form-select" required>
+                                                <select name="year_id" id="year_id" class="form-select" required disabled>
                                                     <option value="">নির্বাচন করুন</option>
                                                     <?php foreach($years as $y): ?>
                                                         <option value="<?php echo $y['id']; ?>" <?php echo (!empty($year_id) && $year_id == $y['id']) ? 'selected' : ((!empty($active_year['id']) && $active_year['id'] == $y['id']) ? 'selected' : ''); ?>><?php echo htmlspecialchars($y['year']); ?><?php echo ($y['is_current'] ? ' (বর্তমান)' : ''); ?></option>
                                                     <?php endforeach; ?>
                                                 </select>
+                                                <input type="hidden" name="year_id" value="<?php echo htmlspecialchars($year_id ?? ''); ?>">
                                             </div>
                                         </div>
-                                                       </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -723,9 +779,9 @@ $sectionsAll = $pdo->query("SELECT * FROM sections ORDER BY name ASC")->fetchAll
                                                             <p><strong>লিঙ্গ:</strong> <span id="reviewGender"><?php echo !empty($student['gender']) ? ($student['gender'] == 'male' ? 'পুরুষ' : ($student['gender'] == 'female' ? 'মহিলা' : 'অন্যান্য')) : ''; ?></span></p>
                                                             <p><strong>শ্রেণি:</strong> <span id="reviewClass">
                                                                 <?php 
-                                                                if(!empty($student['class_id'])) {
+                                                                if(!empty($enrollment['class_id'])) {
                                                                     foreach($classes as $c) {
-                                                                        if($c['id'] == $student['class_id']) {
+                                                                        if($c['id'] == $enrollment['class_id']) {
                                                                             echo htmlspecialchars($c['name']);
                                                                             break;
                                                                         }
@@ -922,7 +978,7 @@ $(function(){
             $.get('get_sections.php?class_id='+cid, function(data){
                 $('#section_id').html(data);
                 // Set existing section if available
-                var existingSection = <?php echo !empty($student['section_id']) ? $student['section_id'] : 'null'; ?>;
+                var existingSection = <?php echo !empty($enrollment['section_id']) ? (int)$enrollment['section_id'] : 'null'; ?>;
                 if(existingSection) {
                     $('#section_id').val(existingSection);
                 }

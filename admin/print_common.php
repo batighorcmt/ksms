@@ -23,8 +23,8 @@ if (!function_exists('print_header')) {
     $name = htmlspecialchars($si['name'] ?? 'আপনার প্রতিষ্ঠান');
     $address = htmlspecialchars($si['address'] ?? '');
     $contact = '';
-    if (!empty($si['phone'])) $contact .= 'ফোন: ' . htmlspecialchars($si['phone']);
-    if (!empty($si['email'])) $contact .= ($contact ? ' | ' : '') . 'ইমেল: ' . htmlspecialchars($si['email']);
+    if (!empty($si['phone'])) $contact .= 'মোবাইল: ' . htmlspecialchars($si['phone']);
+    if (!empty($si['email'])) $contact .= ($contact ? ' | ' : '') . 'ই-মেইল: ' . htmlspecialchars($si['email']);
     $logo = !empty($si['logo']) ? (BASE_URL . 'uploads/logo/' . $si['logo']) : '';
 
     ob_start();
@@ -50,11 +50,19 @@ if (!function_exists('print_header')) {
 
 if (!function_exists('print_footer')) {
     function print_footer() {
-        $printed = '<div style="margin-top:12px;text-align:right;color:#444;font-size:0.95rem">মুদ্রিত: ' . date('d M Y, h:i A') . '</div>';
-        // Highlight technical support / company line
-        $support = '<div style="margin-top:8px;padding:8px;border-left:4px solid #0d6efd;background:#e9f2ff;color:#000;font-size:0.95rem">';
-        $support .= 'কারিগরি সহযোগীতায়ঃ <strong>বাতিঘর কম্পিউটার\'স</strong>, মোবাইলঃ <span style="font-weight:700">01762-396713</span>';
-        $support .= '</div>';
-        return $printed . $support;
+        // Inline CSS: hide footer on screen, show only when printing
+        // Ensure enough bottom padding so content never overlaps the fixed footer
+        $styleBlock = '<style>
+            .print-footer{ display:none; }
+            @media print{
+                body{ padding-bottom:24mm !important; }
+                .print-footer{ display:block; position:fixed; left:0; right:0; bottom:0; font-size:0.95rem; color:#000; background:#fff; height:18mm; }
+                .print-footer .pf-inner{ display:flex; justify-content:space-between; align-items:center; border-top:1px solid #d1d5db; padding:6px 4mm 2mm 4mm; box-sizing:border-box; height:100%; }
+            }
+        </style>';
+        $left = '<div class="pf-left">কারিগরি সহযোগীতায়ঃ <strong>বাতিঘর কম্পিউটার’স</strong>, মোবাইলঃ <span style="font-weight:700">01762-396713</span></div>';
+        $right = '<div class="pf-right">মুদ্রিত: ' . date('d M Y, h:i A') . '</div>';
+        $html = '<div class="print-footer"><div class="pf-inner">' . $left . $right . '</div></div>';
+        return $styleBlock . $html;
     }
 }

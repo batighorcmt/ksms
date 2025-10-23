@@ -1,5 +1,6 @@
 <?php
 require_once '../config.php';
+require_once __DIR__ . '/inc/enrollment_helpers.php';
 
 // Auth
 if (!isAuthenticated() || !hasRole(['super_admin','teacher'])) {
@@ -8,7 +9,7 @@ if (!isAuthenticated() || !hasRole(['super_admin','teacher'])) {
 
 
 // Load helper data
-$classes = $pdo->query("SELECT * FROM classes ORDER BY name ASC")->fetchAll();
+$classes = $pdo->query("SELECT * FROM classes ORDER BY numeric_value ASC, name ASC")->fetchAll();
 $relations = $pdo->query("SELECT * FROM guardian_relations ORDER BY id ASC")->fetchAll();
 // Load academic years
 $years = $pdo->query("SELECT * FROM academic_years ORDER BY year DESC")->fetchAll();
@@ -121,6 +122,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
+        // Detect legacy schema columns on students table (class_id/section_id/roll_number/year_id)
+        $colStmt = $pdo->prepare("SELECT COLUMN_NAME, IS_NULLABLE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'students' AND COLUMN_NAME IN ('class_id','section_id','roll_number','year_id')");
+        $colStmt->execute();
+        $studentsCols = $colStmt->fetchAll(PDO::FETCH_ASSOC);
+        $hasClassId = false; $classNotNull = false;
+        $hasSectionId = false; $sectionNotNull = false;
+        $hasRollNumber = false; // roll can be nullable
+        $hasYearId = false; $yearNotNull = false;
+        foreach ($studentsCols as $c) {
+            if ($c['COLUMN_NAME'] === 'class_id') { $hasClassId = true; $classNotNull = (strtoupper($c['IS_NULLABLE']) === 'NO'); }
+            if ($c['COLUMN_NAME'] === 'section_id') { $hasSectionId = true; $sectionNotNull = (strtoupper($c['IS_NULLABLE']) === 'NO'); }
+            if ($c['COLUMN_NAME'] === 'roll_number') { $hasRollNumber = true; }
+            if ($c['COLUMN_NAME'] === 'year_id') { $hasYearId = true; $yearNotNull = (strtoupper($c['IS_NULLABLE']) === 'NO'); }
+        }
+
+        // If legacy columns exist and are NOT NULL, enforce required inputs to avoid FK/default pitfalls
+        if ($hasSectionId && $sectionNotNull && empty($section_id)) {
+            $errors[] = 'এই ডাটাবেজ স্কিমায় শাখা (Section) আবশ্যক — একটি শাখা নির্বাচন করুন।';
+        }
+        if ($hasYearId && $yearNotNull && empty($year_id)) {
+            $errors[] = 'এই ডাটাবেজ স্কিমায় শিক্ষা বর্ষ (Year) আবশ্যক — একটি বছর নির্বাচন করুন।';
+        }
+
         if (empty($errors)) {
             // Wrap student + guardian-user creation in a transaction
             try {
@@ -132,17 +156,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $default_password = '123456';
                 $password_hash = password_hash($default_password, PASSWORD_DEFAULT);
 
-                // Insert student with year_id
-                $stmt = $pdo->prepare("INSERT INTO students
-                    (student_id, first_name, last_name, father_name, mother_name, guardian_relation, birth_certificate_no, date_of_birth, gender, blood_group, religion, present_address, permanent_address, mobile_number, address, city, country, photo, class_id, section_id, roll_number, admission_date, year_id)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-
-                $ok = $stmt->execute([
+                // Build INSERT dynamically to include legacy columns when present (class_id/section_id/roll_number/year_id)
+                $columns = [
+                    'student_id','first_name','last_name','father_name','mother_name','guardian_name','guardian_relation',
+                    'birth_certificate_no','date_of_birth','gender','blood_group','religion','present_address',
+                    'permanent_address','mobile_number','address','city','country','photo','admission_date'
+                ];
+                $params = [
                     $student_id,
                     $first_name,
                     $last_name,
                     $father_name ?: null,
                     $mother_name ?: null,
+                    ($guardian_name !== '' ? $guardian_name : null),
                     $guardian_relation_label ?: null,
                     $birth_certificate_no ?: null,
                     $date_of_birth ?: null,
@@ -156,16 +182,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     null, // city
                     null, // country
                     $photo_file ?: null,
-                    $class_id,
-                    $section_id ?: 0,
-                    $roll_number !== '' ? intval($roll_number) : null,
-                    $admission_date ?: null,
-                    $year_id
-                ]);
+                    $admission_date ?: null
+                ];
+
+                // Include legacy academic columns if they exist in this DB
+                if ($hasClassId) { $columns[] = 'class_id'; $params[] = ($class_id ?: 0); }
+                if ($hasSectionId) { $columns[] = 'section_id'; $params[] = ($section_id ?: 0); }
+                if ($hasRollNumber) { $columns[] = 'roll_number'; $params[] = ($roll_number !== '' ? (int)$roll_number : null); }
+                if ($hasYearId) { $columns[] = 'year_id'; $params[] = (!empty($year_id) ? (int)$year_id : ($current_year['id'] ?? 0)); }
+
+                $placeholders = implode(', ', array_fill(0, count($columns), '?'));
+                $colSql = implode(', ', array_map(function($c){ return "`$c`"; }, $columns));
+                $sql = "INSERT INTO `students` ($colSql) VALUES ($placeholders)";
+                $stmt = $pdo->prepare($sql);
+                $ok = $stmt->execute($params);
 
                 if (!$ok) throw new Exception('স্টুডেন্ট তথ্য সংরক্ষণে ব্যর্থ।');
 
                 $studentDbId = $pdo->lastInsertId();
+
+                // Create or update enrollment for current year (fallbacks to legacy columns if table not present)
+                if (!empty($year_id) && !empty($class_id)) {
+                    enroll_student($pdo, (int)$studentDbId, (int)$year_id, (int)$class_id, ($section_id ?: null), $roll_number);
+                }
 
                 // create guardian user if guardian_name and mobile present
                 $guardianCreated = false;
@@ -174,7 +213,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $uCheck = $pdo->prepare('SELECT id FROM users WHERE username = ?');
                 $uCheck->execute([$guardianUsername]);
                 if (!$uCheck->fetch()) {
-                    $uInsert = $pdo->prepare("INSERT INTO users (username, password, role, email, phone, full_name, address, status) VALUES (?, ?, 'guardian', ?, ?, ?, ?, 1)");
+                    $uInsert = $pdo->prepare("INSERT INTO users (username, password, role, email, phone, full_name, address, status) VALUES (?, ?, 'guardian', ?, ?, ?, ?, 'active')");
                     $uOk = $uInsert->execute([$guardianUsername, $password_hash, '', $mobile_number ?: null, $guardian_name ?: null, $present_address ?: null]);
                     if ($uOk) {
                         $guardianCreated = true;

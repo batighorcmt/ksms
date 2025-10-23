@@ -7,7 +7,7 @@ if (!isAuthenticated()) {
 }
 
 // Load supporting data
-$classes = $pdo->query("SELECT id, name FROM classes WHERE status='active' ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+$classes = $pdo->query("SELECT id, name FROM classes WHERE status='active' ORDER BY numeric_value ASC, name ASC")->fetchAll(PDO::FETCH_ASSOC);
 $types = $pdo->query("SELECT id, name FROM exam_types ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
 // academic years from DB
 $years = $pdo->query("SELECT id, year FROM academic_years WHERE status='active' ORDER BY year DESC")->fetchAll(PDO::FETCH_ASSOC);
@@ -120,15 +120,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title><?= $edit_id ? 'Edit Exam' : 'Create Exam' ?></title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.4/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
     <link href="https://fonts.maateen.me/solaiman-lipi/font.css" rel="stylesheet">
     <style>
+        /* Apply Bengali font throughout the page */
+        body, .content-wrapper, .main-header, .main-sidebar, .brand-link, .card, .card-title, label, input, select, button, a, .nav-link, .sidebar, .navbar {
+            font-family: 'SolaimanLipi', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .logo-custom { font-family: 'SolaimanLipi', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-weight: 700; }
         .subject-row .removeRow { margin-top: 6px; }
         .card { border-radius: 8px; }
+        /* Make header action button more prominent */
+        .card-header .btn.btn-exam-list {
+            font-weight: 700;
+        }
     </style>
 </head>
 <body class="hold-transition sidebar-mini">
+<div class="wrapper">
 <?php include '../admin/inc/header.php'; ?>
 <?php include '../admin/inc/sidebar.php'; ?>
 
@@ -140,7 +151,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="card">
                         <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                             <h3 class="card-title"><?= $edit_id ? 'Edit Exam' : 'Create Exam' ?></h3>
-                            <a href="exam_list.php" class="btn btn-light btn-sm">Exam List</a>
+                            <a href="exam_list.php" class="btn btn-warning btn-sm btn-exam-list">Exam List</a>
                         </div>
                         <div class="card-body">
                             <?php if(!empty($errors)): ?>
@@ -215,11 +226,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <?php include '../admin/inc/footer.php'; ?>
 
+</div><!-- /.wrapper -->
+
 <!-- Scripts -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
 <script>
+// Fallback for pushmenu if AdminLTE's data-widget binding misses
+$(document).on('click','[data-widget="pushmenu"]',function(e){
+    try { $('.sidebar-mini').length && $('body').hasClass('sidebar-collapse') ? $('body').removeClass('sidebar-collapse') : $('body').addClass('sidebar-collapse'); } catch(err) {}
+});
 // single declaration
 let allSubjects = [];
 

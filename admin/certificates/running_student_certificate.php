@@ -17,17 +17,43 @@ if (!isset($_GET['id']) || empty($_GET['id']) || !is_numeric($_GET['id'])) {
     redirect('admin/certificates/print_certificate_options.php');
 }
 
-$student_id = intval($_GET['id']);
+        $student_id = intval($_GET['id']);
+        // Removed redundant fetch block
 
-// Fetch student data with class and section info
-$stmt = $pdo->prepare("
-    SELECT s.*, c.name as class_name, sec.name as section_name 
-    FROM students s 
-    LEFT JOIN classes c ON s.class_id = c.id 
-    LEFT JOIN sections sec ON s.section_id = sec.id 
-    WHERE s.id = ?
-");
-$stmt->execute([$student_id]);
+// Resolve academic year: GET > certificate_number lookup > current year > latest enrollment
+$year_id = null;
+if (!empty($_GET['academic_year_id']) && ctype_digit((string)$_GET['academic_year_id'])) {
+    $year_id = (int)$_GET['academic_year_id'];
+} elseif (!empty($_GET['certificate_number'])) {
+    // Guard: some deployments may not have academic_year_id on certificate_issues yet
+    $ciHasYear = false;
+    try {
+        $ciCols = $pdo->query("SHOW COLUMNS FROM certificate_issues")->fetchAll(PDO::FETCH_COLUMN);
+        $ciHasYear = in_array('academic_year_id', $ciCols);
+    } catch (Exception $e) {
+        $ciHasYear = false;
+    }
+    if ($ciHasYear) {
+        $yr = $pdo->prepare('SELECT academic_year_id FROM certificate_issues WHERE certificate_number = ? LIMIT 1');
+        $yr->execute([$_GET['certificate_number']]);
+        $yrRow = $yr->fetch(PDO::FETCH_ASSOC);
+        if ($yrRow && !empty($yrRow['academic_year_id'])) $year_id = (int)$yrRow['academic_year_id'];
+    }
+}
+if (empty($year_id)) {
+    $cy = $pdo->query("SELECT id FROM academic_years WHERE is_current = 1 LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+    if ($cy && !empty($cy['id'])) $year_id = (int)$cy['id'];
+}
+
+// Build enrollment-aware student fetch
+if (!empty($year_id)) {
+    $stmt = $pdo->prepare("SELECT s.*, se.roll_number, se.status AS enrollment_status, c.name AS class_name, sec.name AS section_name\n                           FROM students s\n                           LEFT JOIN students_enrollment se ON se.student_id = s.id AND se.academic_year_id = ?\n                           LEFT JOIN classes c ON c.id = se.class_id\n                           LEFT JOIN sections sec ON sec.id = se.section_id\n                           WHERE s.id = ?\n                           LIMIT 1");
+    $stmt->execute([$year_id, $student_id]);
+} else {
+    // fallback to latest enrollment row if year not resolved
+    $stmt = $pdo->prepare("SELECT s.*, se.roll_number, se.status AS enrollment_status, c.name AS class_name, sec.name AS section_name\n                           FROM students s\n                           LEFT JOIN students_enrollment se ON se.student_id = s.id\n                             AND se.academic_year_id = (SELECT MAX(se2.academic_year_id) FROM students_enrollment se2 WHERE se2.student_id = s.id)\n                           LEFT JOIN classes c ON c.id = se.class_id\n                           LEFT JOIN sections sec ON sec.id = se.section_id\n                           WHERE s.id = ?\n                           LIMIT 1");
+    $stmt->execute([$student_id]);
+}
 $student = $stmt->fetch();
 
 if (!$student) {
@@ -35,8 +61,8 @@ if (!$student) {
     redirect('admin/certificates/print_certificate_options.php');
 }
 
-// Prevent certificate for inactive students
-if (isset($student['status']) && $student['status'] === 'inactive') {
+// Prevent certificate for inactive enrollments when available
+if (isset($student['enrollment_status']) && $student['enrollment_status'] === 'inactive') {
     $_SESSION['error'] = 'নিষ্ক্রিয় শিক্ষার্থীর প্রত্যয়নপত্র প্রদান করা যাবে না।';
     redirect('admin/certificates/print_certificate_options.php');
 }
@@ -393,7 +419,7 @@ function format_bangla_datetime($dt) {
                 </div>
                 <div class="info-row">
                     <div class="info-label">স্টুডেন্ট আইডি:</div>
-                    <div class="info-value">STU20253073</div>
+                    <div class="info-value"><?php echo htmlspecialchars($student['student_id'] ?? ''); ?></div>
                 </div>
                 <div class="info-row">
                     <div class="info-label">জন্ম তারিখ:</div>

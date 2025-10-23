@@ -1,6 +1,7 @@
 <?php
 require_once '../config.php';
 require_once 'print_common.php';
+require_once __DIR__ . '/inc/enrollment_helpers.php';
 
 if (!isAuthenticated() || !hasRole(['super_admin', 'teacher'])) {
     header('location: login.php'); exit();
@@ -16,41 +17,43 @@ $date = isset($_GET['date']) ? $_GET['date'] : date('Y-m-d');
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) $date = date('Y-m-d');
 
 $results = [];
+$yearId = current_academic_year_id($pdo);
 
-// Build queries depending on type
+// Build queries depending on type (year-aware via enrollment)
 if ($type === 'present') {
-    $sql = "SELECT s.id, s.first_name, s.last_name, s.roll_number, c.name as class_name, sec.name as section_name
+    $sql = "SELECT s.id, s.first_name, s.last_name, se.roll_number, c.name as class_name, sec.name as section_name
         FROM attendance a
         JOIN students s ON a.student_id = s.id
-        LEFT JOIN classes c ON s.class_id = c.id
-        LEFT JOIN sections sec ON s.section_id = sec.id
+        JOIN students_enrollment se ON se.student_id = s.id AND se.academic_year_id = ?
+        LEFT JOIN classes c ON c.id = se.class_id
+        LEFT JOIN sections sec ON sec.id = se.section_id
         WHERE a.date = ? AND a.status = 'present'";
-    $params = [$date];
+    $params = [$yearId, $date];
 } elseif ($type === 'absent') {
-    $sql = "SELECT s.id, s.first_name, s.last_name, s.roll_number, c.name as class_name, sec.name as section_name, a.remarks
+    $sql = "SELECT s.id, s.first_name, s.last_name, se.roll_number, c.name as class_name, sec.name as section_name, a.remarks
         FROM attendance a
         JOIN students s ON a.student_id = s.id
-        LEFT JOIN classes c ON s.class_id = c.id
-        LEFT JOIN sections sec ON s.section_id = sec.id
+        JOIN students_enrollment se ON se.student_id = s.id AND se.academic_year_id = ?
+        LEFT JOIN classes c ON c.id = se.class_id
+        LEFT JOIN sections sec ON sec.id = se.section_id
         WHERE a.date = ? AND a.status = 'absent'";
-    $params = [$date];
+    $params = [$yearId, $date];
 } else { // not_recorded
-    // students who do not have attendance record for given date
-    $sql = "SELECT s.id, s.first_name, s.last_name, s.roll_number, c.name as class_name, sec.name as section_name
+    // students who do not have attendance record for given date in current year
+    $sql = "SELECT s.id, s.first_name, s.last_name, se.roll_number, c.name as class_name, sec.name as section_name
         FROM students s
-        LEFT JOIN classes c ON s.class_id = c.id
-        LEFT JOIN sections sec ON s.section_id = sec.id
-        WHERE s.status='active' AND s.id NOT IN (SELECT student_id FROM attendance WHERE date = ?)";
-    $params = [$date];
+        JOIN students_enrollment se ON se.student_id = s.id AND se.academic_year_id = ?
+        LEFT JOIN classes c ON c.id = se.class_id
+        LEFT JOIN sections sec ON sec.id = se.section_id
+        WHERE (se.status='active' OR se.status IS NULL) AND s.id NOT IN (SELECT student_id FROM attendance WHERE date = ?)";
+    $params = [$yearId, $date];
 }
 
-// Apply class/section filters
-if ($class_id !== 'all') {
-    $sql .= " AND s.class_id = ?"; $params[] = $class_id;
-}
-if ($section_id) { $sql .= " AND s.section_id = ?"; $params[] = $section_id; }
+// Apply class/section filters (against enrollment)
+if ($class_id !== 'all') { $sql .= " AND se.class_id = ?"; $params[] = $class_id; }
+if ($section_id) { $sql .= " AND se.section_id = ?"; $params[] = $section_id; }
 
-$sql .= " ORDER BY c.numeric_value ASC, sec.name ASC, s.roll_number ASC, s.first_name ASC";
+$sql .= " ORDER BY c.numeric_value ASC, sec.name ASC, se.roll_number ASC, s.first_name ASC";
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $results = $stmt->fetchAll();
@@ -67,10 +70,10 @@ $printPageUrl = 'attendance_report_print.php' . ($qs ? ('?' . $qs) : '');
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Attendance Report</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
     <link href="https://fonts.maateen.me/solaiman-lipi/font.css" rel="stylesheet">
     <style>body, .main-sidebar, .nav-link { font-family: 'SolaimanLipi', sans-serif; } .no-data{color:#6b7280}</style>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 <body class="hold-transition sidebar-mini">
 <div class="wrapper">
@@ -176,8 +179,10 @@ $printPageUrl = 'attendance_report_print.php' . ($qs ? ('?' . $qs) : '');
 </div>
 
 <!-- AdminLTE & Bootstrap JS (ensure these are loaded so pushmenu works) -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/demo.js"></script>
 <script>
     // filter sections by class
     $('#section_id option').each(function(){ var cls = $(this).data('class'); if(!cls) return; $(this).hide(); });
@@ -191,15 +196,9 @@ $printPageUrl = 'attendance_report_print.php' . ($qs ? ('?' . $qs) : '');
         window.open(url, '_blank');
     });
 
-    // ensure sidebar pushmenu toggling works (AdminLTE)
-    if (typeof $.AdminLTE === 'undefined' && typeof $.fn.pushMenu === 'function') {
-        // older AdminLTE plugin
-        $('[data-widget="pushmenu"]').on('click', function(){ $('body').toggleClass('sidebar-collapse'); });
-    } else if (typeof $.AdminLTE !== 'undefined' && $.AdminLTE.pushMenu) {
-        // nothing to do, plugin present
-    } else {
-        // fallback: allow manual toggle class on body when toggle button clicked
-        $(document).on('click', '[data-widget="pushmenu"]', function(){ $('body').toggleClass('sidebar-collapse'); });
+    // ensure sidebar pushmenu toggling works (fallback only if plugin missing)
+    if (typeof $.fn.PushMenu === 'undefined') {
+        $(document).on('click', '[data-widget="pushmenu"]', function(e){ e.preventDefault(); $(document.body).toggleClass('sidebar-collapse'); });
     }
 </script>
 </body>

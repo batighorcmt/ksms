@@ -28,22 +28,10 @@ if (!$teacher) {
     exit();
 }
 
-// ক্লাস এবং বিষয় ডেটা লোড করুন
-$classes = $pdo->query("SELECT * FROM classes WHERE status='active' ORDER BY numeric_value ASC")->fetchAll();
-$subjects = $pdo->query("SELECT * FROM subjects WHERE status='active'")->fetchAll();
+// নোট: ক্লাস/বিষয় ডেটা এখানে লোড করা হচ্ছে না; রুটিন ব্যবস্থাপনা ব্যবহার করুন
 
 // শিক্ষকের বর্তমান ক্লাস এবং বিষয় লোড করুন
-$teacher_classes = $pdo->prepare("SELECT class_id FROM class_teachers WHERE teacher_id = ?");
-$teacher_classes->execute([$teacher_id]);
-$teacher_class_ids = $teacher_classes->fetchAll(PDO::FETCH_COLUMN);
-
-$teacher_subjects = $pdo->prepare("
-    SELECT cst.class_id, cst.subject_id 
-    FROM class_subject_teachers cst 
-    WHERE cst.teacher_id = ?
-");
-$teacher_subjects->execute([$teacher_id]);
-$teacher_subject_assignments = $teacher_subjects->fetchAll();
+ // শিক্ষকের ক্লাস/বিষয় বরাদ্দ রুটিন দ্বারা পরিচালিত; এখানে অতিরিক্ত ডেটা লোড করা হয় না
 
 // ফর্ম সাবমিট হ্যান্ডলিং
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_teacher'])) {
@@ -65,8 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_teacher'])) {
     $status = $_POST['status'];
     
     // নির্বাচিত ক্লাস এবং বিষয়
-    $selected_classes = isset($_POST['classes']) ? $_POST['classes'] : [];
-    $selected_subjects = isset($_POST['subjects']) ? $_POST['subjects'] : [];
+     // ক্লাস/বিষয় নির্বাচন ফিল্ড অপসারিত (রুটিন ভিত্তিক)
     
     // ভ্যালিডেশন
     $errors = [];
@@ -224,9 +211,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_teacher'])) {
     <!-- Bengali Font -->
     <link href="https://fonts.maateen.me/solaiman-lipi/font.css" rel="stylesheet">
     
-    <style>
-        body, .main-sidebar, .nav-link {
-            font-family: 'SolaimanLipi', 'Source Sans Pro', sans-serif;
+// নোট: ক্লাস/বিষয় বরাদ্দ রুটিন থেকে নির্ধারিত হয়; এখানে আলাদা করে লোড/বরাদ্দ করা হয় না
+// ক্লাস/বিষয় বরাদ্দ ফিল্ড অপসারিত (রুটিন ভিত্তিক)
         }
         .teacher-profile-img {
             width: 200px;
@@ -282,6 +268,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_teacher'])) {
     <div class="content-wrapper">
         <!-- Content Header (Page header) -->
         <div class="content-header">
+                        // নোট: ক্লাস/বিষয় বরাদ্দ এখানে আপডেট করা হয় না (রুটিনে নির্ধারণ করুন)
             <div class="container-fluid">
                 <div class="row mb-2">
                     <div class="col-sm-6">
@@ -487,49 +474,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_teacher'])) {
                                     
                                     <hr>
                                     
-                                    <h4>ক্লাস এবং বিষয় বরাদ্দ</h4>
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <div class="form-group">
-                                                <label for="classes">ক্লাস নির্বাচন করুন</label>
-                                                <div class="checkbox-group">
-                                                    <?php foreach($classes as $class): ?>
-                                                        <div class="form-check">
-                                                            <input class="form-check-input" type="checkbox" name="classes[]" value="<?php echo $class['id']; ?>" 
-                                                                <?php echo in_array($class['id'], $teacher_class_ids) ? 'checked' : ''; ?>>
-                                                            <label class="form-check-label"><?php echo $class['name']; ?></label>
-                                                        </div>
-                                                    <?php endforeach; ?>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="form-group">
-                                                <label for="subjects">বিষয় নির্বাচন করুন (ক্লাস অনুযায়ী)</label>
-                                                <div class="checkbox-group">
-                                                    <?php foreach($classes as $class): ?>
-                                                        <h6 class="mt-2"><?php echo $class['name']; ?></h6>
-                                                        <?php foreach($subjects as $subject): ?>
-                                                            <div class="form-check">
-                                                                <input class="form-check-input" type="checkbox" name="subjects[]" value="<?php echo $class['id'] . '_' . $subject['id']; ?>"
-                                                                    <?php 
-                                                                    $is_checked = false;
-                                                                    foreach($teacher_subject_assignments as $assignment) {
-                                                                        if($assignment['class_id'] == $class['id'] && $assignment['subject_id'] == $subject['id']) {
-                                                                            $is_checked = true;
-                                                                            break;
-                                                                        }
-                                                                    }
-                                                                    echo $is_checked ? 'checked' : '';
-                                                                    ?>>
-                                                                <label class="form-check-label"><?php echo $subject['name']; ?></label>
-                                                            </div>
-                                                        <?php endforeach; ?>
-                                                    <?php endforeach; ?>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+                                    <!-- নোট: ক্লাস ও বিষয় বরাদ্দ রুটিন থেকে নির্ধারণ করুন (এখানে নির্বাচন প্রয়োজন নেই) -->
                                     
                                     <div class="form-group text-center mt-4">
                                         <button type="submit" name="update_teacher" class="btn btn-primary btn-lg">

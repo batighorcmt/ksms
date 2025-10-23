@@ -1,5 +1,6 @@
 <?php
 require_once '../config.php';
+require_once __DIR__ . '/inc/enrollment_helpers.php';
 
 // Authentication: allow super_admin and teacher to print
 if (!isAuthenticated() || !hasRole(['super_admin', 'teacher'])) {
@@ -7,12 +8,15 @@ if (!isAuthenticated() || !hasRole(['super_admin', 'teacher'])) {
 }
 
 // Fetch students same as students.php
-$stmt = $pdo->query("SELECT s.*, c.name as class_name, sec.name as section_name, u.full_name as guardian_name 
+$yearId = current_academic_year_id($pdo);
+$stmt = $pdo->prepare("SELECT s.*, se.roll_number, c.name as class_name, sec.name as section_name, COALESCE(s.guardian_name, u.full_name) as guardian_name 
     FROM students s 
-    LEFT JOIN classes c ON s.class_id = c.id 
-    LEFT JOIN sections sec ON s.section_id = sec.id
+    JOIN students_enrollment se ON se.student_id = s.id AND se.academic_year_id = ?
+    LEFT JOIN classes c ON c.id = se.class_id 
+    LEFT JOIN sections sec ON sec.id = se.section_id
     LEFT JOIN users u ON s.guardian_id = u.id
-    ORDER BY s.id DESC");
+    ORDER BY c.numeric_value ASC, sec.name ASC, se.roll_number ASC, s.first_name ASC");
+$stmt->execute([$yearId]);
 $students = $stmt->fetchAll();
 
 include 'print_common.php';

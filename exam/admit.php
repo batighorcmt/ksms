@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/../admin/inc/enrollment_helpers.php';
 if (!isAuthenticated()) redirect(ADMIN_URL . 'dashboard.php');
 // Allow only super admin access
 if (!hasRole(['super_admin'])) {
@@ -43,37 +44,67 @@ $sched = $pdo->prepare($scheduleSql);
 $sched->execute([':eid' => $exam_id, ':cid' => $exam_class_id]);
 $schedule = $sched->fetchAll(PDO::FETCH_ASSOC);
 
-// Students list
+// Students list (year-aware via students_enrollment)
 $students = [];
 if ($student_ids_param !== '') {
     $ids = array_values(array_filter(array_map('intval', preg_split('/[,\s]+/', $student_ids_param))));
     if (!empty($ids)) {
         $in = implode(',', array_fill(0, count($ids), '?'));
-        $sql = "SELECT s.*, c.name AS class_name, sec.name AS section_name
-                FROM students s
-                LEFT JOIN classes c ON c.id = s.class_id
-                LEFT JOIN sections sec ON sec.id = s.section_id
-                WHERE s.id IN ($in) AND s.status='active'
-                ORDER BY s.roll_number ASC, s.id ASC";
-        $st = $pdo->prepare($sql);
-        $st->execute($ids);
-        $students = $st->fetchAll(PDO::FETCH_ASSOC);
+    if (!empty($exam['academic_year_id']) && function_exists('enrollment_table_exists') && enrollment_table_exists($pdo)) {
+      $sql = "SELECT s.*, c.name AS class_name, sec.name AS section_name, se.roll_number
+          FROM students s
+          JOIN students_enrollment se ON se.student_id = s.id AND se.academic_year_id = ?
+          LEFT JOIN classes c ON c.id = se.class_id
+          LEFT JOIN sections sec ON sec.id = se.section_id
+          WHERE s.id IN ($in) AND (se.status='active' OR se.status IS NULL OR se.status='Active' OR se.status=1 OR se.status='1')
+          ORDER BY se.roll_number ASC, s.id ASC";
+      $st = $pdo->prepare($sql);
+      $params = array_merge([intval($exam['academic_year_id'])], $ids);
+      $st->execute($params);
+      $students = $st->fetchAll(PDO::FETCH_ASSOC);
+    } else {
+      $sql = "SELECT s.*, c.name AS class_name, sec.name AS section_name
+          FROM students s
+          LEFT JOIN classes c ON c.id = s.class_id
+          LEFT JOIN sections sec ON sec.id = s.section_id
+          WHERE s.id IN ($in) AND s.status='active'
+          ORDER BY s.roll_number ASC, s.id ASC";
+      $st = $pdo->prepare($sql);
+      $st->execute($ids);
+      $students = $st->fetchAll(PDO::FETCH_ASSOC);
+    }
     }
 }
 if (empty($students)) {
-    // fallback: all students in exam class (optionally filter by section)
+  // fallback: all students in exam class for the exam's academic year (optionally filter by section)
+  if (!empty($exam['academic_year_id']) && function_exists('enrollment_table_exists') && enrollment_table_exists($pdo)) {
+    $params = [intval($exam['academic_year_id']), $exam_class_id];
+    $where = "se.academic_year_id = ? AND se.class_id = ?";
+    if ($section_id) { $where .= " AND se.section_id = ?"; $params[] = $section_id; }
+    $sql = "SELECT s.*, c.name AS class_name, sec.name AS section_name, se.roll_number
+        FROM students s
+        JOIN students_enrollment se ON se.student_id = s.id
+        LEFT JOIN classes c ON c.id = se.class_id
+        LEFT JOIN sections sec ON sec.id = se.section_id
+        WHERE $where AND (se.status='active' OR se.status IS NULL OR se.status='Active' OR se.status=1 OR se.status='1')
+        ORDER BY se.roll_number ASC, s.id ASC";
+    $st = $pdo->prepare($sql);
+    $st->execute($params);
+    $students = $st->fetchAll(PDO::FETCH_ASSOC);
+  } else {
     $params = [$exam_class_id];
     $where = "s.class_id = ? AND s.status='active'";
     if ($section_id) { $where .= " AND s.section_id = ?"; $params[] = $section_id; }
     $sql = "SELECT s.*, c.name AS class_name, sec.name AS section_name
-            FROM students s
-            LEFT JOIN classes c ON c.id = s.class_id
-            LEFT JOIN sections sec ON sec.id = s.section_id
-            WHERE $where
-            ORDER BY s.roll_number ASC, s.id ASC";
+        FROM students s
+        LEFT JOIN classes c ON c.id = s.class_id
+        LEFT JOIN sections sec ON sec.id = s.section_id
+        WHERE $where
+        ORDER BY s.roll_number ASC, s.id ASC";
     $st = $pdo->prepare($sql);
     $st->execute($params);
     $students = $st->fetchAll(PDO::FETCH_ASSOC);
+  }
 }
 
 // Helper: format date/time

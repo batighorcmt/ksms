@@ -5,7 +5,7 @@ if (!isAuthenticated()) redirect('../login.php');
 if (!hasRole(['teacher'])) { redirect('403.php'); }
 
 // Load filters
-$classes = $pdo->query("SELECT id, name FROM classes WHERE status='active' ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+$classes = $pdo->query("SELECT id, name FROM classes WHERE status='active' ORDER BY numeric_value ASC, name ASC")->fetchAll(PDO::FETCH_ASSOC);
 $years = $pdo->query("SELECT id, year FROM academic_years WHERE status='active' ORDER BY year DESC")->fetchAll(PDO::FETCH_ASSOC);
 
 $selected_year = intval($_GET['year'] ?? 0);
@@ -168,7 +168,7 @@ if ($teacher_id && $selected_class && !empty($subjects_for_dropdown)) {
             html += '<tr>'+
               '<td>'+ (st.roll ?? '-') +'</td>'+
               '<td>'+ $('<div>').text(st.name).html() +'</td>'+
-              '<td><input type="text" inputmode="decimal" pattern="[0-9০-৯.,٫،।]*" class="form-control form-control-sm me-input" data-stu="'+st.id+'" data-max="'+maxMarks+'" value="'+ val +'" placeholder="0"></td>'+
+              '<td><input type="text" inputmode="decimal" pattern="[0-9০-৯.]*" class="form-control form-control-sm me-input" data-stu="'+st.id+'" data-max="'+maxMarks+'" value="'+ val +'" placeholder="0"></td>'+
               '<td><span class="me-status text-muted">&nbsp;</span></td>'+
             '</tr>';
           }
@@ -180,17 +180,10 @@ if ($teacher_id && $selected_class && !empty($subjects_for_dropdown)) {
         let typingTimers = {};
         function normalizeRawToEnNumber(raw){
           if (raw === null || raw === undefined) return '';
-          let s = String(raw).trim();
-          if (!s) return '';
+          let s = String(raw);
           const map = { '০':'0','১':'1','২':'2','৩':'3','৪':'4','৫':'5','৬':'6','৭':'7','৮':'8','৯':'9' };
+          // map Bangla digits to English; do not modify any other characters here
           s = s.replace(/[০-৯]/g, ch => map[ch] || ch);
-          // replace common decimal separators with dot
-          s = s.replace(/[٬,٫،।]/g, '.');
-          // remove invalid chars except digits and dot
-          s = s.replace(/[^0-9.\-]/g, '');
-          // keep only the first dot
-          const parts = s.split('.');
-          if (parts.length > 2) s = parts.shift() + '.' + parts.join('');
           return s;
         }
 
@@ -198,30 +191,76 @@ if ($teacher_id && $selected_class && !empty($subjects_for_dropdown)) {
           const $inp = $(this);
           const stuId = $inp.data('stu');
           const subjectId = Number($sub.val());
-          let raw = $inp.val();
-          raw = normalizeRawToEnNumber(raw);
-          // reflect normalized text back so users see what will be saved
-          $inp.val(raw);
-          // allow empty to mean delete
-          if (raw === '') {
+          const $status = $inp.closest('tr').find('.me-status');
+          const mx = Number($inp.attr('max') || $inp.data('max') || 0) || 0;
+          const typed = String($inp.val());
+          const mapped = normalizeRawToEnNumber(typed).trim(); // only digit mapping
+
+          // user truly cleared the field => delete
+          if (typed.trim() === ''){
+            $inp.removeClass('is-invalid');
             queueSave('');
             return;
           }
-          let v = parseFloat(raw);
-          if (isNaN(v)) { queueSave(''); return; }
-          const mx = Number($inp.attr('max') || $inp.data('max') || 0) || 0;
-          if (v < 0) v = 0;
-          if (mx > 0 && v > mx) v = mx;
-          $inp.val(v);
+
+          // if mapping results in empty (all characters invalid), treat as invalid (don't delete/save)
+          if (mapped === ''){
+            $inp.addClass('is-invalid');
+            $status.removeClass('text-success text-muted').addClass('text-danger').text('অকার্যকর নম্বর');
+            clearTimeout(typingTimers[stuId]);
+            return;
+          }
+
+          // only digits and a single '.' are allowed
+          if (/[^0-9.]/.test(mapped)){
+            $inp.addClass('is-invalid');
+            $status.removeClass('text-success text-muted').addClass('text-danger').text('শুধু সংখ্যা ও "." ব্যবহারযোগ্য');
+            clearTimeout(typingTimers[stuId]);
+            return;
+          }
+          if ((mapped.match(/\./g) || []).length > 1){
+            $inp.addClass('is-invalid');
+            $status.removeClass('text-success text-muted').addClass('text-danger').text('একটির বেশি দশমিক চিহ্ন নয়');
+            clearTimeout(typingTimers[stuId]);
+            return;
+          }
+
+          const v = parseFloat(mapped);
+          if (isNaN(v)) {
+            $inp.addClass('is-invalid');
+            $status.removeClass('text-success text-muted').addClass('text-danger').text('অকার্যকর নম্বর');
+            clearTimeout(typingTimers[stuId]);
+            return;
+          }
+
+          if (v < 0){
+            $inp.addClass('is-invalid');
+            $status.removeClass('text-success text-muted').addClass('text-danger').text('০-এর নিচে নয়');
+            clearTimeout(typingTimers[stuId]);
+            return; // don't save
+          }
+          if (mx > 0 && v > mx){
+            $inp.addClass('is-invalid');
+            $status.removeClass('text-success text-muted').addClass('text-danger').text('সর্বোচ্চ '+mx+'-এর বেশি — সেভ হবে না');
+            clearTimeout(typingTimers[stuId]);
+            return; // don't save
+          }
+
+          // valid value: remove warning and save (do not auto-replace input)
+          $inp.removeClass('is-invalid');
           queueSave(v);
 
           function queueSave(val){
-            const $status = $inp.closest('tr').find('.me-status');
             $status.removeClass('text-success text-danger').addClass('text-muted').text('সেভ হচ্ছে…');
             clearTimeout(typingTimers[stuId]);
             typingTimers[stuId] = setTimeout(function(){
               saveMark(stuId, subjectId, val, function(ok,msg){
-                if (ok){ $status.removeClass('text-muted text-danger').addClass('text-success').text('সেভ হয়েছে'); }
+                if (ok){
+                  $status.removeClass('text-muted text-danger').addClass('text-success').text('সেভ হয়েছে');
+                  if (window && typeof window.updateAfterSave === 'function') {
+                    window.updateAfterSave(stuId, subjectId, val);
+                  }
+                }
                 else { $status.removeClass('text-muted text-success').addClass('text-danger').text(msg||'ত্রুটি'); }
               });
             }, 400);

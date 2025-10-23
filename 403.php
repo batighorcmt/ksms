@@ -1,6 +1,7 @@
 <?php
 // 403 error page
 http_response_code(403);
+require_once 'config.php';
 ?>
 
 <!DOCTYPE html>
@@ -153,13 +154,13 @@ http_response_code(403);
             <a href="javascript:history.back()" class="btn-back">
                 <i class="fas fa-arrow-left me-2"></i>পিছনে যান
             </a>
-            <a href="<?php echo $base_url; ?>" class="btn-home">
+            <a href="<?php echo BASE_URL; ?>" class="btn-home">
                 <i class="fas fa-home me-2"></i>হোম পেজ
             </a>
         </div>
         
         <div class="mt-4">
-            <p class="text-muted">আপনি যদি মনে করেন এটি একটি ত্রুটি, তাহলে আমাদের <a href="<?php echo $base_url; ?>contact.php" class="text-decoration-none">সহায়তা কেন্দ্র</a> এ যোগাযোগ করুন</p>
+            <p class="text-muted">আপনি যদি মনে করেন এটি একটি ত্রুটি, তাহলে আমাদের <a href="<?php echo BASE_URL; ?>contact.php" class="text-decoration-none">সহায়তা কেন্দ্র</a> এ যোগাযোগ করুন</p>
         </div>
     </div>
 

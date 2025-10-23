@@ -1,5 +1,7 @@
 <?php
 require_once '../config.php';
+require_once __DIR__ . '/inc/enrollment_helpers.php';
+/** @var PDO $pdo */
 
 // Authentication check
 if (!isAuthenticated() || !hasRole(['super_admin', 'teacher'])) {
@@ -8,106 +10,201 @@ if (!isAuthenticated() || !hasRole(['super_admin', 'teacher'])) {
 
 // Get selected date (default to today)
 $selected_date = isset($_GET['date']) ? $_GET['date'] : date('Y-m-d');
+// Resolve academic year
+$current_year_id = function_exists('current_academic_year_id') ? current_academic_year_id($pdo) : null;
 
-// Fetch attendance stats for the selected date
-$attendance_stats = $pdo->prepare("
-    SELECT 
-        COUNT(*) as total,
-        SUM(CASE WHEN a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) as present,
-        SUM(CASE WHEN a.status = 'absent' THEN 1 ELSE 0 END) as absent
-    FROM attendance a
-    WHERE a.date = ?
-");
-$attendance_stats->execute([$selected_date]);
-$stats = $attendance_stats->fetch();
+// Fetch attendance stats for the selected date (year-aware, missing attendance = absent)
+if ($current_year_id && function_exists('enrollment_table_exists') && enrollment_table_exists($pdo)) {
+    // Total students for the year
+    $ts = $pdo->prepare("SELECT COUNT(*) AS total FROM students_enrollment WHERE academic_year_id = ? AND (status = 'active' OR status IS NULL)");
+    $ts->execute([$current_year_id]);
+    $total_students = (int)($ts->fetch()['total'] ?? 0);
+    // Present count
+    $ps = $pdo->prepare("SELECT COUNT(*) AS present FROM students_enrollment se JOIN attendance a ON a.student_id = se.student_id AND a.date = ? WHERE se.academic_year_id = ? AND (se.status = 'active' OR se.status IS NULL) AND a.status IN ('present','late','half_day')");
+    $ps->execute([$selected_date, $current_year_id]);
+    $present_students = (int)($ps->fetch()['present'] ?? 0);
+    $absent_students = max(0, $total_students - $present_students); // treat missing as absent
+    $attendance_percentage = $total_students > 0 ? round(($present_students / $total_students) * 100, 2) : 0;
+} else {
+    // Legacy fallback: only counted in attendance table (may undercount total if not recorded)
+    $attendance_stats = $pdo->prepare("
+        SELECT 
+            COUNT(*) as total,
+            SUM(CASE WHEN a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) as present,
+            SUM(CASE WHEN a.status = 'absent' THEN 1 ELSE 0 END) as absent
+        FROM attendance a
+        WHERE a.date = ?
+    ");
+    $attendance_stats->execute([$selected_date]);
+    $stats = $attendance_stats->fetch();
+    $total_students = (int)($pdo->query("SELECT COUNT(*) AS total FROM students WHERE status='active'")->fetch()['total'] ?? 0);
+    $present_students = (int)($stats['present'] ?? 0);
+    $absent_students = max(0, $total_students - $present_students);
+    $attendance_percentage = $total_students > 0 ? round(($present_students / $total_students) * 100, 2) : 0;
+}
 
-$total_students = $stats['total'] ?? 0;
-$present_students = $stats['present'] ?? 0;
-$absent_students = $stats['absent'] ?? 0;
-$attendance_percentage = $total_students > 0 ? round(($present_students / $total_students) * 100, 2) : 0;
+// Fetch class and section-wise attendance data (year-aware)
+if ($current_year_id && function_exists('enrollment_table_exists') && enrollment_table_exists($pdo)) {
+    $class_attendance = $pdo->prepare("
+        SELECT 
+            c.name as class_name,
+            s.name as section_name,
+            SUM(CASE WHEN st.gender = 'male' THEN 1 ELSE 0 END) as total_boys,
+            SUM(CASE WHEN st.gender = 'female' THEN 1 ELSE 0 END) as total_girls,
+            SUM(CASE WHEN st.gender = 'male' AND a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) as present_boys,
+            SUM(CASE WHEN st.gender = 'female' AND a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) as present_girls,
+            SUM(CASE WHEN st.gender = 'male' AND (a.status = 'absent' OR a.status IS NULL) THEN 1 ELSE 0 END) as absent_boys,
+            SUM(CASE WHEN st.gender = 'female' AND (a.status = 'absent' OR a.status IS NULL) THEN 1 ELSE 0 END) as absent_girls,
+            COUNT(se.student_id) as total_attendance,
+            SUM(CASE WHEN a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) as total_present,
+            SUM(CASE WHEN a.status = 'absent' OR a.status IS NULL THEN 1 ELSE 0 END) as total_absent,
+            CASE 
+                WHEN COUNT(se.student_id) > 0 THEN ROUND((SUM(CASE WHEN a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) * 100.0 / COUNT(se.student_id)), 2)
+                ELSE 0 
+            END as attendance_percentage
+        FROM classes c
+        JOIN sections s ON c.id = s.class_id
+        LEFT JOIN students_enrollment se ON se.class_id = c.id AND se.section_id = s.id AND se.academic_year_id = ? AND (se.status = 'active' OR se.status IS NULL)
+        LEFT JOIN students st ON st.id = se.student_id
+        LEFT JOIN attendance a ON st.id = a.student_id AND a.date = ?
+        GROUP BY c.id, s.id
+        ORDER BY c.numeric_value, s.name
+    ");
+    $class_attendance->execute([$current_year_id, $selected_date]);
+    $attendance_data = $class_attendance->fetchAll();
+} else {
+    $class_attendance = $pdo->prepare("
+        SELECT 
+            c.name as class_name,
+            s.name as section_name,
+            SUM(CASE WHEN st.gender = 'male' THEN 1 ELSE 0 END) as total_boys,
+            SUM(CASE WHEN st.gender = 'female' THEN 1 ELSE 0 END) as total_girls,
+            SUM(CASE WHEN st.gender = 'male' AND a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) as present_boys,
+            SUM(CASE WHEN st.gender = 'female' AND a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) as present_girls,
+            SUM(CASE WHEN st.gender = 'male' AND a.status = 'absent' THEN 1 ELSE 0 END) as absent_boys,
+            SUM(CASE WHEN st.gender = 'female' AND a.status = 'absent' THEN 1 ELSE 0 END) as absent_girls,
+            COUNT(a.id) as total_attendance,
+            SUM(CASE WHEN a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) as total_present,
+            SUM(CASE WHEN a.status = 'absent' THEN 1 ELSE 0 END) as total_absent,
+            CASE 
+                WHEN COUNT(a.id) > 0 THEN ROUND((SUM(CASE WHEN a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) * 100.0 / COUNT(a.id)), 2)
+                ELSE 0 
+            END as attendance_percentage
+        FROM classes c
+        JOIN sections s ON c.id = s.class_id
+        JOIN students st ON s.id = st.section_id AND st.status = 'active'
+        LEFT JOIN attendance a ON st.id = a.student_id AND a.date = ?
+        GROUP BY c.id, s.id
+        ORDER BY c.numeric_value, s.name
+    ");
+    $class_attendance->execute([$selected_date]);
+    $attendance_data = $class_attendance->fetchAll();
+}
 
-// Fetch class and section-wise attendance data
-$class_attendance = $pdo->prepare("
-    SELECT 
-        c.name as class_name,
-        s.name as section_name,
-        SUM(CASE WHEN st.gender = 'male' THEN 1 ELSE 0 END) as total_boys,
-        SUM(CASE WHEN st.gender = 'female' THEN 1 ELSE 0 END) as total_girls,
-        SUM(CASE WHEN st.gender = 'male' AND a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) as present_boys,
-        SUM(CASE WHEN st.gender = 'female' AND a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) as present_girls,
-        SUM(CASE WHEN st.gender = 'male' AND a.status = 'absent' THEN 1 ELSE 0 END) as absent_boys,
-        SUM(CASE WHEN st.gender = 'female' AND a.status = 'absent' THEN 1 ELSE 0 END) as absent_girls,
-        COUNT(a.id) as total_attendance,
-        SUM(CASE WHEN a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) as total_present,
-        SUM(CASE WHEN a.status = 'absent' THEN 1 ELSE 0 END) as total_absent,
-        CASE 
-            WHEN COUNT(a.id) > 0 THEN ROUND((SUM(CASE WHEN a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) * 100.0 / COUNT(a.id)), 2)
-            ELSE 0 
-        END as attendance_percentage
-    FROM classes c
-    JOIN sections s ON c.id = s.class_id
-    JOIN students st ON s.id = st.section_id AND st.status = 'active'
-    LEFT JOIN attendance a ON st.id = a.student_id AND a.date = ?
-    GROUP BY c.id, s.id
-    ORDER BY c.numeric_value, s.name
-");
-$class_attendance->execute([$selected_date]);
-$attendance_data = $class_attendance->fetchAll();
+// Fetch absent students list (include no-record as absent) — year-aware
+if ($current_year_id && function_exists('enrollment_table_exists') && enrollment_table_exists($pdo)) {
+    $absent_students_list = $pdo->prepare("
+        SELECT 
+            st.id, st.first_name, st.last_name, c.name AS class_name, s.name AS section_name,
+            se.roll_number, st.mobile_number, st.present_address AS village
+        FROM students_enrollment se
+        JOIN students st ON st.id = se.student_id
+        JOIN classes c ON se.class_id = c.id
+        LEFT JOIN sections s ON se.section_id = s.id
+        LEFT JOIN attendance a ON st.id = a.student_id AND a.date = ?
+        WHERE se.academic_year_id = ? AND (se.status = 'active' OR se.status IS NULL) AND (a.status = 'absent' OR a.status IS NULL)
+        ORDER BY c.numeric_value, s.name, se.roll_number
+    ");
+    $absent_students_list->execute([$selected_date, $current_year_id]);
+    $absent_list = $absent_students_list->fetchAll();
+} else {
+    $absent_students_list = $pdo->prepare("
+        SELECT 
+            st.id,
+            st.first_name,
+            st.last_name,
+            c.name as class_name,
+            s.name as section_name,
+            st.roll_number,
+            st.mobile_number,
+            st.present_address as village
+        FROM students st
+        JOIN classes c ON st.class_id = c.id
+        JOIN sections s ON st.section_id = s.id
+        LEFT JOIN attendance a ON st.id = a.student_id AND a.date = ?
+        WHERE (a.status = 'absent' OR a.id IS NULL) AND st.status = 'active'
+        ORDER BY c.numeric_value, s.name, st.roll_number
+    ");
+    $absent_students_list->execute([$selected_date]);
+    $absent_list = $absent_students_list->fetchAll();
+}
 
-// Fetch absent students list
-$absent_students_list = $pdo->prepare("
-    SELECT 
-        st.id,
-        st.first_name,
-        st.last_name,
-        c.name as class_name,
-        s.name as section_name,
-        st.roll_number,
-        st.mobile_number,
-        st.present_address as village
-    FROM students st
-    JOIN classes c ON st.class_id = c.id
-    JOIN sections s ON st.section_id = s.id
-    JOIN attendance a ON st.id = a.student_id
-    WHERE a.date = ? AND a.status = 'absent'
-    ORDER BY c.numeric_value, s.name, st.roll_number
-");
-$absent_students_list->execute([$selected_date]);
-$absent_list = $absent_students_list->fetchAll();
+// Fetch data for charts — Gender distribution for present students (year-aware)
+if ($current_year_id && function_exists('enrollment_table_exists') && enrollment_table_exists($pdo)) {
+    $gender_present_data = $pdo->prepare("
+        SELECT st.gender, COUNT(*) as count
+        FROM students_enrollment se
+        JOIN attendance a ON a.student_id = se.student_id AND a.date = ?
+        JOIN students st ON st.id = se.student_id
+        WHERE se.academic_year_id = ? AND (se.status = 'active' OR se.status IS NULL) AND a.status IN ('present', 'late', 'half_day')
+        GROUP BY st.gender
+    ");
+    $gender_present_data->execute([$selected_date, $current_year_id]);
+    $gender_present = $gender_present_data->fetchAll();
+} else {
+    $gender_present_data = $pdo->prepare("
+        SELECT 
+            st.gender,
+            COUNT(*) as count
+        FROM attendance a
+        JOIN students st ON a.student_id = st.id
+        WHERE a.date = ? AND a.status IN ('present', 'late', 'half_day')
+        GROUP BY st.gender
+    ");
+    $gender_present_data->execute([$selected_date]);
+    $gender_present = $gender_present_data->fetchAll();
+}
 
-// Fetch data for charts
-// Gender distribution for present students
-$gender_present_data = $pdo->prepare("
-    SELECT 
-        st.gender,
-        COUNT(*) as count
-    FROM attendance a
-    JOIN students st ON a.student_id = st.id
-    WHERE a.date = ? AND a.status IN ('present', 'late', 'half_day')
-    GROUP BY st.gender
-");
-$gender_present_data->execute([$selected_date]);
-$gender_present = $gender_present_data->fetchAll();
-
-// Class-wise attendance percentage for chart
-$class_attendance_chart = $pdo->prepare("
-    SELECT 
-        c.name as class_name,
-        COUNT(a.id) as total,
-        SUM(CASE WHEN a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) as present,
-        CASE 
-            WHEN COUNT(a.id) > 0 THEN ROUND((SUM(CASE WHEN a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) * 100.0 / COUNT(a.id)), 2)
-            ELSE 0 
-        END as percentage
-    FROM classes c
-    JOIN sections s ON c.id = s.class_id
-    JOIN students st ON s.id = st.section_id AND st.status = 'active'
-    LEFT JOIN attendance a ON st.id = a.student_id AND a.date = ?
-    GROUP BY c.id
-    ORDER BY c.numeric_value
-");
-$class_attendance_chart->execute([$selected_date]);
-$class_chart_data = $class_attendance_chart->fetchAll();
+// Class-wise attendance percentage for chart (year-aware)
+if ($current_year_id && function_exists('enrollment_table_exists') && enrollment_table_exists($pdo)) {
+    $class_attendance_chart = $pdo->prepare("
+        SELECT 
+            c.name as class_name,
+            COUNT(se.student_id) as total,
+            SUM(CASE WHEN a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) as present,
+            CASE 
+                WHEN COUNT(se.student_id) > 0 THEN ROUND((SUM(CASE WHEN a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) * 100.0 / COUNT(se.student_id)), 2)
+                ELSE 0 
+            END as percentage
+        FROM classes c
+        LEFT JOIN students_enrollment se ON se.class_id = c.id AND se.academic_year_id = ? AND (se.status = 'active' OR se.status IS NULL)
+        LEFT JOIN students st ON st.id = se.student_id
+        LEFT JOIN attendance a ON st.id = a.student_id AND a.date = ?
+        GROUP BY c.id
+        ORDER BY c.numeric_value
+    ");
+    $class_attendance_chart->execute([$current_year_id, $selected_date]);
+    $class_chart_data = $class_attendance_chart->fetchAll();
+} else {
+    $class_attendance_chart = $pdo->prepare("
+        SELECT 
+            c.name as class_name,
+            COUNT(a.id) as total,
+            SUM(CASE WHEN a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) as present,
+            CASE 
+                WHEN COUNT(a.id) > 0 THEN ROUND((SUM(CASE WHEN a.status IN ('present', 'late', 'half_day') THEN 1 ELSE 0 END) * 100.0 / COUNT(a.id)), 2)
+                ELSE 0 
+            END as percentage
+        FROM classes c
+        JOIN sections s ON c.id = s.class_id
+        JOIN students st ON s.id = st.section_id AND st.status = 'active'
+        LEFT JOIN attendance a ON st.id = a.student_id AND a.date = ?
+        GROUP BY c.id
+        ORDER BY c.numeric_value
+    ");
+    $class_attendance_chart->execute([$selected_date]);
+    $class_chart_data = $class_attendance_chart->fetchAll();
+}
 
 // Prepare data for charts
 $class_labels = [];

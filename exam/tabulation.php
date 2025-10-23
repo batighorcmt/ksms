@@ -2,9 +2,11 @@
 require_once '../config.php';
 if (!isAuthenticated()) redirect('../login.php');
 if (!hasRole(['super_admin'])) redirect('403.php');
+// enrollment helpers for year-aware student listings
+require_once __DIR__ . '/../admin/inc/enrollment_helpers.php';
 
 // load helper lists
-$classes = $pdo->query("SELECT id, name FROM classes WHERE status='active' ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+$classes = $pdo->query("SELECT id, name FROM classes WHERE status='active' ORDER BY numeric_value ASC, name ASC")->fetchAll(PDO::FETCH_ASSOC);
 $years = $pdo->query("SELECT id, year FROM academic_years WHERE status='active' ORDER BY year DESC")->fetchAll(PDO::FETCH_ASSOC);
 
 $selected_year = intval($_GET['year'] ?? 0);
@@ -35,13 +37,27 @@ if ($exam_id) {
     foreach ($ltRows as $r) { $linked_tutorials[] = $r['id']; $linked_tutorials_map[$r['id']] = $r['name']; }
 }
 
-// students in class
+// students in class (year-aware via students_enrollment)
 $students = [];
 if ($selected_class) {
-    // roll_number is the actual column name in the students table; alias as `roll` for template compatibility
-    $st = $pdo->prepare("SELECT id, first_name, last_name, roll_number AS roll FROM students WHERE class_id = ? AND status='active' ORDER BY roll_number, id");
-    $st->execute([$selected_class]);
-    $students = $st->fetchAll(PDO::FETCH_ASSOC);
+    if ($selected_year && function_exists('enrollment_table_exists') && enrollment_table_exists($pdo)) {
+        // Use enrollment table filtered by selected academic year and class
+        $sql = "SELECT s.id, s.first_name, s.last_name, se.roll_number AS roll
+                FROM students s
+                JOIN students_enrollment se ON se.student_id = s.id
+                WHERE se.academic_year_id = ?
+                  AND se.class_id = ?
+                  AND (se.status = 'active' OR se.status IS NULL OR se.status = 'Active' OR se.status = 1 OR se.status = '1')
+                ORDER BY se.roll_number ASC, s.id ASC";
+        $st = $pdo->prepare($sql);
+        $st->execute([$selected_year, $selected_class]);
+        $students = $st->fetchAll(PDO::FETCH_ASSOC);
+    } else {
+        // Fallback to legacy students table
+        $st = $pdo->prepare("SELECT id, first_name, last_name, roll_number AS roll FROM students WHERE class_id = ? AND status='active' ORDER BY roll_number, id");
+        $st->execute([$selected_class]);
+        $students = $st->fetchAll(PDO::FETCH_ASSOC);
+    }
 }
 
 // helper: fetch subjects for an exam, ordered by class subject order when available
@@ -310,7 +326,7 @@ if ($exam && !empty($single_subjects)) {
                                                                 html += '<tr>'+
                                                                     '<td>'+ (st.roll ?? '-') +'</td>'+
                                                                     '<td>'+ $('<div>').text(st.name).html() +'</td>'+
-                                                                    '<td><input type="text" inputmode="decimal" pattern="[0-9০-৯.,٫،।]*" class="form-control form-control-sm me-input" data-stu="'+st.id+'" data-max="'+maxMarks+'" value="'+ val +'" placeholder="0"></td>'+
+                                                                    '<td><input type="text" inputmode="decimal" pattern="[0-9০-৯.]*" class="form-control form-control-sm me-input" data-stu="'+st.id+'" data-max="'+maxMarks+'" value="'+ val +'" placeholder="0"></td>'+
                                                                     '<td><span class="me-status text-muted">&nbsp;</span></td>'+
                                                                 '</tr>';
                                                             }
@@ -322,42 +338,79 @@ if ($exam && !empty($single_subjects)) {
                                                         let typingTimers = {};
                                                         function normalizeRawToEnNumber(raw){
                                                             if (raw === null || raw === undefined) return '';
-                                                            let s = String(raw).trim();
-                                                            if (!s) return '';
+                                                            let s = String(raw);
                                                             const map = { '০':'0','১':'1','২':'2','৩':'3','৪':'4','৫':'5','৬':'6','৭':'7','৮':'8','৯':'9' };
                                                             s = s.replace(/[০-৯]/g, ch => map[ch] || ch);
-                                                            s = s.replace(/[٬,٫،.,،،]/g, '.');
-                                                            s = s.replace(/[^0-9.\-]/g, '');
-                                                            const parts = s.split('.');
-                                                            if (parts.length > 2) s = parts.shift() + '.' + parts.join('');
                                                             return s;
                                                         }
                                                         $holder.find('.me-input').on('input', function(){
                                                             const $inp = $(this);
                                                             const stuId = $inp.data('stu');
                                                             const subjectId = Number($sub.val());
-                                                            let raw = $inp.val();
-                                                            raw = normalizeRawToEnNumber(raw);
-                                                            $inp.val(raw);
-                                                            if (raw === '') {
+                                                            const $status = $inp.closest('tr').find('.me-status');
+                                                            const mx = Number($inp.attr('max') || $inp.data('max') || 0) || 0;
+                                                            const typed = String($inp.val());
+                                                            const mapped = normalizeRawToEnNumber(typed).trim();
+
+                                                            if (typed.trim() === ''){
+                                                                $inp.removeClass('is-invalid');
                                                                 queueSave('');
                                                                 return;
                                                             }
-                                                            let v = parseFloat(raw);
-                                                            if (isNaN(v)) { queueSave(''); return; }
-                                                            const mx = Number($inp.attr('max') || $inp.data('max') || 0) || 0;
-                                                            if (v < 0) v = 0;
-                                                            if (mx > 0 && v > mx) v = mx;
-                                                            $inp.val(v);
+
+                                                            if (mapped === ''){
+                                                                $inp.addClass('is-invalid');
+                                                                $status.removeClass('text-success text-muted').addClass('text-danger').text('অকার্যকর নম্বর');
+                                                                clearTimeout(typingTimers[stuId]);
+                                                                return;
+                                                            }
+                                                            if (/[^0-9.]/.test(mapped)){
+                                                                $inp.addClass('is-invalid');
+                                                                $status.removeClass('text-success text-muted').addClass('text-danger').text('শুধু সংখ্যা ও "." ব্যবহারযোগ্য');
+                                                                clearTimeout(typingTimers[stuId]);
+                                                                return;
+                                                            }
+                                                            if ((mapped.match(/\./g) || []).length > 1){
+                                                                $inp.addClass('is-invalid');
+                                                                $status.removeClass('text-success text-muted').addClass('text-danger').text('একটির বেশি দশমিক চিহ্ন নয়');
+                                                                clearTimeout(typingTimers[stuId]);
+                                                                return;
+                                                            }
+
+                                                            const v = parseFloat(mapped);
+                                                            if (isNaN(v)) {
+                                                                $inp.addClass('is-invalid');
+                                                                $status.removeClass('text-success text-muted').addClass('text-danger').text('অকার্যকর নম্বর');
+                                                                clearTimeout(typingTimers[stuId]);
+                                                                return;
+                                                            }
+                                                            if (v < 0){
+                                                                $inp.addClass('is-invalid');
+                                                                $status.removeClass('text-success text-muted').addClass('text-danger').text('০-এর নিচে নয়');
+                                                                clearTimeout(typingTimers[stuId]);
+                                                                return;
+                                                            }
+                                                            if (mx > 0 && v > mx){
+                                                                $inp.addClass('is-invalid');
+                                                                $status.removeClass('text-success text-muted').addClass('text-danger').text('সর্বোচ্চ '+mx+'-এর বেশি — সেভ হবে না');
+                                                                clearTimeout(typingTimers[stuId]);
+                                                                return;
+                                                            }
+
+                                                            $inp.removeClass('is-invalid');
                                                             queueSave(v);
 
                                                             function queueSave(val){
-                                                                const $status = $inp.closest('tr').find('.me-status');
                                                                 $status.removeClass('text-success text-danger').addClass('text-muted').text('সেভ হচ্ছে…');
                                                                 clearTimeout(typingTimers[stuId]);
                                                                 typingTimers[stuId] = setTimeout(function(){
                                                                     saveMark(stuId, subjectId, val, function(ok,msg){
-                                                                        if (ok){ $status.removeClass('text-muted text-danger').addClass('text-success').text('সেভ হয়েছে'); }
+                                                                        if (ok){
+                                                                            $status.removeClass('text-muted text-danger').addClass('text-success').text('সেভ হয়েছে');
+                                                                            if (window && typeof window.updateAfterSave === 'function') {
+                                                                                window.updateAfterSave(stuId, subjectId, val);
+                                                                            }
+                                                                        }
                                                                         else { $status.removeClass('text-muted text-success').addClass('text-danger').text(msg||'ত্রুটি'); }
                                                                     });
                                                                 }, 400);
@@ -430,7 +483,7 @@ if ($exam && !empty($single_subjects)) {
                                                 <?php foreach($students as $stu):
                                                     $total=0; $has=0; $failCount=0;
                                                 ?>
-                                                    <tr>
+                                                    <tr data-stu="<?= htmlspecialchars($stu['id']) ?>">
                                                         <td><?= htmlspecialchars($stu['roll'] ?? $stu['id']) ?></td>
                                                         <td><?= htmlspecialchars(trim($stu['first_name'].' '.$stu['last_name'])) ?></td>
                                                         <?php foreach($single_subjects as $s):
@@ -442,12 +495,12 @@ if ($exam && !empty($single_subjects)) {
                                                                 if ($pm > 0 && $fv < $pm) { $failCount++; }
                                                             }
                                                         ?>
-                                                            <td><?= $val === null ? '-' : htmlspecialchars($val) ?></td>
+                                                            <td class="single-cell" data-subject="<?= htmlspecialchars($s['subject_id']) ?>" data-pass="<?= htmlspecialchars($s['pass_marks'] ?? 0) ?>"><?= $val === null ? '-' : htmlspecialchars($val) ?></td>
                                                         <?php endforeach; ?>
-                                                        <td><?= $has? number_format($total,2) : '-' ?></td>
-                                                        <td><?= $has? number_format($total/$has,2) : '-' ?></td>
-                                                        <td><?= $has? htmlspecialchars($failCount) : '-' ?></td>
-                                                        <td><?= $has? ($failCount>0? 'ফেল' : 'পাস') : '-' ?></td>
+                                                        <td class="single-total"><?= $has? number_format($total,2) : '-' ?></td>
+                                                        <td class="single-avg"><?= $has? number_format($total/$has,2) : '-' ?></td>
+                                                        <td class="single-fail"><?= $has? htmlspecialchars($failCount) : '-' ?></td>
+                                                        <td class="single-status"><?= $has? ($failCount>0? 'ফেল' : 'পাস') : '-' ?></td>
                                                     </tr>
                                                 <?php endforeach; ?>
                                             </tbody>
@@ -502,7 +555,7 @@ if ($exam && !empty($single_subjects)) {
                                                 <?php foreach($students as $stu):
                                                     $combinedTotal=0; $failCount=0; $hasAny=false; $subjectsCountWithMarks = 0;
                                                 ?>
-                                                    <tr>
+                                                    <tr data-stu="<?= htmlspecialchars($stu['id']) ?>">
                                                         <td><?= htmlspecialchars($stu['roll'] ?? $stu['id']) ?></td>
                                                         <td><?= htmlspecialchars(trim($stu['first_name'].' '.$stu['last_name'])) ?></td>
                                                         <?php 
@@ -511,22 +564,24 @@ if ($exam && !empty($single_subjects)) {
                                                             // main exam mark
                                                             $m = $combined_marks[$exam_id][$stu['id']][$sid] ?? null;
                                                             if ($m !== null) { $combinedTotal += floatval($m); $subjectSum += floatval($m); $subjectHas = true; $hasAny = true; }
-                                                            echo '<td>'.($m===null?'-':htmlspecialchars($m)).'</td>';
+                                                            $pmain = floatval($pass_marks_map[$exam_id][$sid] ?? 0);
+                                                            echo '<td class="combined-cell" data-exam-id="'.htmlspecialchars($exam_id).'" data-subject="'.htmlspecialchars($sid).'" data-pass="'.htmlspecialchars($pmain).'">'.($m===null?'-':htmlspecialchars($m)).'</td>';
                                                             $subjectPassThreshold += floatval($pass_marks_map[$exam_id][$sid] ?? 0);
                                                             // each tutorial
                                                             foreach ($linked_tutorials as $ltid) {
                                                                 $tm = $combined_marks[$ltid][$stu['id']][$sid] ?? null;
                                                                 if ($tm !== null) { $combinedTotal += floatval($tm); $subjectSum += floatval($tm); $subjectHas = true; $hasAny = true; }
-                                                                echo '<td>'.($tm===null?'-':htmlspecialchars($tm)).'</td>';
+                                                                $pt = floatval($pass_marks_map[$ltid][$sid] ?? 0);
+                                                                echo '<td class="combined-cell" data-exam-id="'.htmlspecialchars($ltid).'" data-subject="'.htmlspecialchars($sid).'" data-pass="'.htmlspecialchars($pt).'">'.($tm===null?'-':htmlspecialchars($tm)).'</td>';
                                                                 $subjectPassThreshold += floatval($pass_marks_map[$ltid][$sid] ?? 0);
                                                             }
                                                             if ($subjectHas) { $subjectsCountWithMarks++; }
                                                             if ($subjectHas && $subjectPassThreshold > 0 && $subjectSum < $subjectPassThreshold) { $failCount++; }
                                                         } ?>
-                                                        <td><?= number_format($combinedTotal,2) ?></td>
-                                                        <td><?= $subjectsCountWithMarks? number_format($combinedTotal/$subjectsCountWithMarks,2) : '-' ?></td>
-                                                        <td><?= $hasAny? htmlspecialchars($failCount) : '-' ?></td>
-                                                        <td><?= $hasAny? ($failCount>0? 'ফেল' : 'পাস') : '-' ?></td>
+                                                        <td class="combined-total"><?= number_format($combinedTotal,2) ?></td>
+                                                        <td class="combined-avg"><?= $subjectsCountWithMarks? number_format($combinedTotal/$subjectsCountWithMarks,2) : '-' ?></td>
+                                                        <td class="combined-fail"><?= $hasAny? htmlspecialchars($failCount) : '-' ?></td>
+                                                        <td class="combined-status"><?= $hasAny? ($failCount>0? 'ফেল' : 'পাস') : '-' ?></td>
                                                     </tr>
                                                 <?php endforeach; ?>
                                             </tbody>
@@ -549,13 +604,16 @@ if ($exam && !empty($single_subjects)) {
                                         <table class="table table-bordered table-sm">
                                             <thead><tr><th>Subject</th><th>Average</th><th>Highest</th><th>Lowest</th><th>Count</th></tr></thead>
                                             <tbody>
-                                                <?php foreach($subject_stats as $stat): ?>
-                                                    <tr>
+                                                <?php foreach($single_subjects as $s):
+                                                    $sid = $s['subject_id'];
+                                                    $stat = $subject_stats[$sid] ?? ['name'=>$s['subject_name'],'avg'=>0,'max'=>0,'min'=>0,'count'=>0];
+                                                ?>
+                                                    <tr data-subject="<?= htmlspecialchars($sid) ?>">
                                                         <td><?= htmlspecialchars($stat['name']) ?></td>
-                                                        <td><?= number_format($stat['avg'],2) ?></td>
-                                                        <td><?= htmlspecialchars($stat['max']) ?></td>
-                                                        <td><?= htmlspecialchars($stat['min']) ?></td>
-                                                        <td><?= htmlspecialchars($stat['count']) ?></td>
+                                                        <td class="stat-avg"><?= number_format($stat['avg'],2) ?></td>
+                                                        <td class="stat-max"><?= htmlspecialchars($stat['max']) ?></td>
+                                                        <td class="stat-min"><?= htmlspecialchars($stat['min']) ?></td>
+                                                        <td class="stat-count"><?= htmlspecialchars($stat['count']) ?></td>
                                                     </tr>
                                                 <?php endforeach; ?>
                                             </tbody>
@@ -585,5 +643,118 @@ if ($exam && !empty($single_subjects)) {
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
+<script>
+    // utility: convert English digits to Bangla for display
+    function toBn(num){
+        const map = {'0':'০','1':'১','2':'২','3':'৩','4':'৪','5':'৫','6':'৬','7':'৭','8':'৮','9':'৯','-':'-','.' : '.'};
+        return String(num).replace(/[0-9.-]/g, ch => map[ch] ?? ch);
+    }
+    // utility: parse a string that may contain Bangla digits into a JS number
+    function fromBn(str){
+        if (str == null) return NaN;
+        const map = {'০':'0','১':'1','২':'2','৩':'3','৪':'4','৫':'5','৬':'6','৭':'7','৮':'8','৯':'9'};
+        const s = String(str).replace(/[০-৯]/g, ch => map[ch] || ch);
+        return parseFloat(s.replace(/[^0-9.\-]/g,''));
+    }
+    // After save, update Single, Combined and Stats tabs instantly without reload
+    window.updateAfterSave = function(studentId, subjectId, val){
+        const v = Number(val);
+        // Single tab: update the cell
+        const $row = $(document).find('#single tbody tr[data-stu="'+studentId+'"]').first();
+        if ($row.length){
+            const $cell = $row.find('td.single-cell[data-subject="'+subjectId+'"]').first();
+            if ($cell.length){ $cell.text(isNaN(v)? '-' : toBn(v.toFixed(2))); }
+            // recompute totals/avg/fail/status for this row
+            let sum = 0, count = 0, fail = 0;
+            $row.find('td.single-cell').each(function(){
+                const p = fromBn($(this).text());
+                if (!isNaN(p)){
+                    sum += p; count++;
+                    const pass = parseFloat($(this).attr('data-pass')) || 0;
+                    if (pass>0 && p<pass) fail++;
+                }
+            });
+            $row.find('td.single-total').text(count? toBn(sum.toFixed(2)) : '-');
+            $row.find('td.single-avg').text(count? toBn((sum/count).toFixed(2)) : '-');
+            $row.find('td.single-fail').text(count? toBn(fail) : '-');
+            $row.find('td.single-status').text(count? (fail>0? 'ফেল':'পাস') : '-');
+        }
+
+        // Combined tab: only update the main exam column for this subject; totals similar
+        const $crow = $(document).find('#combined tbody tr[data-stu="'+studentId+'"]').first();
+        if ($crow.length){
+            // update main exam cell
+            const $mainCell = $crow.find('td.combined-cell[data-exam-id="'+<?= json_encode($exam_id) ?>+'"][data-subject="'+subjectId+'"]').first();
+            if ($mainCell.length){ $mainCell.text(isNaN(v)? '-' : toBn(v.toFixed(2))); }
+            // recompute totals/avg/fail/status across all combined cells per subject
+            let csum = 0, ccountSubjects = 0, cfail = 0;
+            // determine subjects present by scanning first data row structure
+            const subjectsSet = new Set();
+            $crow.find('td.combined-cell').each(function(){ subjectsSet.add($(this).attr('data-subject')); });
+            subjectsSet.forEach(function(sid){
+                let ssum = 0, shas = false, spass = 0;
+                $crow.find('td.combined-cell[data-subject="'+sid+'"]').each(function(){
+                    const p = fromBn($(this).text());
+                    if (!isNaN(p)){ ssum += p; shas = true; }
+                    spass += parseFloat($(this).attr('data-pass')) || 0;
+                });
+                if (shas){ ccountSubjects++; if (spass>0 && ssum<spass) cfail++; csum += ssum; }
+            });
+            $crow.find('td.combined-total').text(toBn(csum.toFixed(2)));
+            $crow.find('td.combined-avg').text(ccountSubjects? toBn((csum/ccountSubjects).toFixed(2)) : '-');
+            $crow.find('td.combined-fail').text(toBn(cfail));
+            $crow.find('td.combined-status').text(ccountSubjects? (cfail>0? 'ফেল':'পাস') : '-');
+        }
+
+        // Stats tab: recompute row for this subject (avg/high/low/count) using Single tab values
+        const $srow = $(document).find('#stats tbody tr[data-subject="'+subjectId+'"]').first();
+        if ($srow.length){
+            const values = [];
+            $(document).find('#single tbody td.single-cell[data-subject="'+subjectId+'"]').each(function(){
+                const p = fromBn($(this).text());
+                if (!isNaN(p)) values.push(p);
+            });
+            if (values.length){
+                const avg = values.reduce((a,b)=>a+b,0)/values.length;
+                const mx = Math.max.apply(null, values);
+                const mn = Math.min.apply(null, values);
+                $srow.find('td.stat-avg').text(toBn(avg.toFixed(2)));
+                $srow.find('td.stat-max').text(toBn(mx));
+                $srow.find('td.stat-min').text(toBn(mn));
+                $srow.find('td.stat-count').text(toBn(values.length));
+            } else {
+                $srow.find('td.stat-avg, td.stat-max, td.stat-min, td.stat-count').text('-');
+            }
+        }
+    };
+
+    // On initial load, convert numbers to Bangla for display so they persist after reload
+    jQuery(function($){
+        // Single tab numeric cells
+        $('#single td.single-cell, #single td.single-total, #single td.single-avg, #single td.single-fail').each(function(){
+            const p = fromBn($(this).text());
+            if (!isNaN(p)) {
+                const isInt = Number.isInteger(p);
+                $(this).text(toBn(isInt ? p : p.toFixed(2)));
+            }
+        });
+        // Combined tab numeric cells
+        $('#combined td.combined-cell, #combined td.combined-total, #combined td.combined-avg, #combined td.combined-fail').each(function(){
+            const p = fromBn($(this).text());
+            if (!isNaN(p)) {
+                const isInt = Number.isInteger(p);
+                $(this).text(toBn(isInt ? p : p.toFixed(2)));
+            }
+        });
+        // Stats tab numeric cells
+        $('#stats td.stat-avg, #stats td.stat-max, #stats td.stat-min, #stats td.stat-count').each(function(){
+            const p = fromBn($(this).text());
+            if (!isNaN(p)) {
+                const isInt = Number.isInteger(p);
+                $(this).text(toBn(isInt ? p : p.toFixed(2)));
+            }
+        });
+    });
+</script>
 </body>
 </html>

@@ -9,7 +9,7 @@ if (!isAuthenticated() || !hasRole(['super_admin','teacher'])) {
 }
 
 // Fetch classes
-$classes = $pdo->query("SELECT id, name FROM classes ORDER BY id")->fetchAll();
+$classes = $pdo->query("SELECT id, name FROM classes ORDER BY numeric_value ASC, name ASC")->fetchAll();
 // Fetch academic years (active)
 $years = $pdo->query("SELECT id, year, is_current FROM academic_years WHERE status='active' ORDER BY year DESC")->fetchAll(PDO::FETCH_ASSOC);
 // Fetch certificate types
@@ -25,21 +25,45 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'sections' && isset($_GET['class_i
     echo json_encode($stmt->fetchAll());
     exit;
 }
-// Handle AJAX for students (only active students) - now filtered by academic year as well
+// Handle AJAX for students (active by enrollment) - academic year aware
 if (isset($_GET['ajax']) && $_GET['ajax'] === 'students' && isset($_GET['class_id']) && isset($_GET['section_id'])) {
     $class_id = intval($_GET['class_id']);
     $section_id = intval($_GET['section_id']);
     $year_id = isset($_GET['academic_year_id']) ? intval($_GET['academic_year_id']) : 0;
 
-    if ($year_id) {
-        $stmt = $pdo->prepare("SELECT id, first_name, last_name FROM students WHERE class_id = ? AND section_id = ? AND year_id = ? AND (status = 'active' OR status IS NULL) ORDER BY first_name, last_name");
-        $stmt->execute([$class_id, $section_id, $year_id]);
-    } else {
-        $stmt = $pdo->prepare("SELECT id, first_name, last_name FROM students WHERE class_id = ? AND section_id = ? AND (status = 'active' OR status IS NULL) ORDER BY first_name, last_name");
-        $stmt->execute([$class_id, $section_id]);
+    // If no year provided, try current year
+    if (!$year_id) {
+        $cy = $pdo->query("SELECT id FROM academic_years WHERE is_current = 1 LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+        if (!empty($cy['id'])) { $year_id = (int)$cy['id']; }
     }
-    echo json_encode($stmt->fetchAll());
-    exit;
+
+    if ($year_id) {
+        // Enrollment-first: filter by class, section, year and active enrollment
+        $stmt = $pdo->prepare("SELECT s.id, s.first_name, s.last_name, se.roll_number
+                               FROM students s
+                               JOIN students_enrollment se ON se.student_id = s.id
+                               WHERE se.class_id = ? AND se.section_id = ? AND se.academic_year_id = ?
+                                     AND (se.status = 'active' OR se.status IS NULL)
+                               ORDER BY (se.roll_number IS NULL), se.roll_number ASC, s.first_name, s.last_name");
+        $stmt->execute([$class_id, $section_id, $year_id]);
+        echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+        exit;
+    } else {
+        // Fallback: use latest enrollment per student for the given class/section if no current year is set
+        $stmt = $pdo->prepare("SELECT s.id, s.first_name, s.last_name, se.roll_number
+                               FROM students s
+                               JOIN students_enrollment se ON se.student_id = s.id
+                               WHERE se.class_id = ? AND se.section_id = ?
+                                     AND (se.status = 'active' OR se.status IS NULL)
+                                     AND se.academic_year_id = (
+                                         SELECT MAX(se2.academic_year_id) FROM students_enrollment se2
+                                         WHERE se2.student_id = s.id
+                                     )
+                               ORDER BY (se.roll_number IS NULL), se.roll_number ASC, s.first_name, s.last_name");
+        $stmt->execute([$class_id, $section_id]);
+        echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+        exit;
+    }
 }
 
 

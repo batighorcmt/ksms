@@ -7,18 +7,32 @@ if (!isAuthenticated() || !hasRole(['super_admin','teacher'])) {
 
 // Fetch academic years and classes
 $years = $pdo->query("SELECT * FROM academic_years ORDER BY year DESC")->fetchAll();
-$classes = $pdo->query("SELECT id, name FROM classes ORDER BY id ASC")->fetchAll();
+$classes = $pdo->query("SELECT id, name FROM classes ORDER BY numeric_value ASC, name ASC")->fetchAll();
 $selected_year_id = isset($_GET['year_id']) ? intval($_GET['year_id']) : null;
 $selected_class_id = isset($_GET['class_id']) ? intval($_GET['class_id']) : null;
 
 // Fetch students with certificate info
 $students = [];
 if ($selected_year_id && $selected_class_id) {
-    $stmt = $pdo->prepare("SELECT s.id, s.first_name, s.last_name, s.student_id, s.roll_number, s.photo, c.gpa, c.certificate_id, c.issue_date
+    // Enrollment-aware fetch: join students_enrollment for class/year/roll
+    $stmt = $pdo->prepare("SELECT 
+            s.id,
+            s.first_name,
+            s.last_name,
+            s.student_id,
+            se.roll_number AS roll_number,
+            s.photo,
+            c.gpa,
+            c.certificate_id,
+            c.issue_date
         FROM students s
+        JOIN students_enrollment se ON se.student_id = s.id
         JOIN five_pass_certificate_info c ON s.id = c.student_id
-        WHERE s.class_id = ? AND s.year_id = ?");
-    $stmt->execute([$selected_class_id, $selected_year_id]);
+        WHERE se.academic_year_id = ?
+          AND se.class_id = ?
+          AND (se.status = 'active' OR se.status IS NULL)
+        ORDER BY se.roll_number ASC, s.first_name ASC, s.last_name ASC");
+    $stmt->execute([$selected_year_id, $selected_class_id]);
     $students = $stmt->fetchAll();
 }
 

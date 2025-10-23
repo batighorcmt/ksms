@@ -6,9 +6,7 @@ if (!isAuthenticated() || !hasRole(['super_admin'])) {
     redirect('../login.php');
 }
 
-// ক্লাস এবং বিষয় ডেটা লোড করুন
-$classes = $pdo->query("SELECT * FROM classes WHERE status='active' ORDER BY numeric_value ASC")->fetchAll();
-$subjects = $pdo->query("SELECT * FROM subjects WHERE status='active'")->fetchAll();
+// নোট: ক্লাস/বিষয় বরাদ্দ রুটিন থেকে নির্ধারিত হয়; এখানে আলাদা করে লোড/বরাদ্দ করা হয় না
 
 // ফর্ম সাবমিট হ্যান্ডলিং
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_teacher'])) {
@@ -30,9 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_teacher'])) {
     $qualification = trim($_POST['qualification']);
     $experience = trim($_POST['experience']);
     
-    // নির্বাচিত ক্লাস এবং বিষয়
-    $selected_classes = isset($_POST['classes']) ? $_POST['classes'] : [];
-    $selected_subjects = isset($_POST['subjects']) ? $_POST['subjects'] : [];
+    // ক্লাস/বিষয় বরাদ্দ ফিল্ড অপসারিত (রুটিন ভিত্তিক)
     
     // ভ্যালিডেশন
     $errors = [];
@@ -60,17 +56,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_teacher'])) {
         $errors[] = "পুরো নাম প্রয়োজন";
     }
     
-    if (empty($email)) {
-        $errors[] = "ইমেইল প্রয়োজন";
-    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $errors[] = "সঠিক ইমেইল ঠিকানা দিন";
-    } else {
-        // চেক করুন যে ইমেইল ইতিমধ্যে আছে কিনা
-        $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
-        $stmt->execute([$email]);
-        if ($stmt->fetch()) {
-            $errors[] = "এই ইমেইল ইতিমধ্যে ব্যবহৃত হয়েছে";
+    // ইমেইল ঐচ্ছিক: দিলে ফরম্যাট এবং ডুপ্লিকেট চেক হবে
+    if (!empty($email)) {
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $errors[] = "সঠিক ইমেইল ঠিকানা দিন";
+        } else {
+            $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+            $stmt->execute([$email]);
+            if ($stmt->fetch()) {
+                $errors[] = "এই ইমেইল ইতিমধ্যে ব্যবহৃত হয়েছে";
+            }
         }
+    } else {
+        $email = null; // DB-তে NULL হিসেবে সেভ হবে
     }
     
     if (empty($phone)) {
@@ -123,31 +121,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_teacher'])) {
                 }
             }
             
-            // ক্লাস বরাদ্দ
-            if (!empty($selected_classes)) {
-                $insert_class = $pdo->prepare("INSERT INTO class_teachers (teacher_id, class_id) VALUES (?, ?)");
-                foreach ($selected_classes as $class_id) {
-                    $insert_class->execute([$teacher_id, $class_id]);
-                }
-            }
-            
-            // বিষয় বরাদ্দ
-            if (!empty($selected_subjects)) {
-                $insert_subject = $pdo->prepare("
-                    INSERT INTO class_subject_teachers (teacher_id, class_id, subject_id) 
-                    VALUES (?, ?, ?)
-                ");
-                
-                foreach ($selected_subjects as $class_subject) {
-                    list($class_id, $subject_id) = explode('_', $class_subject);
-                    $insert_subject->execute([$teacher_id, $class_id, $subject_id]);
-                }
-            }
-            
+            // নোট: ক্লাস/বিষয় বরাদ্দ এখানে সংরক্ষণ করা হয় না (রুটিনে নির্ধারণ করুন)
+
+            // সবকিছু সফল হলে কমিট করুন
             $pdo->commit();
-            
-            $_SESSION['success'] = "শিক্ষক সফলভাবে যোগ করা হয়েছে!";
-            header("Location: teacher_details.php?id=" . $teacher_id);
+
+            // সফল বার্তা এবং রিডাইরেক্ট
+            $_SESSION['success'] = 'শিক্ষক সফলভাবে যোগ করা হয়েছে!';
+            header('Location: teachers.php');
             exit();
 
         } catch (Exception $e) {
@@ -282,8 +263,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_teacher'])) {
                                         <div class="col-md-4">
                                             <div class="form-group text-center">
                                                 <label for="photo">ছবি</label>
-                                                <div class="text-center mb-3">
-                                                    <div class="teacher-profile-img bg-light d-flex align-items-center justify-content-center mb-2">
+                                                <div class="text-center mb-3" id="photoWrapper">
+                                                    <img id="photoPreview" class="teacher-profile-img mb-2" src="" alt="প্রিভিউ" style="display:none;">
+                                                    <div id="photoPlaceholder" class="teacher-profile-img bg-light d-flex align-items-center justify-content-center mb-2">
                                                         <i class="fas fa-user text-muted fa-5x"></i>
                                                     </div>
                                                 </div>
@@ -313,8 +295,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_teacher'])) {
                                             <div class="row">
                                                 <div class="col-md-6">
                                                     <div class="form-group">
-                                                        <label for="email">ইমেইল *</label>
-                                                        <input type="email" class="form-control" id="email" name="email" value="<?php echo isset($_POST['email']) ? $_POST['email'] : ''; ?>" required>
+                                                        <label for="email">ইমেইল</label>
+                                                        <input type="email" class="form-control" id="email" name="email" value="<?php echo isset($_POST['email']) ? $_POST['email'] : ''; ?>">
                                                     </div>
                                                 </div>
                                                 <div class="col-md-6">
@@ -440,38 +422,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_teacher'])) {
                                     
                                     <hr>
                                     
-                                    <h4>ক্লাস এবং বিষয় বরাদ্দ</h4>
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <div class="form-group">
-                                                <label for="classes">ক্লাস নির্বাচন করুন</label>
-                                                <div class="checkbox-group">
-                                                    <?php foreach($classes as $class): ?>
-                                                        <div class="form-check">
-                                                            <input class="form-check-input" type="checkbox" name="classes[]" value="<?php echo $class['id']; ?>">
-                                                            <label class="form-check-label"><?php echo $class['name']; ?></label>
-                                                        </div>
-                                                    <?php endforeach; ?>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="form-group">
-                                                <label for="subjects">বিষয় নির্বাচন করুন (ক্লাস অনুযায়ী)</label>
-                                                <div class="checkbox-group">
-                                                    <?php foreach($classes as $class): ?>
-                                                        <h6 class="mt-2"><?php echo $class['name']; ?></h6>
-                                                        <?php foreach($subjects as $subject): ?>
-                                                            <div class="form-check">
-                                                                <input class="form-check-input" type="checkbox" name="subjects[]" value="<?php echo $class['id'] . '_' . $subject['id']; ?>">
-                                                                <label class="form-check-label"><?php echo $subject['name']; ?></label>
-                                                            </div>
-                                                        <?php endforeach; ?>
-                                                    <?php endforeach; ?>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+                                    <!-- নোট: ক্লাস ও বিষয় বরাদ্দ রুটিন থেকে নির্ধারণ করুন (এখানে নির্বাচন প্রয়োজন নেই) -->
                                     
                                     <div class="form-group text-center mt-4">
                                         <button type="submit" name="add_teacher" class="btn btn-primary btn-lg">
@@ -518,10 +469,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_teacher'])) {
                 var reader = new FileReader();
                 
                 reader.onload = function(e) {
-                    $('.teacher-profile-img').attr('src', e.target.result);
+                    // নতুন প্রিভিউ দেখান
+                    $('#photoPreview').attr('src', e.target.result).show();
+                    // ডেমো/প্লেসহোল্ডার লুকিয়ে দিন
+                    $('#photoPlaceholder').hide();
+                    // অতিরিক্ত/পূর্বের যেকোনো img থাকলে সরিয়ে দিন (শুধু একটিই থাকবে)
+                    var $wrap = $('#photoWrapper');
+                    $wrap.find('img').not('#photoPreview').remove();
                 }
                 
                 reader.readAsDataURL(this.files[0]);
+            } else {
+                // ফাইল সিলেকশন বাতিল হলে ডেমো ছবি দেখান
+                $('#photoPreview').attr('src', '').hide();
+                $('#photoPlaceholder').show();
             }
         });
     });

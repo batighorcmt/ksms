@@ -12,8 +12,8 @@ if (!$student_id) {
     exit;
 }
 
-// Fetch student and certificate info by student_id
-$stmt = $pdo->prepare("SELECT s.id, s.student_id, s.first_name, s.last_name, s.father_name, s.mother_name, s.date_of_birth, s.roll_number, s.class_id, s.year_id, s.photo, c.gpa, c.certificate_id, c.issue_date, c.exam_year FROM students s JOIN five_pass_certificate_info c ON s.id = c.student_id WHERE s.student_id = ?");
+// Fetch student and certificate info by student_id (enrollment-first; no legacy students.* academic fields)
+$stmt = $pdo->prepare("SELECT s.id, s.student_id, s.first_name, s.last_name, s.father_name, s.mother_name, s.date_of_birth, s.photo, c.gpa, c.certificate_id, c.issue_date, c.exam_year FROM students s JOIN five_pass_certificate_info c ON s.id = c.student_id WHERE s.student_id = ?");
 $stmt->execute([$student_id]);
 $stu = $stmt->fetch();
 if (!$stu) {
@@ -21,12 +21,38 @@ if (!$stu) {
     exit;
 }
 
-// Fetch class name
-$class_name = '';
-$class_stmt = $pdo->prepare("SELECT name FROM classes WHERE id = ?");
-$class_stmt->execute([$stu['class_id']]);
-$class_row = $class_stmt->fetch();
-if ($class_row) $class_name = $class_row['name'];
+// Resolve academic year from certificate exam_year, else current, else latest enrollment; then fetch enrollment (roll/class)
+$targetAcademicYearId = null;
+if (!empty($stu['exam_year'])) {
+    $ayStmt = $pdo->prepare("SELECT id FROM academic_years WHERE year = ? LIMIT 1");
+    $ayStmt->execute([$stu['exam_year']]);
+    $ay = $ayStmt->fetch();
+    if ($ay) { $targetAcademicYearId = (int)$ay['id']; }
+}
+if (!$targetAcademicYearId) {
+    // Try current year
+    $curStmt = $pdo->query("SELECT id FROM academic_years WHERE is_current = 1 LIMIT 1");
+    $cur = $curStmt ? $curStmt->fetch() : false;
+    if ($cur) { $targetAcademicYearId = (int)$cur['id']; }
+}
+// Fetch enrollment row for the resolved year, else latest
+$enroll = null;
+if ($targetAcademicYearId) {
+    $seStmt = $pdo->prepare("SELECT se.roll_number, se.class_id, se.section_id, se.academic_year_id FROM students_enrollment se WHERE se.student_id = ? AND se.academic_year_id = ? LIMIT 1");
+    $seStmt->execute([(int)$stu['id'], $targetAcademicYearId]);
+    $enroll = $seStmt->fetch();
+}
+if (!$enroll) {
+    $seStmt = $pdo->prepare("SELECT se.roll_number, se.class_id, se.section_id, se.academic_year_id FROM students_enrollment se WHERE se.student_id = ? ORDER BY se.academic_year_id DESC LIMIT 1");
+    $seStmt->execute([(int)$stu['id']]);
+    $enroll = $seStmt->fetch();
+}
+// Map enrollment fields into $stu for template compatibility
+if ($enroll) {
+    $stu['roll_number'] = $enroll['roll_number'] ?? null;
+    $stu['class_id'] = $enroll['class_id'] ?? null;
+    $stu['year_id'] = $enroll['academic_year_id'] ?? null;
+}
 
 // Fetch school info
 $school = $pdo->query("SELECT * FROM school_info LIMIT 1")->fetch();

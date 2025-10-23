@@ -1,25 +1,37 @@
 <?php
 require_once '../config.php';
+require_once __DIR__ . '/inc/enrollment_helpers.php';
+/** @var PDO $pdo */
 
 // Authentication check
 if (!isAuthenticated() || !hasRole(['super_admin', 'teacher'])) {
     redirect('../login.php');
 }
 
-// Secure status toggle via POST (preferred). Keep legacy GET removed for safety.
+// Determine current academic year for enrollment operations
+$current_year_id = function_exists('current_academic_year_id') ? current_academic_year_id($pdo) : null;
+
+// Secure status toggle via POST (preferred). Update students_enrollment for current academic year.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_status_id'])) {
     $tid = intval($_POST['toggle_status_id']);
-    $sstmt = $pdo->prepare("SELECT status FROM students WHERE id = ? LIMIT 1");
-    $sstmt->execute([$tid]);
-    $row = $sstmt->fetch();
-    if ($row) {
-        $new = ($row['status'] === 'active') ? 'inactive' : 'active';
-        $ust = $pdo->prepare("UPDATE students SET status = ? WHERE id = ?");
-        if ($ust->execute([$new, $tid])) {
+    if (!$current_year_id) {
+        $_SESSION['error'] = 'বর্তমান শিক্ষাবর্ষ নির্ধারিত নয়।';
+        redirect('admin/students.php');
+    }
+    // Load enrollment for current year
+    $es = $pdo->prepare("SELECT id, status FROM students_enrollment WHERE student_id = ? AND academic_year_id = ? LIMIT 1");
+    $es->execute([$tid, $current_year_id]);
+    $erow = $es->fetch(PDO::FETCH_ASSOC);
+    if ($erow) {
+        $new = ($erow['status'] === 'inactive') ? 'active' : 'inactive';
+        $up = $pdo->prepare("UPDATE students_enrollment SET status = ?, updated_at = NOW() WHERE id = ?");
+        if ($up->execute([$new, $erow['id']])) {
             $_SESSION['success'] = 'স্ট্যাটাস সফলভাবে পরিবর্তন করা হয়েছে।';
         } else {
             $_SESSION['error'] = 'স্ট্যাটাস পরিবর্তনে সমস্যা হয়েছে।';
         }
+    } else {
+        $_SESSION['error'] = 'এই শিক্ষাবর্ষে শিক্ষার্থী ভর্তি রেকর্ড নেই।';
     }
     redirect('admin/students.php');
 }
@@ -29,24 +41,60 @@ $f_class = !empty($_GET['f_class']) ? intval($_GET['f_class']) : null;
 $f_section = !empty($_GET['f_section']) ? intval($_GET['f_section']) : null;
 $f_year = !empty($_GET['f_year']) ? intval($_GET['f_year']) : null;
 $f_gender = !empty($_GET['f_gender']) ? $_GET['f_gender'] : null;
+$f_status = isset($_GET['f_status']) && $_GET['f_status'] !== '' ? $_GET['f_status'] : null; // 'active' or 'inactive'
 $f_religion = !empty($_GET['f_religion']) ? $_GET['f_religion'] : null;
 $q = !empty($_GET['q']) ? trim($_GET['q']) : null;
 
 // Build dynamic query with filters
 $where = [];
 $params = [];
-if ($f_class) { $where[] = 's.class_id = ?'; $params[] = $f_class; }
-if ($f_section) { $where[] = 's.section_id = ?'; $params[] = $f_section; }
+// Detect guardian_id column presence to avoid joining on a missing column
+$hasGuardianId = false;
+$guardianNameCol = 'full_name';
+try {
+    $studentCols = $pdo->query("SHOW COLUMNS FROM students")->fetchAll(PDO::FETCH_COLUMN);
+    $hasGuardianId = in_array('guardian_id', $studentCols, true);
+    // Detect users name column
+    $uCols = $pdo->query("SHOW COLUMNS FROM users")->fetchAll(PDO::FETCH_COLUMN);
+    if (!in_array('full_name', $uCols, true) && in_array('name', $uCols, true)) {
+        $guardianNameCol = 'name';
+    }
+} catch (Exception $e) {
+    $hasGuardianId = false;
+}
+// Determine if we should use enrollment table for class/section filters
+$use_enroll = $current_year_id && function_exists('enrollment_table_exists') && enrollment_table_exists($pdo);
+// Check if student_subjects.academic_year_id exists to safely filter by year
+$hasSSYear = false;
+try {
+    $chk = $pdo->query("SHOW COLUMNS FROM student_subjects LIKE 'academic_year_id'");
+    $hasSSYear = $chk && $chk->fetch() ? true : false;
+} catch (Exception $e) { $hasSSYear = false; }
+if ($f_class) { $where[] = ($use_enroll ? 'se.class_id = ?' : 's.class_id = ?'); $params[] = $f_class; }
+if ($f_section) { $where[] = ($use_enroll ? 'se.section_id = ?' : 's.section_id = ?'); $params[] = $f_section; }
 if ($f_year) { $where[] = 'YEAR(s.admission_date) = ?'; $params[] = $f_year; }
 if ($f_gender) { $where[] = 's.gender = ?'; $params[] = $f_gender; }
 if ($f_religion) { $where[] = 's.religion = ?'; $params[] = $f_religion; }
 if ($q) { $where[] = '(s.first_name LIKE ? OR s.last_name LIKE ? OR s.student_id LIKE ? OR s.mobile_number LIKE ?)'; $params[] = "%$q%"; $params[] = "%$q%"; $params[] = "%$q%"; $params[] = "%$q%"; }
-
-$sql = "SELECT s.*, c.name as class_name, sec.name as section_name, u.full_name as guardian_name 
-    FROM students s 
-    LEFT JOIN classes c ON s.class_id = c.id 
-    LEFT JOIN sections sec ON s.section_id = sec.id
-    LEFT JOIN users u ON s.guardian_id = u.id";
+if ($f_status !== null) { $where[] = ($use_enroll ? 'se.status = ?' : 's.status = ?'); $params[] = $f_status; }
+// Compose SQL depending on enrollment usage
+if ($use_enroll) {
+    $guardianSelect = $hasGuardianId ? ('COALESCE(s.guardian_name, u.' . $guardianNameCol . ') AS guardian_name') : 's.guardian_name AS guardian_name';
+    $guardianJoin = $hasGuardianId ? ' LEFT JOIN users u ON u.id = s.guardian_id' : '';
+    $sql = "SELECT s.*, c.name AS class_name, sec.name AS section_name, $guardianSelect, se.roll_number, se.status AS enrollment_status
+        FROM students s
+        JOIN students_enrollment se ON se.student_id = s.id AND se.academic_year_id = ?
+        LEFT JOIN classes c ON se.class_id = c.id
+        LEFT JOIN sections sec ON se.section_id = sec.id" . $guardianJoin;
+    array_unshift($params, $current_year_id);
+} else {
+    $guardianSelect = $hasGuardianId ? ('COALESCE(s.guardian_name, u.' . $guardianNameCol . ') AS guardian_name') : 's.guardian_name AS guardian_name';
+    $guardianJoin = $hasGuardianId ? ' LEFT JOIN users u ON u.id = s.guardian_id' : '';
+    $sql = "SELECT s.*, c.name AS class_name, sec.name AS section_name, $guardianSelect, s.roll_number, s.status AS enrollment_status
+        FROM students s
+        LEFT JOIN classes c ON s.class_id = c.id
+        LEFT JOIN sections sec ON s.section_id = sec.id" . $guardianJoin;
+}
 if (!empty($where)) {
     $sql .= ' WHERE ' . implode(' AND ', $where);
 }
@@ -62,7 +110,7 @@ $religions = $pdo->query("SELECT DISTINCT religion FROM students WHERE religion 
 $guardians = $pdo->query("SELECT * FROM users WHERE role='guardian'")->fetchAll();
 $relations = $pdo->query("SELECT * FROM guardian_relations")->fetchAll();
 // classes and sections for filters and add form
-$classes = $pdo->query("SELECT * FROM classes ORDER BY name ASC")->fetchAll();
+$classes = $pdo->query("SELECT * FROM classes ORDER BY numeric_value ASC, name ASC")->fetchAll();
 $sections = $pdo->query("SELECT * FROM sections ORDER BY name ASC")->fetchAll();
 
 // নতুন শিক্ষার্থী যোগ করুন
@@ -81,9 +129,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_student'])) {
     $present_address = $_POST['present_address'];
     $permanent_address = $_POST['permanent_address'];
     $mobile_number = $_POST['mobile_number'];
-    $class_id = $_POST['class_id'];
-    $section_id = $_POST['section_id'];
-    $roll_number = $_POST['roll_number'];
+    $class_id = isset($_POST['class_id']) ? intval($_POST['class_id']) : null;
+    $section_id = isset($_POST['section_id']) ? intval($_POST['section_id']) : null;
+    $roll_number = isset($_POST['roll_number']) && $_POST['roll_number'] !== '' ? intval($_POST['roll_number']) : null;
     $guardian_id = !empty($_POST['guardian_id']) ? $_POST['guardian_id'] : NULL;
     $admission_date = $_POST['admission_date'];
     
@@ -95,21 +143,50 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_student'])) {
     // শিক্ষার্থী আইডি জেনারেট করুন
     $student_id = 'STU' . date('Y') . rand(1000, 9999);
     
-    $stmt = $pdo->prepare("
-        INSERT INTO students 
-        (student_id, first_name, last_name, father_name, mother_name, guardian_relation, 
-         birth_certificate_no, date_of_birth, gender, blood_group, religion, 
-         present_address, permanent_address, mobile_number, 
-         class_id, section_id, roll_number, guardian_id, admission_date) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ");
+    // Insert basic student data only; enrollment will capture class/section/roll
+    if ($hasGuardianId) {
+        $stmt = $pdo->prepare("
+            INSERT INTO students 
+            (student_id, first_name, last_name, father_name, mother_name, guardian_relation, 
+             birth_certificate_no, date_of_birth, gender, blood_group, religion, 
+             present_address, permanent_address, mobile_number, guardian_id, admission_date) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        $insertParams = [
+            $student_id, $first_name, $last_name, $father_name, $mother_name, $guardian_relation,
+            $birth_certificate_no, $date_of_birth, $gender, $blood_group, $religion,
+            $present_address, $permanent_address, $mobile_number,
+            $guardian_id, $admission_date
+        ];
+    } else {
+        $stmt = $pdo->prepare("
+            INSERT INTO students 
+            (student_id, first_name, last_name, father_name, mother_name, guardian_relation, 
+             birth_certificate_no, date_of_birth, gender, blood_group, religion, 
+             present_address, permanent_address, mobile_number, admission_date) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        $insertParams = [
+            $student_id, $first_name, $last_name, $father_name, $mother_name, $guardian_relation,
+            $birth_certificate_no, $date_of_birth, $gender, $blood_group, $religion,
+            $present_address, $permanent_address, $mobile_number, $admission_date
+        ];
+    }
     
-    if ($stmt->execute([
-        $student_id, $first_name, $last_name, $father_name, $mother_name, $guardian_relation,
-        $birth_certificate_no, $date_of_birth, $gender, $blood_group, $religion,
-        $present_address, $permanent_address, $mobile_number,
-        $class_id, $section_id, $roll_number, $guardian_id, $admission_date
-    ])) {
+    if ($stmt->execute($insertParams)) {
+        // Get the inserted student id
+        $student_db_id = (int)$pdo->lastInsertId();
+        // Enroll into current academic year or fallback to legacy fields inside helper
+        $ayid = $current_year_id ?: (function_exists('current_academic_year_id') ? current_academic_year_id($pdo) : null);
+        if ($ayid) {
+            enroll_student($pdo, $student_db_id, (int)$ayid, (int)$class_id, $section_id ? (int)$section_id : null, $roll_number);
+        } else {
+            // As a fallback when no academic year configured, attempt legacy update
+            try {
+                $legacy = $pdo->prepare("UPDATE students SET class_id = ?, section_id = ?, roll_number = ? WHERE id = ?");
+                $legacy->execute([$class_id, $section_id, $roll_number, $student_db_id]);
+            } catch (Exception $e) { /* ignore */ }
+        }
         $_SESSION['success'] = "শিক্ষার্থী সফলভাবে যোগ করা হয়েছে!";
         redirect('admin/students.php');
     } else {
@@ -279,6 +356,13 @@ if (isset($_GET['delete'])) {
                                                                     </select>
                                                                 </div>
                                                                 <div class="col-12 col-sm-6 col-md-2 mb-2">
+                                                                    <select name="f_status" class="form-control">
+                                                                        <option value="">-- স্ট্যাটাস --</option>
+                                                                        <option value="active" <?php echo ($f_status==='active'?'selected':''); ?>>সক্রিয়</option>
+                                                                        <option value="inactive" <?php echo ($f_status==='inactive'?'selected':''); ?>>নিষ্ক্রিয়</option>
+                                                                    </select>
+                                                                </div>
+                                                                <div class="col-12 col-sm-6 col-md-2 mb-2">
                                                                     <select name="f_gender" class="form-control">
                                                                         <option value="">-- লিঙ্গ --</option>
                                                                         <?php foreach($genders as $g): $gv = (string)$g; ?>
@@ -363,16 +447,26 @@ if (isset($_GET['delete'])) {
                                                                         <?php
                                                                         // Fetch subject codes for this student
                                                                         $subject_codes = [];
-                                                                        $sub_stmt = $pdo->prepare("SELECT s.code FROM student_subjects ss JOIN subjects s ON ss.subject_id = s.id WHERE ss.student_id = ? ORDER BY s.code");
-                                                                        $sub_stmt->execute([$student['id']]);
+                                                                        if ($use_enroll && $current_year_id && $hasSSYear) {
+                                                                            $sub_stmt = $pdo->prepare("SELECT s.code
+                                                                                                       FROM student_subjects ss
+                                                                                                       JOIN subjects s ON ss.subject_id = s.id
+                                                                                                       WHERE ss.student_id = ? AND (ss.academic_year_id = ? OR ss.academic_year_id IS NULL)
+                                                                                                       ORDER BY s.code");
+                                                                            $sub_stmt->execute([$student['id'], $current_year_id]);
+                                                                        } else {
+                                                                            $sub_stmt = $pdo->prepare("SELECT s.code FROM student_subjects ss JOIN subjects s ON ss.subject_id = s.id WHERE ss.student_id = ? ORDER BY s.code");
+                                                                            $sub_stmt->execute([$student['id']]);
+                                                                        }
                                                                         while ($row = $sub_stmt->fetch()) {
                                                                             $subject_codes[] = htmlspecialchars($row['code']);
                                                                         }
-                                                                        echo $subject_codes ? implode(', ', $subject_codes) : '<span style="color:#aaa">-</span>';
+                                                                        echo $subject_codes ? implode(', ', $subject_codes) : '<span style=\"color:#aaa\">-</span>';
                                                                         ?>
                                                                     </td>
                                                                     <td>
-                                                                        <?php if($student['status'] == 'active'): ?>
+                                                                        <?php $enStatus = $student['enrollment_status'] ?? 'active'; ?>
+                                                                        <?php if($enStatus === 'active' || $enStatus === null || $enStatus === ''): ?>
                                                                             <span class="badge badge-success">সক্রিয়</span>
                                                                         <?php else: ?>
                                                                             <span class="badge badge-danger">নিষ্ক্রিয়</span>

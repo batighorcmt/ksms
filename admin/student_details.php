@@ -1,29 +1,91 @@
 <?php
 require_once '../config.php';
+require_once __DIR__ . '/inc/enrollment_helpers.php';
 
 // Authentication check
-if (!isAuthenticated() || !hasRole(['super_admin', 'teacher', 'guardian'])) {
+if (!isAuthenticated() || !hasRole(['super_admin', 'teacher'])) {
     redirect('index.php');
 }
 
-// শিক্ষার্থী আইডি পান
-$student_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+// শিক্ষার্থী আইডি পান (public student_id যেমন STU20251111 বা অভ্যন্তরীণ numeric id – উভয়ই সাপোর্ট)
+$param_id = isset($_GET['id']) ? trim($_GET['id']) : '';
+$student_id = 0; // internal numeric PK
+if ($param_id !== '') {
+    if (ctype_digit($param_id)) {
+        $student_id = intval($param_id);
+    } else {
+        // lookup by students.student_id (public code)
+        try {
+            $sidStmt = $pdo->prepare("SELECT id FROM students WHERE student_id = ? LIMIT 1");
+            $sidStmt->execute([$param_id]);
+            $sidRow = $sidStmt->fetch(PDO::FETCH_ASSOC);
+            if ($sidRow) { $student_id = (int)$sidRow['id']; }
+        } catch (Exception $e) {
+            $student_id = 0;
+        }
+    }
+}
 
-// শিক্ষার্থী ডেটা লোড করুন
-$stmt = $pdo->prepare("
-    SELECT s.*, 
-           c.name as class_name, 
-           sec.name as section_name,
-           u.full_name as guardian_name,
-           u.phone as guardian_phone,
-           u.email as guardian_email
-    FROM students s 
-    LEFT JOIN classes c ON s.class_id = c.id 
-    LEFT JOIN sections sec ON s.section_id = sec.id
-    LEFT JOIN users u ON s.guardian_id = u.id
-    WHERE s.id = ?
-");
-$stmt->execute([$student_id]);
+// শিক্ষার্থী ডেটা লোড করুন (enrollment-aware)
+// বর্তমান শিক্ষাবর্ষ
+$year_row = $pdo->query("SELECT id FROM academic_years WHERE is_current = 1 LIMIT 1")->fetch();
+$current_year_id = $year_row['id'] ?? null;
+
+// guardian_id কলাম আছে কিনা পরীক্ষা
+$has_guardian = false;
+try {
+    $cols = $pdo->query("SHOW COLUMNS FROM students")->fetchAll(PDO::FETCH_COLUMN);
+    $has_guardian = in_array('guardian_id', $cols);
+} catch (Exception $e) {
+    $has_guardian = false;
+}
+
+$sql = "SELECT 
+            s.*,
+            s.id AS student_id,
+            se.roll_number AS roll_number,
+            se.status AS enrollment_status,
+            c.name AS class_name,
+            sec.name AS section_name";
+// Detect users table name field (full_name or name)
+$guardianNameCol = 'full_name';
+try {
+    $uCols = $pdo->query("SHOW COLUMNS FROM users")->fetchAll(PDO::FETCH_COLUMN);
+    if (!in_array('full_name', $uCols) && in_array('name', $uCols)) {
+        $guardianNameCol = 'name';
+    }
+} catch (Exception $e) {
+    // keep default
+}
+if ($has_guardian) {
+    // Prefer students.guardian_name when set; otherwise fall back to users.<name>
+    $sql .= ", COALESCE(s.guardian_name, u." . $guardianNameCol . ") AS guardian_name, u.phone AS guardian_phone, u.email AS guardian_email";
+} else {
+    $sql .= ", s.guardian_name AS guardian_name, NULL AS guardian_phone, NULL AS guardian_email";
+}
+$sql .= "
+        FROM students s
+        LEFT JOIN students_enrollment se ON se.student_id = s.id";
+if (!empty($current_year_id)) {
+    $sql .= " AND se.academic_year_id = ?";
+}
+$sql .= "
+        LEFT JOIN classes c ON c.id = se.class_id
+        LEFT JOIN sections sec ON sec.id = se.section_id";
+if ($has_guardian) {
+    $sql .= " LEFT JOIN users u ON s.guardian_id = u.id";
+}
+$sql .= "
+        WHERE s.id = ?
+        LIMIT 1";
+
+if (!empty($current_year_id)) {
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$current_year_id, $student_id]);
+} else {
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$student_id]);
+}
 $student = $stmt->fetch();
 
 if (!$student) {
@@ -31,8 +93,8 @@ if (!$student) {
     redirect('students.php');
 }
 
-// রোল-ভিত্তিক এক্সেস চেক
-if ($_SESSION['role'] === 'guardian' && $student['guardian_id'] != $_SESSION['user_id']) {
+// রোল-ভিত্তিক এক্সেস চেক (guardian_id থাকলে)
+if ($_SESSION['role'] === 'guardian' && (!isset($student['guardian_id']) || intval($student['guardian_id']) !== intval($_SESSION['user_id']))) {
     $_SESSION['error'] = "আপনি এই শিক্ষার্থীর তথ্য দেখার অনুমতি রাখেন না!";
     redirect('dashboard.php');
 }
@@ -75,6 +137,7 @@ $fee_payments_data = $fee_payments->fetchAll();
 ?>
 
 <!DOCTYPE html>
+
 <html lang="bn">
 <head>
     <meta charset="utf-8">
@@ -98,10 +161,10 @@ $fee_payments_data = $fee_payments->fetchAll();
         }
         .student-profile-img {
             width: 150px;
-            height: 150px;
+            height: 180px;
             object-fit: cover;
-            border-radius: 50%;
-            border: 3px solid #3c8dbc;
+            border-radius: 6px; /* rectangular (no circle) */
+            border: 2px solid #3c8dbc;
         }
         .info-box {
             cursor: pointer;
@@ -167,7 +230,6 @@ $fee_payments_data = $fee_payments->fetchAll();
                         <?php echo $_SESSION['error']; unset($_SESSION['error']); ?>
                     </div>
                 <?php endif; ?>
-
                 <div class="row">
                     <div class="col-md-4">
                         <!-- Student Profile Card -->
@@ -183,14 +245,14 @@ $fee_payments_data = $fee_payments->fetchAll();
 
                                 <h3 class="profile-username text-center"><?php echo $student['first_name'] . ' ' . $student['last_name']; ?></h3>
 
-                                <p class="text-muted text-center"><?php echo $student['class_name'] . ' - ' . $student['section_name']; ?></p>
+                                <p class="text-muted text-center"><?php echo ($student['class_name'] ?? '') . ' - ' . ($student['section_name'] ?? ''); ?></p>
 
                                 <ul class="list-group list-group-unbordered mb-3">
                                     <li class="list-group-item">
-                                        <b>রোল নম্বর</b> <a class="float-right"><?php echo $student['roll_number']; ?></a>
+                                        <b>রোল নম্বর</b> <a class="float-right"><?php echo $student['roll_number'] ?? ''; ?></a>
                                     </li>
                                     <li class="list-group-item">
-                                        <b>শিক্ষার্থী আইডি</b> <a class="float-right"><?php echo $student['student_id']; ?></a>
+                                        <b>শিক্ষার্থী আইডি</b> <a class="float-right"><?php echo $student['student_id'] ?? $student['id']; ?></a>
                                     </li>
                                     <li class="list-group-item">
                                         <b>ভর্তির তারিখ</b> <a class="float-right"><?php echo !empty($student['admission_date']) ? date('d/m/Y', strtotime($student['admission_date'])) : '-'; ?></a>
@@ -198,7 +260,7 @@ $fee_payments_data = $fee_payments->fetchAll();
                                     <li class="list-group-item">
                                         <b>স্ট্যাটাস</b> 
                                         <span class="float-right">
-                                            <?php if($student['status'] == 'active'): ?>
+                                            <?php if(($student['enrollment_status'] ?? $student['status'] ?? '') == 'active'): ?>
                                                 <span class="badge badge-success">সক্রিয়</span>
                                             <?php else: ?>
                                                 <span class="badge badge-danger">নিষ্ক্রিয়</span>
@@ -320,6 +382,13 @@ $fee_payments_data = $fee_payments->fetchAll();
                                     <div class="tab-pane active" id="tab_1">
                                         <div class="row">
                                             <div class="col-md-6">
+                                                <strong><i class="fas fa-male mr-1"></i> পিতার নাম</strong>
+                                                <p class="text-muted"><?php echo htmlspecialchars($student['father_name'] ?? ''); ?></p>
+                                                <hr>
+
+                                                <strong><i class="fas fa-female mr-1"></i> মাতার নাম</strong>
+                                                <p class="text-muted"><?php echo htmlspecialchars($student['mother_name'] ?? ''); ?></p>
+                                                <hr>
                                                 <strong><i class="fas fa-birthday-cake mr-1"></i> জন্ম তারিখ</strong>
                                                 <p class="text-muted"><?php echo !empty($student['date_of_birth']) ? date('d/m/Y', strtotime($student['date_of_birth'])) : '-'; ?></p>
                                                 <hr>

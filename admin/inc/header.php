@@ -55,3 +55,26 @@
     </ul>
 </nav>
 <!-- /.navbar -->
+<?php
+// Append institute name to the page title at runtime to enforce pattern: "Page/Action - Institute"
+// Safe no-op if $pdo not available or school_info missing
+$__instName = '';
+try {
+        if (isset($pdo) && $pdo instanceof PDO) {
+                $row = $pdo->query("SELECT name FROM school_info LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+                $__instName = $row['name'] ?? '';
+        }
+} catch (Exception $e) { $__instName = $__instName ?: ''; }
+?>
+<script>
+(function(){
+    try{
+        var site = <?php echo json_encode($__instName, JSON_UNESCAPED_UNICODE); ?> || '';
+        if(!site) return;
+        var t = document.title || '';
+        if(!t) return;
+        var suffix = ' - ' + site;
+        if(t.slice(-suffix.length) !== suffix){ document.title = t + suffix; }
+    }catch(e){}
+})();
+</script>

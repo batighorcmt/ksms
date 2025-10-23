@@ -1,6 +1,7 @@
 <?php
 require_once '../config.php';
 require_once 'print_common.php';
+require_once __DIR__ . '/inc/enrollment_helpers.php';
 
 if (!isAuthenticated() || !hasRole(['super_admin', 'teacher'])) {
     header('location: login.php'); exit();
@@ -10,15 +11,31 @@ $date = isset($_GET['date']) ? $_GET['date'] : date('Y-m-d');
 // basic date validation
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) $date = date('Y-m-d');
 
-$stmt = $pdo->prepare("SELECT a.*, s.first_name, s.last_name, s.roll_number, c.name as class_name, sec.name as section_name
-    FROM attendance a
-    JOIN students s ON a.student_id = s.id
-    LEFT JOIN classes c ON s.class_id = c.id
-    LEFT JOIN sections sec ON s.section_id = sec.id
-    WHERE a.date = ? AND a.status = 'absent'
-    ORDER BY c.numeric_value ASC, sec.name ASC, s.roll_number ASC, s.first_name ASC");
-$stmt->execute([$date]);
-$absents = $stmt->fetchAll();
+if (function_exists('enrollment_table_exists') && enrollment_table_exists($pdo)) {
+    // Assume current academic year for the given date; fallback to legacy if needed
+    $yearId = current_academic_year_id($pdo);
+    $sql = "SELECT a.*, s.first_name, s.last_name, se.roll_number, c.name AS class_name, sec.name AS section_name
+            FROM attendance a
+            JOIN students s ON a.student_id = s.id
+            JOIN students_enrollment se ON se.student_id = s.id AND se.academic_year_id = :yid
+            LEFT JOIN classes c ON c.id = se.class_id
+            LEFT JOIN sections sec ON sec.id = se.section_id
+            WHERE a.date = :dt AND a.status = 'absent'
+            ORDER BY c.numeric_value ASC, sec.name ASC, se.roll_number ASC, s.first_name ASC";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([':dt' => $date, ':yid' => $yearId]);
+    $absents = $stmt->fetchAll();
+} else {
+    $stmt = $pdo->prepare("SELECT a.*, s.first_name, s.last_name, s.roll_number, c.name as class_name, sec.name as section_name
+        FROM attendance a
+        JOIN students s ON a.student_id = s.id
+        LEFT JOIN classes c ON s.class_id = c.id
+        LEFT JOIN sections sec ON s.section_id = sec.id
+        WHERE a.date = ? AND a.status = 'absent'
+        ORDER BY c.numeric_value ASC, sec.name ASC, s.roll_number ASC, s.first_name ASC");
+    $stmt->execute([$date]);
+    $absents = $stmt->fetchAll();
+}
 
 ?>
 <!doctype html>

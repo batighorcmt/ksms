@@ -1,5 +1,6 @@
 <?php
 require_once '../config.php';
+require_once __DIR__ . '/../admin/inc/enrollment_helpers.php';
 if (!isAuthenticated()) redirect('../login.php');
 
 $exam_id = intval($_GET['exam_id'] ?? 0);
@@ -21,9 +22,22 @@ $exam = $pdo->prepare("SELECT e.*, et.name as exam_type_name FROM exams e LEFT J
 $exam->execute([$exam_id]);
 $exam = $exam->fetch(PDO::FETCH_ASSOC);
 
-$students = $pdo->prepare("SELECT id, first_name, last_name, roll_number AS roll FROM students WHERE class_id = ? AND status='active' ORDER BY roll_number, id");
-$students->execute([$class_id]);
-$students = $students->fetchAll(PDO::FETCH_ASSOC);
+// Load students via enrollment for the exam's academic year when available
+$students = [];
+if (!empty($exam) && !empty($exam['academic_year_id']) && function_exists('enrollment_table_exists') && enrollment_table_exists($pdo)) {
+        $st = $pdo->prepare("SELECT s.id, s.first_name, s.last_name, se.roll_number AS roll
+                                                 FROM students s
+                                                 JOIN students_enrollment se ON se.student_id = s.id
+                                                 WHERE se.academic_year_id = ? AND se.class_id = ?
+                                                     AND (se.status='active' OR se.status IS NULL OR se.status='Active' OR se.status=1 OR se.status='1')
+                                                 ORDER BY se.roll_number ASC, s.id ASC");
+        $st->execute([intval($exam['academic_year_id']), $class_id]);
+        $students = $st->fetchAll(PDO::FETCH_ASSOC);
+} else {
+        $st = $pdo->prepare("SELECT id, first_name, last_name, roll_number AS roll FROM students WHERE class_id = ? AND status='active' ORDER BY roll_number, id");
+        $st->execute([$class_id]);
+        $students = $st->fetchAll(PDO::FETCH_ASSOC);
+}
 
 $subjects = getExamSubjectsPrint($pdo, $exam_id);
 

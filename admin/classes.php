@@ -71,7 +71,7 @@ if (isset($_GET['toggle_status'])) {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>শ্রেণি ব্যবস্থাপনা - কিন্ডার গার্ডেন</title>
+    <title>শ্রেণি ব্যবস্থাপনা</title>
 
     <!-- Google Font: Source Sans Pro -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback">
@@ -218,7 +218,9 @@ if (isset($_GET['toggle_status'])) {
                                     <tbody>
                                         <?php foreach($classes as $class): ?>
                                         <tr>
-                                            <td><?php echo $class['name']; ?></td>
+                                            <td data-order="<?php echo (int)$class['numeric_value']; ?>">
+                                                <a href="class_details.php?id=<?php echo $class['id']; ?>"><?php echo htmlspecialchars($class['name']); ?></a>
+                                            </td>
                                             <td><?php echo $class['capacity']; ?></td>
                                             <td><?php echo $class['room_number']; ?></td>
                                             <td><?php echo $class['teacher_name'] ?? 'নির্ধারিত হয়নি'; ?></td>
@@ -233,6 +235,9 @@ if (isset($_GET['toggle_status'])) {
                                             <td class="action-buttons">
                                                 <a href="sections.php?class_id=<?php echo $class['id']; ?>" class="btn btn-info btn-sm" title="শাখা ব্যবস্থাপনা">
                                                     <i class="fas fa-list"></i>
+                                                </a>
+                                                <a href="class_details.php?id=<?php echo $class['id']; ?>" class="btn btn-secondary btn-sm" title="বিস্তারিত">
+                                                    <i class="fas fa-eye"></i>
                                                 </a>
                                                 <a href="edit_class.php?id=<?php echo $class['id']; ?>" class="btn btn-primary btn-sm" title="সম্পাদনা">
                                                     <i class="fas fa-edit"></i>

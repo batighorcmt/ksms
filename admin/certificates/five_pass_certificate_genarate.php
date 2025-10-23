@@ -9,7 +9,7 @@ if (!isAuthenticated() || !hasRole(['super_admin','teacher'])) {
 
 // Fetch all academic years
 $years = $pdo->query("SELECT * FROM academic_years ORDER BY year DESC")->fetchAll();
-$classes = $pdo->query("SELECT id, name FROM classes ORDER BY id ASC")->fetchAll();
+$classes = $pdo->query("SELECT id, name FROM classes ORDER BY numeric_value ASC, name ASC")->fetchAll();
 $selected_year_id = isset($_GET['year_id']) ? intval($_GET['year_id']) : null;
 $selected_class_id = isset($_GET['class_id']) ? intval($_GET['class_id']) : 10;
 $selected_year_label = '';
@@ -22,15 +22,20 @@ $selected_student_id = isset($_GET['student_id']) ? intval($_GET['student_id']) 
 $students = [];
 if ($selected_year_id && $selected_class_id) {
     if ($selected_student_id) {
-        $stmt = $pdo->prepare("SELECT s.id, s.first_name, s.last_name, s.father_name, s.mother_name, s.date_of_birth, s.roll_number, s.photo
+        $stmt = $pdo->prepare("SELECT s.id, s.first_name, s.last_name, s.father_name, s.mother_name, s.date_of_birth, se.roll_number, s.photo
             FROM students s
-            WHERE s.class_id = ? AND s.year_id = ? AND s.id = ? AND s.status = 'active'");
+            JOIN students_enrollment se ON se.student_id = s.id
+            WHERE se.class_id = ? AND se.academic_year_id = ? AND s.id = ?
+              AND (se.status = 'active' OR se.status IS NULL)");
         $stmt->execute([$selected_class_id, $selected_year_id, $selected_student_id]);
         $students = $stmt->fetchAll();
     } else {
-        $stmt = $pdo->prepare("SELECT s.id, s.first_name, s.last_name, s.father_name, s.mother_name, s.date_of_birth, s.roll_number, s.photo
+        $stmt = $pdo->prepare("SELECT s.id, s.first_name, s.last_name, s.father_name, s.mother_name, s.date_of_birth, se.roll_number, s.photo
             FROM students s
-            WHERE s.class_id = ? AND s.year_id = ? AND s.status = 'active'");
+            JOIN students_enrollment se ON se.student_id = s.id
+            WHERE se.class_id = ? AND se.academic_year_id = ?
+              AND (se.status = 'active' OR se.status IS NULL)
+            ORDER BY se.roll_number ASC, s.first_name ASC");
         $stmt->execute([$selected_class_id, $selected_year_id]);
         $students = $stmt->fetchAll();
     }
@@ -139,13 +144,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cert_data']) && is_ar
                                                 if (!isset($pdo) || !$pdo) {
                                                     echo '<option value="">ডাটাবেস সংযোগ নেই</option>';
                                                 } else {
-                                                    $stuList = $pdo->prepare("SELECT id, first_name, last_name, roll_number FROM students WHERE class_id=? AND year_id=? AND status='active' ORDER BY roll_number ASC");
-                                                    $stuList->execute([$selected_class_id, $selected_year_id]);
-                                                    foreach ($stuList->fetchAll() as $stuOpt) {
-                                                        $name = htmlspecialchars($stuOpt['first_name'].' '.$stuOpt['last_name']);
-                                                        $roll = htmlspecialchars($stuOpt['roll_number']);
-                                                        echo '<option value="'.$stuOpt['id'].'"'.($selected_student_id==$stuOpt['id']?' selected':'').'>'.$name.' (রোল: '.$roll.')</option>';
-                                                    }
+                                                                                                        $stuList = $pdo->prepare("SELECT s.id, s.first_name, s.last_name, se.roll_number
+                                                                                                                                                            FROM students s
+                                                                                                                                                            JOIN students_enrollment se ON se.student_id = s.id
+                                                                                                                                                            WHERE se.class_id = ? AND se.academic_year_id = ?
+                                                                                                                                                                AND (se.status = 'active' OR se.status IS NULL)
+                                                                                                                                                            ORDER BY se.roll_number ASC, s.first_name ASC");
+                                                                                                        $stuList->execute([$selected_class_id, $selected_year_id]);
+                                                                                                        foreach ($stuList->fetchAll() as $stuOpt) {
+                                                                                                                $name = htmlspecialchars($stuOpt['first_name'].' '.$stuOpt['last_name']);
+                                                                                                                $roll = htmlspecialchars($stuOpt['roll_number'] ?? '');
+                                                                                                                echo '<option value="'.$stuOpt['id'].'"'.($selected_student_id==$stuOpt['id']?' selected':'').'>'.$name.' (রোল: '.$roll.')</option>';
+                                                                                                        }
                                                 }
                                             }
                                             ?>

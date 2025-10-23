@@ -1,5 +1,6 @@
 <?php
 require_once '../config.php';
+require_once __DIR__ . '/inc/enrollment_helpers.php';
 
 // Authentication check
 if (!isAuthenticated() || !hasRole(['teacher', 'super_admin'])) {
@@ -20,9 +21,22 @@ $class_id = isset($_GET['class_id']) ? (int)$_GET['class_id'] : 0;
 $section_id = isset($_GET['section_id']) ? (int)$_GET['section_id'] : 0;
 $subject_id = isset($_GET['subject_id']) ? (int)$_GET['subject_id'] : 0;
 if ($class_id && $section_id) {
-    $st_stmt = $pdo->prepare("SELECT id, first_name, last_name FROM students WHERE class_id=? AND section_id=? AND status='active' ORDER BY roll_number ASC");
-    $st_stmt->execute([$class_id, $section_id]);
-    $students = $st_stmt->fetchAll();
+    if (function_exists('enrollment_table_exists') && enrollment_table_exists($pdo)) {
+        $yearId = current_academic_year_id($pdo);
+        $sql = "SELECT s.id, s.first_name, s.last_name
+                FROM students s
+                JOIN students_enrollment se ON se.student_id = s.id
+                WHERE se.academic_year_id = ? AND se.class_id = ? AND se.section_id = ?
+                  AND (se.status='active' OR se.status IS NULL OR se.status='Active' OR se.status=1 OR se.status='1')
+                ORDER BY se.roll_number ASC, s.id ASC";
+        $st_stmt = $pdo->prepare($sql);
+        $st_stmt->execute([$yearId, $class_id, $section_id]);
+        $students = $st_stmt->fetchAll();
+    } else {
+        $st_stmt = $pdo->prepare("SELECT id, first_name, last_name FROM students WHERE class_id=? AND section_id=? AND status='active' ORDER BY roll_number ASC");
+        $st_stmt->execute([$class_id, $section_id]);
+        $students = $st_stmt->fetchAll();
+    }
 }
 
 // Handle add evaluation

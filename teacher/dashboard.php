@@ -89,16 +89,35 @@ $events = $pdo->query("
     LIMIT 6
 ")->fetchAll();
 
+// বর্তমান শিক্ষাবর্ষ নির্ধারণ (enrollment-aware queries এর জন্য)
+$yearRow = $pdo->query("SELECT id FROM academic_years WHERE is_current = 1 LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+$current_year_id = $yearRow['id'] ?? null;
+
 // শিক্ষকের মোট শিক্ষার্থী সংখ্যা
-$total_students = $pdo->prepare("
-    SELECT COUNT(*) as total
-    FROM students s
-    JOIN classes c ON s.class_id = c.id
-    JOIN sections sec ON s.section_id = sec.id
-    WHERE (c.class_teacher_id = ? OR sec.section_teacher_id = ?) AND s.status = 'active'
-");
-$total_students->execute([$teacher_id, $teacher_id]);
-$total_students = $total_students->fetch()['total'];
+if ($current_year_id) {
+    $total_students = $pdo->prepare("
+        SELECT COUNT(*) as total
+        FROM students s
+        JOIN students_enrollment se ON se.student_id = s.id AND se.academic_year_id = ?
+        JOIN classes c ON se.class_id = c.id
+        LEFT JOIN sections sec ON se.section_id = sec.id
+        WHERE (c.class_teacher_id = ? OR sec.section_teacher_id = ?) AND se.status = 'active'
+    ");
+    $total_students->execute([$current_year_id, $teacher_id, $teacher_id]);
+    $total_students = $total_students->fetch()['total'];
+} else {
+    // Fallback when no current year configured: count distinct students across active enrollments
+    $total_students = $pdo->prepare("
+        SELECT COUNT(DISTINCT s.id) as total
+        FROM students s
+        JOIN students_enrollment se ON se.student_id = s.id
+        JOIN classes c ON se.class_id = c.id
+        LEFT JOIN sections sec ON se.section_id = sec.id
+        WHERE (c.class_teacher_id = ? OR sec.section_teacher_id = ?) AND se.status = 'active'
+    ");
+    $total_students->execute([$teacher_id, $teacher_id]);
+    $total_students = $total_students->fetch()['total'];
+}
 
 // শিক্ষকের জন্য সাম্প্রতিক পরীক্ষার ফলাফল (section_id exams টেবিলে নেই, তাই শুধুমাত্র class অনুযায়ী দেখান)
 $recent_exams = $pdo->prepare("
@@ -430,13 +449,19 @@ if (empty($chart_labels)) {
                                     <div class="card-body p-0">
                                         <ul class="products-list product-list-in-card pl-2 pr-2">
                                             <?php foreach($teacher_classes as $class): 
-                                                $student_count = $pdo->prepare("
-                                                    SELECT COUNT(*) as count 
-                                                    FROM students 
-                                                    WHERE class_id = ? AND status = 'active'
-                                                ");
-                                                $student_count->execute([$class['id']]);
-                                                $student_count = $student_count->fetch()['count'];
+                                                if (!empty($current_year_id)) {
+                                                    $scStmt = $pdo->prepare("SELECT COUNT(*) AS count
+                                                                             FROM students_enrollment se
+                                                                             WHERE se.class_id = ? AND se.academic_year_id = ? AND se.status = 'active'");
+                                                    $scStmt->execute([$class['id'], $current_year_id]);
+                                                } else {
+                                                    // Fallback: count active enrollments for the class across any year
+                                                    $scStmt = $pdo->prepare("SELECT COUNT(*) AS count
+                                                                             FROM students_enrollment se
+                                                                             WHERE se.class_id = ? AND se.status = 'active'");
+                                                    $scStmt->execute([$class['id']]);
+                                                }
+                                                $student_count = $scStmt->fetch()['count'];
                                             ?>
                                             <li class="item">
                                                 <div class="product-img">

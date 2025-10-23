@@ -1,5 +1,6 @@
 <?php
 require_once '../config.php';
+require_once __DIR__ . '/../admin/inc/enrollment_helpers.php';
 if (!isAuthenticated()) redirect('../login.php');
 
 $exam_id = intval($_GET['exam_id'] ?? 0);
@@ -11,9 +12,22 @@ $stmt = $pdo->prepare("SELECT e.*, et.name as exam_type_name FROM exams e LEFT J
 $stmt->execute([$exam_id]);
 $exam = $stmt->fetch(PDO::FETCH_ASSOC);
 
-$students = $pdo->prepare("SELECT id FROM students WHERE class_id = ? AND status='active'");
-$students->execute([$class_id]);
-$studentIds = array_column($students->fetchAll(PDO::FETCH_ASSOC), 'id');
+// Student IDs via enrollment for the exam's academic year
+$studentIds = [];
+if (!empty($exam) && !empty($exam['academic_year_id']) && function_exists('enrollment_table_exists') && enrollment_table_exists($pdo)) {
+        $st = $pdo->prepare("SELECT s.id
+                                                 FROM students s
+                                                 JOIN students_enrollment se ON se.student_id = s.id
+                                                 WHERE se.academic_year_id = ? AND se.class_id = ?
+                                                     AND (se.status='active' OR se.status IS NULL OR se.status='Active' OR se.status=1 OR se.status='1')
+                                                 ORDER BY se.roll_number ASC, s.id ASC");
+        $st->execute([intval($exam['academic_year_id']), $class_id]);
+        $studentIds = array_column($st->fetchAll(PDO::FETCH_ASSOC), 'id');
+} else {
+        $students = $pdo->prepare("SELECT id FROM students WHERE class_id = ? AND status='active'");
+        $students->execute([$class_id]);
+        $studentIds = array_column($students->fetchAll(PDO::FETCH_ASSOC), 'id');
+}
 
 $subjects = $pdo->prepare("SELECT es.subject_id, sub.name as subject_name FROM exam_subjects es JOIN subjects sub ON sub.id = es.subject_id WHERE es.exam_id = ? ORDER BY es.id");
 $subjects->execute([$exam_id]);
@@ -85,10 +99,22 @@ if (!empty($studentIds) && !empty($subjects)) {
                 <table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-size:13px;margin-top:6px;">
                     <thead><tr><th>র‌্যাংক</th><th>শিক্ষার্থী</th><th>গড়</th></tr></thead>
                     <tbody>
-                        <?php $cnt=0; foreach($topList as $t) { if ($cnt++>=5) break; $stu = $pdo->prepare('SELECT first_name,last_name,roll_number FROM students WHERE id = ?'); $stu->execute([$t['student_id']]); $st = $stu->fetch(PDO::FETCH_ASSOC); ?>
+                        <?php $cnt=0; foreach($topList as $t) { if ($cnt++>=5) break; 
+                            // Fetch display info; prefer enrollment roll number when available
+                            $disp = ['first_name'=>'','last_name'=>'','roll_number'=>''];
+                            if (!empty($exam['academic_year_id']) && function_exists('enrollment_table_exists') && enrollment_table_exists($pdo)) {
+                                $stu = $pdo->prepare('SELECT s.first_name, s.last_name, se.roll_number FROM students s JOIN students_enrollment se ON se.student_id = s.id AND se.academic_year_id = ? WHERE s.id = ? LIMIT 1');
+                                $stu->execute([intval($exam['academic_year_id']), $t['student_id']]);
+                                $disp = $stu->fetch(PDO::FETCH_ASSOC) ?: $disp;
+                            } else {
+                                $stu = $pdo->prepare('SELECT first_name,last_name,roll_number FROM students WHERE id = ?');
+                                $stu->execute([$t['student_id']]);
+                                $disp = $stu->fetch(PDO::FETCH_ASSOC) ?: $disp;
+                            }
+                        ?>
                         <tr>
                             <td><?= htmlspecialchars($t['rank']) ?></td>
-                            <td><?= htmlspecialchars(($st['roll_number'] ?? '') . ' - ' . trim(($st['first_name']??'').' '.($st['last_name']??''))) ?></td>
+                            <td><?= htmlspecialchars(($disp['roll_number'] ?? '') . ' - ' . trim(($disp['first_name']??'').' '.($disp['last_name']??''))) ?></td>
                             <td><?= number_format($t['avg'],2) ?></td>
                         </tr>
                         <?php } ?>

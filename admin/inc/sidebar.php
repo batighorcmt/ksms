@@ -34,6 +34,44 @@
             if (!empty($currentUser['photo'])) $userPhoto = BASE_URL . 'uploads/users/' . $currentUser['photo'];
         }
         ?>
+        <?php
+        // Determine current relative path (e.g., 'admin/students.php') for active menu highlighting
+        $reqPath = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : (isset($_SERVER['SCRIPT_NAME']) ? $_SERVER['SCRIPT_NAME'] : '');
+        $reqPath = strtok($reqPath, '?');
+        $reqPath = ltrim($reqPath, '/'); // e.g., ksms/admin/students.php
+        $baseUrlPath = parse_url(BASE_URL, PHP_URL_PATH); // e.g., /ksms/
+        if ($baseUrlPath) {
+            $trim = ltrim($baseUrlPath, '/');
+            if ($trim && strpos($reqPath, $trim) === 0) {
+                $reqPath = ltrim(substr($reqPath, strlen($trim)), '/');
+            }
+        }
+        $currentPath = $reqPath; // now like 'admin/students.php' or 'exam/create_exam.php'
+
+        // helper to check active
+        $isActive = function($targets) use ($currentPath) {
+            foreach ((array)$targets as $t) {
+                $t = ltrim($t, '/');
+                if ($currentPath === $t) return true;
+            }
+            return false;
+        };
+
+        // Group open flags
+        $dashboardActive = $isActive(['admin/dashboard.php']);
+        $studentsOpen = $isActive(['admin/students.php','admin/student_list_print.php','admin/promote_students.php']);
+    $classesOpen = $isActive(['admin/classes.php','admin/routine_list.php']);
+    $subjectsOpen = $isActive(['admin/school_subjects.php','admin/subjects.php','admin/add_subject.php','admin/subject_assign.php']);
+        $attendanceOpen = $isActive(['admin/attendance_overview.php','admin/attendance.php','admin/attendance_report.php','admin/monthly_attendance.php','admin/teacher_attendance_report.php','admin/teacher_attendance_monthly.php']);
+        $examOpen = $isActive(['exam/exam_list.php','exam/create_exam.php']);
+        $certOpen = $isActive(['admin/certificates/five_pass_certificate_genarate.php','admin/certificates/five_pass_certificate_list.php','admin/certificates/print_certificate_options.php','admin/certificates/issued_certificates.php']);
+        $reportsOpen = $isActive(['admin/reports.php','admin/monthly_attendance.php']);
+        $teachersActive = $isActive(['admin/teachers.php','admin/teacher_details.php']);
+        $feesActive = $isActive(['admin/fees.php']);
+        $homeworkActive = $isActive(['admin/homework.php']);
+        $lessonEvalActive = $isActive(['admin/lesson_evaluation.php']);
+        $settingsOpen = $isActive(['admin/settings/institute_info.php','admin/settings/holiday_management.php','admin/settings.php','admin/settings/attendance_settings.php','admin/settings/sms_settings.php','admin/settings/academic_year_management.php']);
+        ?>
         <div class="user-panel mt-3 pb-3 mb-3 d-flex">
             <div class="image">
                 <img src="<?php echo htmlspecialchars($userPhoto); ?>" class="img-circle elevation-2" alt="User Image">
@@ -67,255 +105,296 @@
 
         <!-- Sidebar Menu -->
         <nav class="mt-2">
-            <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
-                <li class="nav-item has-treeview">
-                    <a href="<?php echo BASE_URL; ?>admin/dashboard.php" class="nav-link">
+            <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="true">
+                <!-- Dashboard -->
+                <li class="nav-item">
+                    <a href="<?php echo BASE_URL; ?>admin/dashboard.php" class="nav-link <?php echo $dashboardActive ? 'active' : ''; ?>">
                         <i class="nav-icon fas fa-tachometer-alt"></i>
                         <p>ড্যাশবোর্ড</p>
                     </a>
                 </li>
-                <li class="nav-item has-treeview">
-                    <a href="#" class="nav-link">
-                        <i class="nav-icon fas fa-chart-bar"></i>
-                        <p> শিক্ষার্থী ব্যবস্থাপনা <i class="right fas fa-angle-left"></i></p>
+
+                <!-- Students -->
+                <li class="nav-item <?php echo $studentsOpen ? 'menu-open' : ''; ?>">
+                    <a href="#" class="nav-link <?php echo $studentsOpen ? 'active' : ''; ?>">
+                        <i class="nav-icon fas fa-user-graduate"></i>
+                        <p>শিক্ষার্থী ব্যবস্থাপনা<i class="right fas fa-angle-left"></i></p>
                     </a>
                     <ul class="nav nav-treeview">
                         <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admin/students.php" class="nav-link">
+                            <a href="<?php echo BASE_URL; ?>admin/students.php" class="nav-link <?php echo $isActive('admin/students.php') ? 'active' : ''; ?>">
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>শিক্ষার্থী তালিকা</p>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admin/student_list_print.php" class="nav-link">
+                            <a href="<?php echo BASE_URL; ?>admin/student_list_print.php" class="nav-link <?php echo $isActive('admin/student_list_print.php') ? 'active' : ''; ?>">
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>শিক্ষার্থী রিপোর্ট</p>
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/promote_students.php" class="nav-link <?php echo $isActive('admin/promote_students.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>শিক্ষার্থী প্রমোশন</p>
+                            </a>
+                        </li>
                     </ul>
                 </li>
-                <li class="nav-item has-treeview">
-                    <a href="#" class="nav-link">
+
+                <!-- Classes & Routine -->
+                <li class="nav-item <?php echo $classesOpen ? 'menu-open' : ''; ?>">
+                    <a href="#" class="nav-link <?php echo $classesOpen ? 'active' : ''; ?>">
                         <i class="nav-icon fas fa-school"></i>
-                        <p>শ্রেণি ব্যবস্থাপনা <i class="right fas fa-angle-left"></i></p>
+                        <p>শ্রেণি ও রুটিন<i class="right fas fa-angle-left"></i></p>
                     </a>
                     <ul class="nav nav-treeview">
                         <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admin/classes.php" class="nav-link">
+                            <a href="<?php echo BASE_URL; ?>admin/classes.php" class="nav-link <?php echo $isActive('admin/classes.php') ? 'active' : ''; ?>">
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>শ্রেণি তালিকা</p>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admin/routine_list.php" class="nav-link">
+                            <a href="<?php echo BASE_URL; ?>admin/routine_list.php" class="nav-link <?php echo $isActive('admin/routine_list.php') ? 'active' : ''; ?>">
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>ক্লাস রুটিন</p>
                             </a>
                         </li>
                     </ul>
                 </li>
-                <li class="nav-item has-treeview">
-                    <a href="#" class="nav-link">
-                        <i class="nav-icon fas fa-school"></i>
-                        <p>বিষয় ব্যবস্থাপনা <i class="right fas fa-angle-left"></i></p>
+
+                <!-- Subjects -->
+                <li class="nav-item <?php echo $subjectsOpen ? 'menu-open' : ''; ?>">
+                    <a href="#" class="nav-link <?php echo $subjectsOpen ? 'active' : ''; ?>">
+                        <i class="nav-icon fas fa-book-open"></i>
+                        <p>বিষয় ব্যবস্থাপনা<i class="right fas fa-angle-left"></i></p>
                     </a>
                     <ul class="nav nav-treeview">
                         <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admin/school_subjects.php" class="nav-link">
+                            <a href="<?php echo BASE_URL; ?>admin/school_subjects.php" class="nav-link <?php echo $isActive('admin/school_subjects.php') ? 'active' : ''; ?>">
                                 <i class="far fa-circle nav-icon"></i>
-                                <p>অনুমোদিত বিষয়</p>
+                                <p>স্কুল বিষয়সমূহ</p>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admin/subjects.php" class="nav-link">
+                            <a href="<?php echo BASE_URL; ?>admin/subjects.php" class="nav-link <?php echo $isActive('admin/subjects.php') ? 'active' : ''; ?>">
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>বিষয় তালিকা</p>
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/add_subject.php" class="nav-link <?php echo $isActive('admin/add_subject.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>নতুন বিষয় যুক্ত</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/subject_assign.php" class="nav-link <?php echo $isActive('admin/subject_assign.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>বিষয় অ্যাসাইন</p>
+                            </a>
+                        </li>
                     </ul>
                 </li>
-                <li class="nav-item has-treeview">
-                    <a href="<?php echo BASE_URL; ?>admin/teachers.php" class="nav-link">
-                        <i class="nav-icon fas fa-chalkboard-teacher"></i>
-                        <p>শিক্ষক ব্যবস্থাপনা</p>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="#" class="nav-link">
+
+                <!-- Attendance -->
+                <li class="nav-item <?php echo $attendanceOpen ? 'menu-open' : ''; ?>">
+                    <a href="#" class="nav-link <?php echo $attendanceOpen ? 'active' : ''; ?>">
                         <i class="nav-icon fas fa-clipboard-check"></i>
-                        <p>উপস্থিতি ব্যবস্থাপনা <i class="right fas fa-angle-left"></i> </p>
+                        <p>উপস্থিতি ব্যবস্থাপনা<i class="right fas fa-angle-left"></i></p>
                     </a>
                     <ul class="nav nav-treeview">
                         <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admin/attendance_overview.php" class="nav-link">
+                            <a href="<?php echo BASE_URL; ?>admin/attendance_overview.php" class="nav-link <?php echo $isActive('admin/attendance_overview.php') ? 'active' : ''; ?>">
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>উপস্থিতি ড্যাশবোর্ড</p>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admin/attendance.php" class="nav-link">
+                            <a href="<?php echo BASE_URL; ?>admin/attendance.php" class="nav-link <?php echo $isActive('admin/attendance.php') ? 'active' : ''; ?>">
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>উপস্থিতি গ্রহণ</p>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admin/attendance_report.php" class="nav-link">
+                            <a href="<?php echo BASE_URL; ?>admin/attendance_report.php" class="nav-link <?php echo $isActive('admin/attendance_report.php') ? 'active' : ''; ?>">
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>প্রতিদিনের রিপোর্ট প্রিন্ট</p>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admin/monthly_attendance.php" class="nav-link">
+                            <a href="<?php echo BASE_URL; ?>admin/monthly_attendance.php" class="nav-link <?php echo $isActive('admin/monthly_attendance.php') ? 'active' : ''; ?>">
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>মাসিক উপস্থিতি</p>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admin/teacher_attendance_report.php" class="nav-link">
+                            <a href="<?php echo BASE_URL; ?>admin/teacher_attendance_report.php" class="nav-link <?php echo $isActive('admin/teacher_attendance_report.php') ? 'active' : ''; ?>">
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>শিক্ষক উপস্থিতি রিপোর্ট (দৈনিক)</p>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admin/teacher_attendance_monthly.php" class="nav-link">
+                            <a href="<?php echo BASE_URL; ?>admin/teacher_attendance_monthly.php" class="nav-link <?php echo $isActive('admin/teacher_attendance_monthly.php') ? 'active' : ''; ?>">
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>শিক্ষক উপস্থিতি রিপোর্ট (মাসিক)</p>
                             </a>
                         </li>
                     </ul>
                 </li>
+
+                <!-- Teachers -->
                 <li class="nav-item">
-                    <a href="#" class="nav-link">
+                    <a href="<?php echo BASE_URL; ?>admin/teachers.php" class="nav-link <?php echo $teachersActive ? 'active' : ''; ?>">
+                        <i class="nav-icon fas fa-chalkboard-teacher"></i>
+                        <p>শিক্ষক ব্যবস্থাপনা</p>
+                    </a>
+                </li>
+
+                <!-- Exams -->
+                <li class="nav-item <?php echo $examOpen ? 'menu-open' : ''; ?>">
+                    <a href="#" class="nav-link <?php echo $examOpen ? 'active' : ''; ?>">
                         <i class="nav-icon fas fa-book"></i>
-                        <p>পরীক্ষা ব্যবস্থাপনা <i class="right fas fa-angle-left"></i></p>
+                        <p>পরীক্ষা ব্যবস্থাপনা<i class="right fas fa-angle-left"></i></p>
                     </a>
                     <ul class="nav nav-treeview">
                         <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>exam/exam_list.php" class="nav-link">
+                            <a href="<?php echo BASE_URL; ?>exam/exam_list.php" class="nav-link <?php echo $isActive('exam/exam_list.php') ? 'active' : ''; ?>">
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>পরীক্ষার তালিকা</p>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>exam/create_exam.php" class="nav-link">
+                            <a href="<?php echo BASE_URL; ?>exam/create_exam.php" class="nav-link <?php echo $isActive('exam/create_exam.php') ? 'active' : ''; ?>">
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>নতুন পরীক্ষা তৈরি</p>
                             </a>
                         </li>
                     </ul>
                 </li>
+
+                <!-- Fees -->
                 <li class="nav-item">
-                    <a href="<?php echo BASE_URL; ?>admin/fees.php" class="nav-link">
+                    <a href="<?php echo BASE_URL; ?>admin/fees.php" class="nav-link <?php echo $feesActive ? 'active' : ''; ?>">
                         <i class="nav-icon fas fa-money-bill-wave"></i>
                         <p>ফি সংগ্রহ</p>
                     </a>
                 </li>
-                <li class="nav-item">
-                    <a href="<?php echo BASE_URL; ?>admin/reports.php" class="nav-link">
-                        <i class="nav-icon fas fa-chart-bar"></i>
-                        <p>রিপোর্ট <i class="right fas fa-angle-left"></i></p>
+
+                <!-- Certificates -->
+                <li class="nav-item <?php echo $certOpen ? 'menu-open' : ''; ?>">
+                    <a href="#" class="nav-link <?php echo $certOpen ? 'active' : ''; ?>">
+                        <i class="nav-icon fas fa-certificate"></i>
+                        <p>সার্টিফিকেট<i class="right fas fa-angle-left"></i></p>
                     </a>
                     <ul class="nav nav-treeview">
                         <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admin/monthly_attendance.php" class="nav-link">
+                            <a href="<?php echo BASE_URL; ?>admin/certificates/five_pass_certificate_genarate.php" class="nav-link <?php echo $isActive('admin/certificates/five_pass_certificate_genarate.php') ? 'active' : ''; ?>">
+                                <i class="far fa-dot-circle nav-icon"></i>
+                                <p>সার্টিফিকেট জেনারেট</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/certificates/five_pass_certificate_list.php" class="nav-link <?php echo $isActive('admin/certificates/five_pass_certificate_list.php') ? 'active' : ''; ?>">
+                                <i class="far fa-list-alt nav-icon"></i>
+                                <p>সার্টিফিকেট তালিকা</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/certificates/print_certificate_options.php" class="nav-link <?php echo $isActive('admin/certificates/print_certificate_options.php') ? 'active' : ''; ?>">
+                                <i class="far fa-file-pdf nav-icon"></i>
+                                <p>প্রত্যয়পত্র প্রিন্ট</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/certificates/issued_certificates.php" class="nav-link <?php echo $isActive('admin/certificates/issued_certificates.php') ? 'active' : ''; ?>">
+                                <i class="far fa-list-alt nav-icon"></i>
+                                <p>প্রদানকৃত প্রত্যয়নপত্র</p>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+
+                <!-- Reports -->
+                <li class="nav-item <?php echo $reportsOpen ? 'menu-open' : ''; ?>">
+                    <a href="#" class="nav-link <?php echo $isActive('admin/reports.php') ? 'active' : ''; ?>">
+                        <i class="nav-icon fas fa-chart-bar"></i>
+                        <p>রিপোর্ট<i class="right fas fa-angle-left"></i></p>
+                    </a>
+                    <ul class="nav nav-treeview">
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/monthly_attendance.php" class="nav-link <?php echo $isActive('admin/monthly_attendance.php') ? 'active' : ''; ?>">
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>মাসিক হাজিরাশীট</p>
                             </a>
                         </li>
-                        <li class="nav-item">
-                            <a href="#" class="nav-link">
-                                <i class="far fa-circle nav-icon"></i>
-                                <p>সার্টিফিকেট <i class="right fas fa-angle-left"></i></p>
-                            </a>
-                            <ul class="nav nav-treeview">
-                                <li class="nav-item">
-                                    <a href="<?php echo BASE_URL; ?>admin/certificates/five_pass_certificate_genarate.php" class="nav-link">
-                                        <i class="far fa-dot-circle nav-icon"></i>
-                                        <p>সার্টিফিকেট জেনারেট</p>
-                                    </a>
-                                </li>
-                                <li class="nav-item">
-                                    <a href="<?php echo BASE_URL; ?>admin/certificates/five_pass_certificate_list.php" class="nav-link">
-                                        <i class="far fa-list-alt nav-icon"></i>
-                                        <p>সার্টিফিকেট তালিকা</p>
-                                    </a>
-                                </li>
-                                <li class="nav-item">
-                                    <a href="<?php echo BASE_URL; ?>admin/certificates/print_certificate_options.php" class="nav-link">
-                                        <i class="far fa-file-pdf nav-icon"></i>
-                                        <p>প্রত্যয়পত্র প্রিন্ট</p>
-                                    </a>
-                                </li>
-                                <li class="nav-item">
-                                    <a href="<?php echo BASE_URL; ?>admin/certificates/issued_certificates.php" class="nav-link">
-                                        <i class="far fa-list-alt nav-icon"></i>
-                                        <p>প্রদানকৃত প্রত্যয়নপত্র</p>
-                                    </a>
-                                </li>
-                            </ul>
-                        </li>
                     </ul>
                 </li>
+
+                <!-- Homework -->
                 <li class="nav-item">
-                    <a href="<?php echo BASE_URL; ?>admin/homework.php" class="nav-link">
+                    <a href="<?php echo BASE_URL; ?>admin/homework.php" class="nav-link <?php echo $homeworkActive ? 'active' : ''; ?>">
                         <i class="nav-icon fas fa-book-open"></i>
                         <p>হোমওয়ার্ক</p>
                     </a>
                 </li>
+
+                <!-- Lesson Evaluation -->
                 <li class="nav-item">
-                    <a href="<?php echo BASE_URL; ?>admin/lesson_evaluation.php" class="nav-link">
+                    <a href="<?php echo BASE_URL; ?>admin/lesson_evaluation.php" class="nav-link <?php echo $lessonEvalActive ? 'active' : ''; ?>">
                         <i class="nav-icon fas fa-clipboard-list"></i>
                         <p>লেসন ইভুলেশন</p>
                     </a>
                 </li>
-                
-                <li class="nav-item">
-                    <a href="#" class="nav-link">
+
+                <!-- Settings -->
+                <li class="nav-item <?php echo $settingsOpen ? 'menu-open' : ''; ?>">
+                    <a href="#" class="nav-link <?php echo $settingsOpen ? 'active' : ''; ?>">
                         <i class="nav-icon fas fa-cog"></i>
-                        <p>
-                            সেটিংস
-                            <i class="right fas fa-angle-left"></i>
-                        </p>
+                        <p>সেটিংস<i class="right fas fa-angle-left"></i></p>
                     </a>
                     <ul class="nav nav-treeview">
                         <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admin/settings/institute_info.php" class="nav-link">
+                            <a href="<?php echo BASE_URL; ?>admin/settings/institute_info.php" class="nav-link <?php echo $isActive('admin/settings/institute_info.php') ? 'active' : ''; ?>">
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>প্রতিষ্ঠানের তথ্য</p>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admin/settings/holiday_management.php" class="nav-link">
-                                <i class="nav-icon fas fa-calendar-day"></i>
+                            <a href="<?php echo BASE_URL; ?>admin/settings/holiday_management.php" class="nav-link <?php echo $isActive('admin/settings/holiday_management.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
                                 <p>ছুটির দিন ব্যবস্থাপনা</p>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admin/settings.php" class="nav-link">
+                            <a href="<?php echo BASE_URL; ?>admin/settings.php" class="nav-link <?php echo $isActive('admin/settings.php') ? 'active' : ''; ?>">
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>সাধারণ সেটিংস</p>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admin/settings/attendance_settings.php" class="nav-link">
+                            <a href="<?php echo BASE_URL; ?>admin/settings/attendance_settings.php" class="nav-link <?php echo $isActive('admin/settings/attendance_settings.php') ? 'active' : ''; ?>">
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>হাজিরা সেটিংস</p>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admin/settings/sms_settings.php" class="nav-link">
+                            <a href="<?php echo BASE_URL; ?>admin/settings/sms_settings.php" class="nav-link <?php echo $isActive('admin/settings/sms_settings.php') ? 'active' : ''; ?>">
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>এসএমএস সেটিংস</p>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admin/settings/academic_year_management.php" class="nav-link">
+                            <a href="<?php echo BASE_URL; ?>admin/settings/academic_year_management.php" class="nav-link <?php echo $isActive('admin/settings/academic_year_management.php') ? 'active' : ''; ?>">
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>শিক্ষাবর্ষ ব্যবস্থাপনা</p>
                             </a>
                         </li>
                     </ul>
                 </li>
+
+                <!-- Logout -->
                 <li class="nav-item mt-3">
                     <a href="<?php echo BASE_URL; ?>logout.php" class="nav-link bg-danger">
                         <i class="nav-icon fas fa-sign-out-alt"></i>
