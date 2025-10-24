@@ -24,10 +24,14 @@
             }
         }
         $userName = 'অ্যাডমিন';
-        $userPhoto = 'https://adminlte.io/themes/v3/dist/img/user2-160x160.jpg';
-        if ($currentUser) {
-            if (!empty($currentUser['full_name'])) $userName = $currentUser['full_name'];
-            if (!empty($currentUser['photo'])) $userPhoto = BASE_URL . 'uploads/users/' . $currentUser['photo'];
+        if ($currentUser && !empty($currentUser['full_name'])) {
+            $userName = $currentUser['full_name'];
+        }
+        // Use uploaded photo if available, otherwise generate UI avatar based on name
+        if (!empty($currentUser['photo'])) {
+            $userPhoto = BASE_URL . 'uploads/teachers/' . $currentUser['photo'];
+        } else {
+            $userPhoto = 'https://ui-avatars.com/api/?name=' . urlencode($userName) . '&background=4f8cff&color=fff&size=128';
         }
         ?>
         <div class="user-panel mt-3 pb-3 mb-3 d-flex">
@@ -35,7 +39,7 @@
                 <img src="<?php echo htmlspecialchars($userPhoto); ?>" class="img-circle elevation-2" alt="User Image">
             </div>
             <div class="info">
-                    <a href="<?php echo BASE_URL; ?>admin/profile.php" class="d-block"><?php echo htmlspecialchars($userName); ?></a>
+                    <a href="<?php echo BASE_URL; ?>teacher/profile.php" class="d-block"><?php echo htmlspecialchars($userName); ?></a>
                     <?php
                     // determine role name (try currentUser role, session, or DB lookup)
                     $roleLabel = '';

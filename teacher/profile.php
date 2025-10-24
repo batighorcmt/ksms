@@ -113,9 +113,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
                                 <div class="row align-items-center mb-3">
                                     <div class="col-4 col-sm-3 text-center">
                                         <?php
-                                            $profile_img = !empty($teacher['photo']) ? '../'.htmlspecialchars($teacher['photo']) : 'https://ui-avatars.com/api/?name='.urlencode($teacher['full_name']).'&background=4f8cff&color=fff&size=128';
+                                            // Use absolute URL to uploaded user photos; fallback to UI Avatars if missing
+                                            $profile_img = !empty($teacher['photo'])
+                                                ? BASE_URL . 'uploads/teachers/' . $teacher['photo']
+                                                : 'https://ui-avatars.com/api/?name=' . urlencode($teacher['full_name'] ?? 'Teacher') . '&background=4f8cff&color=fff&size=128';
                                         ?>
-                                        <img src="<?php echo $profile_img; ?>" alt="Profile" class="img-fluid rounded-circle border" style="max-width:110px;max-height:110px;">
+                                        <img src="<?php echo htmlspecialchars($profile_img); ?>" alt="Profile" class="img-fluid rounded-circle border" style="max-width:110px;max-height:110px;">
                                     </div>
                                     <div class="col-8 col-sm-9">
                                         <h4 style="margin-bottom:8px;font-weight:600;color:#4f8cff;"><?php echo htmlspecialchars($teacher['full_name']); ?></h4>
