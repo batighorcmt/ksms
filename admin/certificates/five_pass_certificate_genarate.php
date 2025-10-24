@@ -2,7 +2,7 @@
 // পঞ্চম শ্রেণি পাস সার্টিফিকেট জেনারেটর
 require_once '../../config.php';
 // Auth
-if (!isAuthenticated() || !hasRole(['super_admin','teacher'])) {
+if (!isAuthenticated() || !hasRole(['super_admin'])) {
     redirect('../../index.php');
 }
 

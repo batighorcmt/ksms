@@ -391,6 +391,12 @@
                                 <p>শিক্ষাবর্ষ ব্যবস্থাপনা</p>
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/settings/users.php" class="nav-link <?php echo $isActive('admin/settings/users.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>ব্যবহারকারী তালিকা</p>
+                            </a>
+                        </li>
                     </ul>
                 </li>
 
