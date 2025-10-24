@@ -263,6 +263,15 @@ if (isset($_GET['delete'])) {
         .card-header .ml-auto.d-flex { flex-direction: column; width: 100%; }
         .card-header .ml-auto.d-flex .btn { width: 100%; margin-bottom: 6px; }
     }
+    /* Filters row: single-line, auto-wide, mobile-friendly with horizontal scroll */
+    .filters-row { display:flex; align-items:flex-end; gap:8px; flex-wrap:nowrap; overflow-x:auto; }
+    .filters-row .form-group { flex:1 1 0; min-width:140px; margin-bottom:0; }
+    .filters-row .form-group select, .filters-row .form-group input { width:100%; }
+    .filters-row .filters-search { flex:2 1 0; min-width:220px; }
+    .filters-row .filters-actions { flex:0 0 auto; display:flex; align-items:center; gap:6px; }
+    @media (max-width: 576px) {
+        .filters-row { gap:6px; }
+    }
     </style>
 </head>
 <body class="hold-transition sidebar-mini">
@@ -336,56 +345,54 @@ if (isset($_GET['delete'])) {
                                                     </div>
 
                                                     <div class="card-body">
-                                                        <!-- Filters -->
+                                                        <!-- Filters: keep all fields in a single row (scrollable on small screens) -->
                                                         <form method="GET" class="mb-3">
-                                                            <div class="form-row">
-                                                                <div class="col-12 col-sm-6 col-md-2 mb-2">
-                                                                    <select name="f_class" class="form-control">
+                                                            <div class="filters-row">
+                                                                <div class="form-group">
+                                                                    <select name="f_class" class="form-control" title="ক্লাস">
                                                                         <option value="">-- ক্লাস --</option>
                                                                         <?php foreach($classes as $class): ?>
                                                                             <option value="<?php echo $class['id']; ?>" <?php if($f_class === (int)$class['id']) echo 'selected'; ?>><?php echo htmlspecialchars($class['name'] ?? ''); ?></option>
                                                                         <?php endforeach; ?>
                                                                     </select>
                                                                 </div>
-                                                                <div class="col-12 col-sm-6 col-md-2 mb-2">
-                                                                    <select id="f_section" name="f_section" class="form-control" disabled data-selected="<?php echo (int)($f_section ?? 0); ?>">
+                                                                <div class="form-group">
+                                                                    <select id="f_section" name="f_section" class="form-control" disabled data-selected="<?php echo (int)($f_section ?? 0); ?>" title="শাখা">
                                                                         <option value="">-- শাখা --</option>
                                                                         <?php foreach($sections as $section): ?>
                                                                             <option value="<?php echo $section['id']; ?>" data-class="<?php echo (int)($section['class_id'] ?? 0); ?>" <?php if($f_section === (int)$section['id']) echo 'selected'; ?>><?php echo htmlspecialchars($section['name'] ?? ''); ?></option>
                                                                         <?php endforeach; ?>
                                                                     </select>
                                                                 </div>
-                                                                <div class="col-12 col-sm-6 col-md-2 mb-2">
-                                                                    <select name="f_status" class="form-control">
+                                                                <div class="form-group">
+                                                                    <select name="f_status" class="form-control" title="স্ট্যাটাস">
                                                                         <option value="">-- স্ট্যাটাস --</option>
                                                                         <option value="active" <?php echo ($f_status==='active'?'selected':''); ?>>সক্রিয়</option>
                                                                         <option value="inactive" <?php echo ($f_status==='inactive'?'selected':''); ?>>নিষ্ক্রিয়</option>
                                                                     </select>
                                                                 </div>
-                                                                <div class="col-12 col-sm-6 col-md-2 mb-2">
-                                                                    <select name="f_gender" class="form-control">
+                                                                <div class="form-group">
+                                                                    <select name="f_gender" class="form-control" title="লিঙ্গ">
                                                                         <option value="">-- লিঙ্গ --</option>
                                                                         <?php foreach($genders as $g): $gv = (string)$g; ?>
                                                                             <option value="<?php echo htmlspecialchars($gv); ?>" <?php if($f_gender !== null && $f_gender === $gv) echo 'selected'; ?>><?php echo htmlspecialchars(ucfirst($gv)); ?></option>
                                                                         <?php endforeach; ?>
                                                                     </select>
                                                                 </div>
-                                                                <div class="col-12 col-sm-6 col-md-2 mb-2">
-                                                                    <select name="f_religion" class="form-control">
+                                                                <div class="form-group">
+                                                                    <select name="f_religion" class="form-control" title="ধর্ম">
                                                                         <option value="">-- ধর্ম --</option>
                                                                         <?php foreach($religions as $r): $rv=(string)$r; ?>
                                                                             <option value="<?php echo htmlspecialchars($rv); ?>" <?php if($f_religion !== null && $f_religion === $rv) echo 'selected'; ?>><?php echo htmlspecialchars($rv); ?></option>
                                                                         <?php endforeach; ?>
                                                                     </select>
                                                                 </div>
-                                                                <div class="col-12 col-sm-12 col-md-3 mb-2">
+                                                                <div class="form-group filters-search">
                                                                     <input type="text" name="q" value="<?php echo htmlspecialchars((string)($q ?? '')); ?>" class="form-control" placeholder="নাম/আইডি/মোবাইল খুঁজুন">
                                                                 </div>
-                                                                <div class="col-12 col-sm-12 col-md-1 mb-2 d-flex">
-                                                                    <button type="submit" class="btn btn-success btn-block">ফিল্টার</button>
-                                                                </div>
-                                                                <div class="col-12 col-sm-12 col-md-12">
-                                                                    <a href="students.php" class="btn btn-outline-secondary mt-2">রিসেট</a>
+                                                                <div class="form-group filters-actions">
+                                                                    <button type="submit" class="btn btn-success">ফিল্টার</button>
+                                                                    <a href="students.php" class="btn btn-outline-secondary">রিসেট</a>
                                                                 </div>
                                                             </div>
                                                         </form>
@@ -406,7 +413,9 @@ if (isset($_GET['delete'])) {
                                                                     <th>বর্তমান ঠিকানা</th>
                                                                     <th>বিষয়সমূহ</th>
                                                                     <th>স্ট্যাটাস</th>
+                                                                    <?php if (hasRole(['super_admin'])): ?>
                                                                     <th>অ্যাকশন</th>
+                                                                    <?php endif; ?>
                                                                 </tr>
                                                             </thead>
                                                             <tbody>
@@ -472,6 +481,7 @@ if (isset($_GET['delete'])) {
                                                                             <span class="badge badge-danger">নিষ্ক্রিয়</span>
                                                                         <?php endif; ?>
                                                                     </td>
+                                                                    <?php if (hasRole(['super_admin'])): ?>
                                                                     <td class="action-buttons">
                                                                         <div class="btn-group">
                                                                             <button type="button" class="btn btn-sm btn-secondary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -492,6 +502,7 @@ if (isset($_GET['delete'])) {
                                                                             </div>
                                                                         </div>
                                                                     </td>
+                                                                    <?php endif; ?>
                                                                 </tr>
                                                                 <?php endforeach; ?>
                                                             </tbody>
@@ -543,13 +554,18 @@ if (isset($_GET['delete'])) {
             "language": {
                 "search": "খুঁজুন:",
                 "lengthMenu": "প্রতি পৃষ্ঠায় _MENU_ এন্ট্রি দেখুন",
-                "info": "পৃষ্ঠা _PAGE_ এর _PAGES_ থেকে দেখানো হচ্ছে",
+                "info": "",
                 "infoEmpty": "কোন এন্ট্রি পাওয়া যায়নি",
                 "infoFiltered": "(মোট _MAX_ এন্ট্রি থেকে ফিল্টার করা হয়েছে)",
                 "paginate": {
                     "previous": "পূর্ববর্তী",
                     "next": "পরবর্তী"
                 }
+            },
+            // Custom info text: show how many are being displayed out of total
+            "infoCallback": function(settings, start, end, max, total, pre) {
+                var current = end > 0 ? (end - start + 1) : 0;
+                return 'দেখানো হচ্ছে ' + current + ' জন (মোট ' + max + ' জন)';
             }
         });
 
