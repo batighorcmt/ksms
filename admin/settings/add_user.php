@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $pdo->prepare('INSERT INTO users (full_name, username, password, role, status) VALUES (?,?,?,?,?)');
         try {
             $stmt->execute([$full_name, $username, $hash, $role, $status]);
-            session_start(); $_SESSION['flash'] = 'নতুন ব্যবহারকারী তৈরি হয়েছে।';
+            $_SESSION['flash'] = 'নতুন ব্যবহারকারী তৈরি হয়েছে।';
             redirect('users.php');
         } catch (Exception $e) {
             $errors[] = 'ডাটাবেস ত্রুটি: ' . $e->getMessage();

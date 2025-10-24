@@ -6,9 +6,8 @@ if (!isAuthenticated() || !hasRole(['super_admin'])) { redirect('../login.php');
 $stmt = $pdo->query("SELECT id, username, full_name, role, status FROM users ORDER BY id DESC");
 $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Flash helper
-session_start();
-$flash = $_SESSION['flash'] ?? null; unset($_SESSION['flash']);
+// Flash helper (session already started in config.php)
+$flash = $_SESSION['flash'] ?? null; if (isset($_SESSION['flash'])) unset($_SESSION['flash']);
 ?>
 <!DOCTYPE html>
 <html lang="bn">
