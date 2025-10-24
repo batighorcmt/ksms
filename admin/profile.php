@@ -1,8 +1,9 @@
 <?php
 require_once '../config.php';
 
-if (!isAuthenticated()) {
-    redirect('../index.php');
+if (!isAuthenticated() || !hasRole(['super_admin'])) {
+    header('Location: ../login.php');
+    exit();
 }
 
 $currentUser = null;
