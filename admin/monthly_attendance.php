@@ -370,7 +370,13 @@ $is_print_view = isset($_GET['print']) && $_GET['print'] == 'true';
     <!-- /.navbar -->
 
     <!-- Main Sidebar Container -->
-    <?php include 'inc/sidebar.php'; ?>
+    <?php
+    if (hasRole(['super_admin'])) {
+        include 'inc/sidebar.php';
+    } elseif (hasRole(['teacher'])) {
+        include '../teacher/inc/sidebar.php';
+    }
+    ?>
     <?php endif; ?>
 
     <!-- Content Wrapper. Contains page content -->
