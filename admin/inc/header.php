@@ -109,3 +109,37 @@ try {
     }catch(e){}
 })();
 </script>
+<script>
+// Fallback dropdown handler: ensures navbar dropdowns work even if Bootstrap 4's dropdown plugin isn't available
+(function(){
+    function initFallback(){
+        var hasBs4Dropdown = !!(window.jQuery && jQuery.fn && jQuery.fn.dropdown);
+        if (hasBs4Dropdown) return; // Bootstrap 4 present; use built-in behavior
+        var $ = window.jQuery; if (!$) return;
+
+        // Click to toggle for any navbar dropdown link
+        $(document).on('click', '.nav-item.dropdown > .nav-link', function(e){
+            e.preventDefault(); e.stopPropagation();
+            var $menu = $(this).siblings('.dropdown-menu');
+            // close other open menus
+            $('.nav-item.dropdown .dropdown-menu.show').not($menu).removeClass('show').hide();
+            // toggle current
+            if ($menu.hasClass('show')) { $menu.removeClass('show').hide(); }
+            else { $menu.addClass('show').css('display','block'); }
+        });
+
+        // Click outside closes any open dropdown
+        $(document).on('click', function(){
+            $('.nav-item.dropdown .dropdown-menu.show').removeClass('show').hide();
+        });
+
+        // Prevent menu click from bubbling to document and closing itself immediately
+        $(document).on('click', '.nav-item.dropdown .dropdown-menu', function(e){ e.stopPropagation(); });
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initFallback);
+    } else {
+        initFallback();
+    }
+})();
+</script>
