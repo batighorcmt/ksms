@@ -4,6 +4,7 @@ if (!isAuthenticated() || !hasRole(['teacher'])) {
     header('Location: ../login.php');
     exit();
 }
+
 $user_id = $_SESSION['user_id'];
 
 // Fetch teacher info
@@ -11,7 +12,7 @@ $user_id = $_SESSION['user_id'];
 $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ? AND role = 'teacher'");
 $stmt->execute([$user_id]);
 $teacher = $stmt->fetch();
-
+ 
 // Subjects taught by this teacher
 $subjects = $pdo->prepare("SELECT sub.name, c.name as class_name, s.name as section_name FROM routines r JOIN subjects sub ON r.subject_id = sub.id JOIN classes c ON r.class_id = c.id LEFT JOIN sections s ON r.section_id = s.id WHERE r.teacher_id = ? GROUP BY sub.id, c.id, s.id");
 $subjects->execute([$user_id]);
@@ -121,7 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
                                         <div style="font-size:1.05em;color:#555;">শিক্ষক আইডি: <?php echo htmlspecialchars($teacher['id']); ?></div>
                                     </div>
                                 </div>
-                                <div class="row mb-2"><div class="col-5 profile-label">ইমেইল:</div><div class="col-7"> <?php echo htmlspecialchars($teacher['email']); ?> </div></div>
+                                <div class="row mb-2"><div class="col-5 profile-label">ইমেইল:</div><div class="col-7"> <?php echo htmlspecialchars($teacher['email'] ?? ''); ?> </div></div>
                                 <div class="row mb-2"><div class="col-5 profile-label">মোবাইল:</div><div class="col-7"> <?php echo htmlspecialchars($teacher['phone'] ?? ''); ?> </div></div>
                                 <div class="row mb-2"><div class="col-5 profile-label">ঠিকানা:</div><div class="col-7"> <?php echo htmlspecialchars($teacher['address'] ?? ''); ?> </div></div>
                                 <div class="row mb-2"><div class="col-5 profile-label">জন্ম তারিখ:</div><div class="col-7"> <?php echo htmlspecialchars($teacher['dob'] ?? ''); ?> </div></div>
