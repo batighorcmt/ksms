@@ -42,6 +42,37 @@
                 <a href="#" class="dropdown-item dropdown-footer">সমস্ত নোটিফিকেশন দেখুন</a>
             </div>
         </li>
+        <!-- Quick Add Dropdown (+) -->
+        <li class="nav-item dropdown">
+            <a class="nav-link" data-toggle="dropdown" href="#" title="কুইক অ্যাকশন">
+                <i class="fas fa-plus"></i>
+            </a>
+            <div class="dropdown-menu dropdown-menu-right p-2" style="min-width: 260px;">
+                <a class="dropdown-item" href="<?php echo BASE_URL; ?>admin/add_student.php">
+                    <i class="fas fa-user-plus mr-2 text-primary"></i> নতুন শিক্ষার্থী
+                </a>
+                <a class="dropdown-item" href="<?php echo BASE_URL; ?>admin/add_teacher.php">
+                    <i class="fas fa-chalkboard-teacher mr-2 text-info"></i> নতুন শিক্ষক
+                </a>
+                <div class="dropdown-divider"></div>
+                <a class="dropdown-item" href="<?php echo BASE_URL; ?>admin/attendance.php">
+                    <i class="fas fa-clipboard-check mr-2 text-success"></i> উপস্থিতি গ্রহণ
+                </a>
+                <a class="dropdown-item" href="<?php echo BASE_URL; ?>admin/lesson_evaluation.php">
+                    <i class="fas fa-clipboard-list mr-2 text-secondary"></i> লেসন ইভুলেশন
+                </a>
+                <div class="dropdown-divider"></div>
+                <a class="dropdown-item" href="<?php echo BASE_URL; ?>exam/create_exam.php">
+                    <i class="fas fa-book mr-2 text-warning"></i> নতুন পরীক্ষা তৈরি
+                </a>
+                <a class="dropdown-item" href="<?php echo BASE_URL; ?>admin/certificates/print_certificate_options.php">
+                    <i class="fas fa-file-alt mr-2 text-danger"></i> নতুন প্রত্যয়নপত্র
+                </a>
+                <a class="dropdown-item" href="<?php echo BASE_URL; ?>admin/certificates/five_pass_certificate_genarate.php">
+                    <i class="fas fa-certificate mr-2 text-success"></i> নতুন সার্টিফিকেট জেনারেটর
+                </a>
+            </div>
+        </li>
         <li class="nav-item">
             <a class="nav-link" data-widget="fullscreen" href="#" role="button">
                 <i class="fas fa-expand-arrows-alt"></i>
