@@ -60,6 +60,7 @@ $available_columns = [
     'roll' => 'রোল',
     'class' => 'শ্রেণি',
     'section' => 'শাখা',
+    'dob' => 'জন্ম তারিখ',
     'admission_date' => 'ভর্তির তারিখ',
     'gender' => 'লিঙ্গ',
     'religion' => 'ধর্ম',
@@ -70,6 +71,9 @@ $available_columns = [
 ];
 
 $selected_columns = array_keys($available_columns); // default: all
+// Default column order (1-based) for display and POST persistence
+$column_orders = [];
+foreach (array_keys($available_columns) as $idx => $k) { $column_orders[$k] = $idx + 1; }
 
 // Helper: Convert English digits to Bangla digits
 if (!function_exists('bn_digits')) {
@@ -107,6 +111,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate_report'])) {
         $selected_columns = array_values(array_intersect(array_keys($available_columns), array_map('strval', $_POST['columns'])));
         if (empty($selected_columns)) { $selected_columns = ['serial','id','name','roll','class','section','mobile']; }
     }
+    // Column order mapping (from numeric inputs)
+    $posted_orders = isset($_POST['order']) && is_array($_POST['order']) ? $_POST['order'] : [];
+    // Initialize default orders
+    $baseIndex = array_flip(array_keys($available_columns));
+    foreach ($selected_columns as $k) {
+        $column_orders[$k] = isset($posted_orders[$k]) ? max(1, (int)$posted_orders[$k]) : ($baseIndex[$k] + 1);
+    }
+    // Sort selected columns by user-provided order, tie-breaker by base index
+    usort($selected_columns, function($a,$b) use ($column_orders, $baseIndex){
+        $oa = $column_orders[$a] ?? PHP_INT_MAX; $ob = $column_orders[$b] ?? PHP_INT_MAX;
+        if ($oa === $ob) { return ($baseIndex[$a] ?? 0) <=> ($baseIndex[$b] ?? 0); }
+        return $oa <=> $ob;
+    });
 
     // Build the WHERE clause for the SQL query
     $conditions = [];
@@ -150,6 +167,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate_report'])) {
             s.guardian_name AS s_guardian_name,
             s.guardian_relation,
             s.admission_date,
+            s.date_of_birth,
             s.photo,
             s.gender, s.religion, s.mobile_number, s.present_address,
             s.status AS student_status,
@@ -395,6 +413,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate_report'])) {
                                         <div class="form-check">
                                             <input class="form-check-input" type="checkbox" name="columns[]" id="col_<?= htmlspecialchars($key) ?>" value="<?= htmlspecialchars($key) ?>" <?= in_array($key, $selected_columns, true) ? 'checked' : '' ?>>
                                             <label class="form-check-label" for="col_<?= htmlspecialchars($key) ?>"><?= htmlspecialchars($label) ?></label>
+                                            <div>
+                                                <small class="text-muted">ক্রম</small>
+                                                <input type="number" min="1" class="form-control form-control-sm" style="width:80px; display:inline-block;" name="order[<?= htmlspecialchars($key) ?>]" id="order_<?= htmlspecialchars($key) ?>" value="<?= isset($column_orders[$key]) ? (int)$column_orders[$key] : 99 ?>">
+                                            </div>
                                         </div>
                                     </div>
                                 <?php endforeach; ?>
@@ -508,6 +530,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate_report'])) {
                                                             <td<?= $tdAttr ?>><?= htmlspecialchars($student['section_name'] ?? '') ?></td>
                                                         <?php break; case 'admission_date': ?>
                                                             <td<?= $tdAttr ?>><?= !empty($student['admission_date']) ? htmlspecialchars(bn_date($student['admission_date'])) : '' ?></td>
+                                                        <?php break; case 'dob': ?>
+                                                            <td<?= $tdAttr ?>><?= !empty($student['date_of_birth']) ? htmlspecialchars(bn_date($student['date_of_birth'])) : '' ?></td>
                                                         <?php break; case 'gender': ?>
                                                             <td<?= $tdAttr ?>>
                                                                 <?php 
