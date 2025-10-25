@@ -226,8 +226,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $pdo->commit();
 
+                // Ensure student's name appears in success message; if empty, fetch from DB as fallback
                 $student_full_name = trim(($first_name ?: '') . ' ' . ($last_name ?: ''));
-                $student_full_name_safe = htmlspecialchars($student_full_name, ENT_QUOTES, 'UTF-8');
+                if ($student_full_name === '') {
+                    $stmtName = $pdo->prepare('SELECT first_name, last_name FROM students WHERE id = ?');
+                    $stmtName->execute([$studentDbId]);
+                    if ($row = $stmtName->fetch(PDO::FETCH_ASSOC)) {
+                        $student_full_name = trim((($row['first_name'] ?? '') . ' ' . ($row['last_name'] ?? '')));
+                    }
+                }
+                $student_full_name_safe = htmlspecialchars($student_full_name !== '' ? $student_full_name : $student_id, ENT_QUOTES, 'UTF-8');
                 $success = "শিক্ষার্থী <strong>{$student_full_name_safe}</strong> সফলভাবে যোগ করা হয়েছে।<br>Student ID: <strong>{$student_id}</strong><br>Default password: <strong>{$default_password}</strong>";
                 if ($guardianCreated) {
                     $success .= "<br>গার্ডিয়ান অ্যাকাউন্ট তৈরি হয়েছে (Username: <strong>{$guardianUsername}</strong>, Password: <strong>{$default_password}</strong>)";
@@ -963,11 +971,11 @@ $(function(){
         }
     });
 
-    // Auto-hide success alert after 3 seconds
+    // Auto-hide success alert after 20 seconds
     if ($('#successAlert').length) {
         setTimeout(function(){
             $('#successAlert').fadeOut(400, function(){ $(this).remove(); });
-        }, 3000);
+        }, 20000);
     }
 });
 </script>
