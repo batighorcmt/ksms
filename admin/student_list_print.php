@@ -273,9 +273,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate_report'])) {
             tr { page-break-inside: avoid; page-break-after: auto; }
         }
 
-        /* Default print orientation: portrait */
+        /* Default print orientation & margins for printing */
         @media print {
-            @page { size: A4 portrait; margin: 12mm; }
+            /* Top/Left/Right: 0.3in, Bottom: 0.6in */
+            @page { size: A4 portrait; margin: 0.3in 0.3in 0.6in 0.3in; }
         }
 
         /* Drag & drop column ordering */
@@ -726,7 +727,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate_report'])) {
     // Print helper: temporarily set print orientation and trigger print
     function printWithOrientation(orientation) {
         try {
-            var css = '@media print{ @page { size: A4 ' + (orientation === 'landscape' ? 'landscape' : 'portrait') + '; margin: 12mm; } }';
+            // Only override size; keep global margins as defined in CSS
+            var css = '@media print{ @page { size: A4 ' + (orientation === 'landscape' ? 'landscape' : 'portrait') + '; } }';
             var style = document.createElement('style');
             style.setAttribute('id', 'print-orientation-style');
             style.type = 'text/css';

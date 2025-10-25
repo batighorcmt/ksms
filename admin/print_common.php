@@ -55,9 +55,11 @@ if (!function_exists('print_footer')) {
         $styleBlock = '<style>
             .print-footer{ display:none; }
             @media print{
-                body{ padding-bottom:24mm !important; }
-                .print-footer{ display:block; position:fixed; left:0; right:0; bottom:0; font-size:0.95rem; color:#000; background:#fff; height:18mm; }
-                .print-footer .pf-inner{ display:flex; justify-content:space-between; align-items:center; border-top:1px solid #d1d5db; padding:6px 4mm 2mm 4mm; box-sizing:border-box; height:100%; }
+                /* Reserve bottom space equal to footer height so content doesn\'t overlap */
+                body{ padding-bottom:0.6in !important; }
+                /* Footer sits within the bottom margin area (0.6in) */
+                .print-footer{ display:block; position:fixed; left:0; right:0; bottom:0; font-size:0.95rem; color:#000; background:#fff; height:0.55in; }
+                .print-footer .pf-inner{ display:flex; justify-content:space-between; align-items:center; border-top:1px solid #d1d5db; padding:6px 0.15in 2px 0.15in; box-sizing:border-box; height:100%; }
             }
         </style>';
         $left = '<div class="pf-left">কারিগরি সহযোগীতায়ঃ <strong>বাতিঘর কম্পিউটার’স</strong>, মোবাইলঃ <span style="font-weight:700">01762-396713</span></div>';
