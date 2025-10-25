@@ -226,7 +226,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $pdo->commit();
 
-                $success = "শিক্ষার্থী সফলভাবে যোগ করা হয়েছে।<br>Student ID: <strong>{$student_id}</strong><br>Default password: <strong>{$default_password}</strong>";
+                $student_full_name = trim(($first_name ?: '') . ' ' . ($last_name ?: ''));
+                $student_full_name_safe = htmlspecialchars($student_full_name, ENT_QUOTES, 'UTF-8');
+                $success = "শিক্ষার্থী <strong>{$student_full_name_safe}</strong> সফলভাবে যোগ করা হয়েছে।<br>Student ID: <strong>{$student_id}</strong><br>Default password: <strong>{$default_password}</strong>";
                 if ($guardianCreated) {
                     $success .= "<br>গার্ডিয়ান অ্যাকাউন্ট তৈরি হয়েছে (Username: <strong>{$guardianUsername}</strong>, Password: <strong>{$default_password}</strong>)";
                 }
@@ -432,7 +434,7 @@ $sectionsAll = $pdo->query("SELECT * FROM sections ORDER BY name ASC")->fetchAll
                                 <?php endif; ?>
 
                                 <?php if($success): ?>
-                                    <div class="alert alert-success">
+                                    <div class="alert alert-success" id="successAlert">
                                         <button type="button" class="close" data-dismiss="alert" aria-label="Close">
                                             <span aria-hidden="true">&times;</span>
                                         </button>
@@ -960,6 +962,13 @@ $(function(){
             $(this).next('.invalid-feedback').remove();
         }
     });
+
+    // Auto-hide success alert after 3 seconds
+    if ($('#successAlert').length) {
+        setTimeout(function(){
+            $('#successAlert').fadeOut(400, function(){ $(this).remove(); });
+        }, 3000);
+    }
 });
 </script>
 </body>
