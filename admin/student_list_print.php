@@ -264,7 +264,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate_report'])) {
             .print-only { display: block !important; }
             body { background-color: #fff; }
             .main-header, .main-sidebar, .control-sidebar, .navbar, .sidebar, .breadcrumb, .main-footer { display:none !important; }
-            .content-wrapper { margin-left:0 !important; }
+            .content-wrapper { margin-left:0 !important; padding-bottom:0.65in !important; }
             .card, .card-body { box-shadow:none !important; }
             .table { font-size: 12px; }
             .table th, .table td { padding: 6px !important; }
