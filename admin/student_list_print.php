@@ -264,19 +264,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate_report'])) {
             .print-only { display: block !important; }
             body { background-color: #fff; }
             .main-header, .main-sidebar, .control-sidebar, .navbar, .sidebar, .breadcrumb, .main-footer { display:none !important; }
-            .content-wrapper { margin-left:0 !important; padding-bottom:0.65in !important; }
+            /* Do not pad bottom; rely on @page margin for footer space */
+            .content-wrapper { margin-left:0 !important; }
             .card, .card-body { box-shadow:none !important; }
             .table { font-size: 12px; }
             .table th, .table td { padding: 6px !important; }
             .table thead th { background:#e5e7eb !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             table { page-break-inside: auto; }
             tr { page-break-inside: avoid; page-break-after: auto; }
-        }
-
-        /* Default print orientation & margins for printing */
-        @media print {
-            /* Top/Left/Right: 0.3in, Bottom: 0.7in */
-            @page { size: A4 portrait; margin: 0.3in 0.3in 0.7in 0.3in; }
+            /* Default print orientation & margins: 0.5in all around */
+            @page { size: A4 portrait; margin: 0.5in; }
         }
 
         /* Drag & drop column ordering */
@@ -747,7 +744,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate_report'])) {
         }
     }
 </script>
-<?php // Ensure print footer behaves exactly like other print pages
-echo print_footer(); ?>
+
 </body>
 </html>

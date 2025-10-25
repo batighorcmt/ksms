@@ -194,15 +194,32 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_student'])) {
     }
 }
 
-// শিক্ষার্থী মুছুন
+// শিক্ষার্থী মুছুন (এছাড়াও students_enrollment টেবিল থেকে রেকর্ড অপসারণ)
 if (isset($_GET['delete'])) {
-    $id = $_GET['delete'];
-    $stmt = $pdo->prepare("DELETE FROM students WHERE id = ?");
-    if ($stmt->execute([$id])) {
-        $_SESSION['success'] = "শিক্ষার্থী সফলভাবে মুছে ফেলা হয়েছে!";
-        redirect('admin/students.php');
-    } else {
-        $_SESSION['error'] = "শিক্ষার্থী মুছতে সমস্যা occurred!";
+    $id = (int)$_GET['delete'];
+    try {
+        // ট্রানজ্যাকশন শুরু
+        $pdo->beginTransaction();
+
+        // প্রথমে এনরোলমেন্ট রেকর্ড ডিলিট করুন (যদি থাকে)
+        $delEnroll = $pdo->prepare("DELETE FROM students_enrollment WHERE student_id = ?");
+        $delEnroll->execute([$id]);
+
+        // তারপর শিক্ষার্থী টেবিল থেকে ডিলিট
+        $stmt = $pdo->prepare("DELETE FROM students WHERE id = ?");
+        $ok = $stmt->execute([$id]);
+
+        if ($ok) {
+            $pdo->commit();
+            $_SESSION['success'] = "শিক্ষার্থী ও সংশ্লিষ্ট ভর্তি রেকর্ড সফলভাবে মুছে ফেলা হয়েছে!";
+            redirect('admin/students.php');
+        } else {
+            $pdo->rollBack();
+            $_SESSION['error'] = "শিক্ষার্থী মুছতে সমস্যা হয়েছে।";
+        }
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) { $pdo->rollBack(); }
+        $_SESSION['error'] = "শিক্ষার্থী মুছতে সমস্যা হয়েছে।";
     }
 }
 ?>
