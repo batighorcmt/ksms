@@ -321,33 +321,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate_report'])) {
         <!-- Content Header (Page header) -->
         <div class="content-header no-print">
             <div class="container-fluid">
-                            <div class="row">
-                                <div class="col-12">
-                                    <div class="form-group mb-1"><label>কলাম নির্বাচন করুন</label></div>
-                                    <p class="text-muted small mb-2">টেনে এনে (drag & drop) কলামগুলোর অবস্থান পরিবর্তন করুন। টিক চিহ্ন দিয়ে কোন কোন কলাম প্রদর্শন করবেন নির্ধারণ করুন।</p>
-                                    <div id="columnList" class="d-block">
-                                        <?php 
-                                            $render_keys = array_keys($available_columns);
-                                            usort($render_keys, function($a,$b) use ($column_orders, $baseIndex){
-                                                $oa = $column_orders[$a] ?? PHP_INT_MAX; $ob = $column_orders[$b] ?? PHP_INT_MAX;
-                                                if ($oa === $ob) { return ($baseIndex[$a] ?? 0) <=> ($baseIndex[$b] ?? 0); }
-                                                return $oa <=> $ob;
-                                            });
-                                            foreach ($render_keys as $key): 
-                                                $label = $available_columns[$key];
-                                        ?>
-                                            <div class="column-item" draggable="true" data-key="<?= htmlspecialchars($key) ?>">
-                                                <i class="fas fa-grip-vertical drag-handle" aria-hidden="true"></i>
-                                                <div class="form-check mb-0">
-                                                    <input class="form-check-input" type="checkbox" name="columns[]" id="col_<?= htmlspecialchars($key) ?>" value="<?= htmlspecialchars($key) ?>" <?= in_array($key, $selected_columns, true) ? 'checked' : '' ?>>
-                                                    <label class="form-check-label" for="col_<?= htmlspecialchars($key) ?>"><?= htmlspecialchars($label) ?></label>
-                                                </div>
-                                                <input type="hidden" name="order[<?= htmlspecialchars($key) ?>]" value="<?= isset($column_orders[$key]) ? (int)$column_orders[$key] : 99 ?>">
-                                            </div>
-                                        <?php endforeach; ?>
-                                    </div>
-                                </div>
-                            </div>
+                <div class="row mb-2">
+                    <div class="col-sm-6">
+                        <h1 class="m-0 text-dark">শিক্ষার্থী তালিকা</h1>
+                    </div>
+                    <div class="col-sm-6">
+                        <ol class="breadcrumb float-sm-right">
+                            <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>dashboard.php">হোম</a></li>
+                            <li class="breadcrumb-item active">শিক্ষার্থী তালিকা</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </div>
                 <!-- Filter Form Card -->
                 <div class="card shadow-sm form-card no-print">
                     <div class="card-header">
@@ -435,22 +421,35 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate_report'])) {
                                     </div>
                                 </div>
                             </div>
-                            <div class="row">
+                            <div class="row no-print">
                                 <div class="col-12">
-                                    <div class="form-group mb-1"><label>কলাম নির্বাচন করুন</label></div>
-                                </div>
-                                <?php foreach ($available_columns as $key => $label): ?>
-                                    <div class="col-md-2 col-sm-3 col-6">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" name="columns[]" id="col_<?= htmlspecialchars($key) ?>" value="<?= htmlspecialchars($key) ?>" <?= in_array($key, $selected_columns, true) ? 'checked' : '' ?>>
-                                            <label class="form-check-label" for="col_<?= htmlspecialchars($key) ?>"><?= htmlspecialchars($label) ?></label>
-                                            <div>
-                                                <small class="text-muted">ক্রম</small>
-                                                <input type="number" min="1" class="form-control form-control-sm" style="width:80px; display:inline-block;" name="order[<?= htmlspecialchars($key) ?>]" id="order_<?= htmlspecialchars($key) ?>" value="<?= isset($column_orders[$key]) ? (int)$column_orders[$key] : 99 ?>">
-                                            </div>
+                                    <button class="btn btn-sm btn-outline-secondary mb-2" type="button" data-toggle="collapse" data-target="#columnsCollapse" aria-expanded="false" aria-controls="columnsCollapse">
+                                        <i class="fas fa-sliders-h"></i> কলাম নির্ধারণ
+                                    </button>
+                                    <div id="columnsCollapse" class="collapse">
+                                        <div id="columnList" class="d-block">
+                                            <?php 
+                                                $render_keys = array_keys($available_columns);
+                                                usort($render_keys, function($a,$b) use ($column_orders, $baseIndex){
+                                                    $oa = $column_orders[$a] ?? PHP_INT_MAX; $ob = $column_orders[$b] ?? PHP_INT_MAX;
+                                                    if ($oa === $ob) { return ($baseIndex[$a] ?? 0) <=> ($baseIndex[$b] ?? 0); }
+                                                    return $oa <=> $ob;
+                                                });
+                                                foreach ($render_keys as $key): 
+                                                    $label = $available_columns[$key];
+                                            ?>
+                                                <div class="column-item" draggable="true" data-key="<?= htmlspecialchars($key) ?>">
+                                                    <i class="fas fa-grip-vertical drag-handle" aria-hidden="true"></i>
+                                                    <div class="form-check mb-0">
+                                                        <input class="form-check-input" type="checkbox" name="columns[]" id="col_<?= htmlspecialchars($key) ?>" value="<?= htmlspecialchars($key) ?>" <?= in_array($key, $selected_columns, true) ? 'checked' : '' ?>>
+                                                        <label class="form-check-label" for="col_<?= htmlspecialchars($key) ?>"><?= htmlspecialchars($label) ?></label>
+                                                    </div>
+                                                    <input type="hidden" name="order[<?= htmlspecialchars($key) ?>]" value="<?= isset($column_orders[$key]) ? (int)$column_orders[$key] : 99 ?>">
+                                                </div>
+                                            <?php endforeach; ?>
                                         </div>
                                     </div>
-                                <?php endforeach; ?>
+                                </div>
                             </div>
                             <div class="row mt-3">
                                 <div class="col-md-12">
