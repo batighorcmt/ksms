@@ -74,6 +74,8 @@ $selected_columns = array_keys($available_columns); // default: all
 // Default column order (1-based) for display and POST persistence
 $column_orders = [];
 foreach (array_keys($available_columns) as $idx => $k) { $column_orders[$k] = $idx + 1; }
+// Base index for stable sorting (fallback)
+$baseIndex = array_flip(array_keys($available_columns));
 
 // Helper: Convert English digits to Bangla digits
 if (!function_exists('bn_digits')) {
@@ -111,11 +113,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate_report'])) {
         $selected_columns = array_values(array_intersect(array_keys($available_columns), array_map('strval', $_POST['columns'])));
         if (empty($selected_columns)) { $selected_columns = ['serial','id','name','roll','class','section','mobile']; }
     }
-    // Column order mapping (from numeric inputs)
+    // Column order mapping (from drag & drop hidden inputs) — consider all keys, not only selected
     $posted_orders = isset($_POST['order']) && is_array($_POST['order']) ? $_POST['order'] : [];
-    // Initialize default orders
-    $baseIndex = array_flip(array_keys($available_columns));
-    foreach ($selected_columns as $k) {
+    foreach (array_keys($available_columns) as $k) {
         $column_orders[$k] = isset($posted_orders[$k]) ? max(1, (int)$posted_orders[$k]) : ($baseIndex[$k] + 1);
     }
     // Sort selected columns by user-provided order, tie-breaker by base index
@@ -279,11 +279,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate_report'])) {
         }
 
         /* Drag & drop column ordering */
+        #columnList { display:flex; flex-direction: column; gap:6px; }
         .column-item {
-            display: inline-flex;
+            display: flex;
             align-items: center;
-            padding: 6px 10px;
-            margin: 4px 6px;
+            padding: 8px 10px;
             border: 1px dashed #cbd5e0;
             border-radius: 6px;
             background: #f8fafc;
@@ -326,7 +326,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate_report'])) {
                                     <div class="form-group mb-1"><label>কলাম নির্বাচন করুন</label></div>
                                     <p class="text-muted small mb-2">টেনে এনে (drag & drop) কলামগুলোর অবস্থান পরিবর্তন করুন। টিক চিহ্ন দিয়ে কোন কোন কলাম প্রদর্শন করবেন নির্ধারণ করুন।</p>
                                     <div id="columnList" class="d-block">
-                                        <?php foreach ($available_columns as $key => $label): ?>
+                                        <?php 
+                                            $render_keys = array_keys($available_columns);
+                                            usort($render_keys, function($a,$b) use ($column_orders, $baseIndex){
+                                                $oa = $column_orders[$a] ?? PHP_INT_MAX; $ob = $column_orders[$b] ?? PHP_INT_MAX;
+                                                if ($oa === $ob) { return ($baseIndex[$a] ?? 0) <=> ($baseIndex[$b] ?? 0); }
+                                                return $oa <=> $ob;
+                                            });
+                                            foreach ($render_keys as $key): 
+                                                $label = $available_columns[$key];
+                                        ?>
                                             <div class="column-item" draggable="true" data-key="<?= htmlspecialchars($key) ?>">
                                                 <i class="fas fa-grip-vertical drag-handle" aria-hidden="true"></i>
                                                 <div class="form-check mb-0">
@@ -632,6 +641,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate_report'])) {
             function handleDragEnd(){
                 if (draggingEl) draggingEl.classList.remove('dragging');
                 draggingEl = null;
+                updateOrderInputs();
             }
             function getDragAfterElement(container, y){
                 var draggableElements = [].slice.call(container.querySelectorAll('.column-item:not(.dragging)'));
