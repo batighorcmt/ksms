@@ -275,8 +275,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate_report'])) {
 
         /* Default print orientation & margins for printing */
         @media print {
-            /* Top/Left/Right: 0.3in, Bottom: 0.6in */
-            @page { size: A4 portrait; margin: 0.3in 0.3in 0.6in 0.3in; }
+            /* Top/Left/Right: 0.3in, Bottom: 0.7in */
+            @page { size: A4 portrait; margin: 0.3in 0.3in 0.7in 0.3in; }
         }
 
         /* Drag & drop column ordering */
