@@ -277,6 +277,27 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate_report'])) {
         @media print {
             @page { size: A4 portrait; margin: 12mm; }
         }
+
+        /* Drag & drop column ordering */
+        .column-item {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 10px;
+            margin: 4px 6px;
+            border: 1px dashed #cbd5e0;
+            border-radius: 6px;
+            background: #f8fafc;
+            cursor: move;
+            user-select: none;
+        }
+        .column-item.dragging {
+            opacity: 0.6;
+        }
+        .drag-handle {
+            color: #6b7280;
+            margin-right: 6px;
+            cursor: move;
+        }
     </style>
 </head>
 <body class="hold-transition sidebar-mini">
@@ -300,23 +321,24 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate_report'])) {
         <!-- Content Header (Page header) -->
         <div class="content-header no-print">
             <div class="container-fluid">
-                <div class="row mb-2">
-                    <div class="col-sm-6">
-                        <h1 class="m-0 text-dark">শিক্ষার্থী তালিকা</h1>
-                    </div>
-                    <div class="col-sm-6">
-                        <ol class="breadcrumb float-sm-right">
-                            <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>dashboard.php">হোম</a></li>
-                            <li class="breadcrumb-item active">শিক্ষার্থী তালিকা</li>
-                        </ol>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Main content -->
-        <section class="content">
-            <div class="container-fluid">
+                            <div class="row">
+                                <div class="col-12">
+                                    <div class="form-group mb-1"><label>কলাম নির্বাচন করুন</label></div>
+                                    <p class="text-muted small mb-2">টেনে এনে (drag & drop) কলামগুলোর অবস্থান পরিবর্তন করুন। টিক চিহ্ন দিয়ে কোন কোন কলাম প্রদর্শন করবেন নির্ধারণ করুন।</p>
+                                    <div id="columnList" class="d-block">
+                                        <?php foreach ($available_columns as $key => $label): ?>
+                                            <div class="column-item" draggable="true" data-key="<?= htmlspecialchars($key) ?>">
+                                                <i class="fas fa-grip-vertical drag-handle" aria-hidden="true"></i>
+                                                <div class="form-check mb-0">
+                                                    <input class="form-check-input" type="checkbox" name="columns[]" id="col_<?= htmlspecialchars($key) ?>" value="<?= htmlspecialchars($key) ?>" <?= in_array($key, $selected_columns, true) ? 'checked' : '' ?>>
+                                                    <label class="form-check-label" for="col_<?= htmlspecialchars($key) ?>"><?= htmlspecialchars($label) ?></label>
+                                                </div>
+                                                <input type="hidden" name="order[<?= htmlspecialchars($key) ?>]" value="<?= isset($column_orders[$key]) ? (int)$column_orders[$key] : 99 ?>">
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
+                            </div>
                 <!-- Filter Form Card -->
                 <div class="card shadow-sm form-card no-print">
                     <div class="card-header">
@@ -584,6 +606,78 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate_report'])) {
 <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
 <script>
     $(document).ready(function() {
+        // Column drag & drop ordering (HTML5 DnD)
+        (function(){
+            var list = document.getElementById('columnList');
+            if (!list) return;
+
+            var draggingEl = null;
+
+            function updateOrderInputs(){
+                var items = list.querySelectorAll('.column-item');
+                var i = 1;
+                items.forEach(function(item){
+                    var key = item.getAttribute('data-key');
+                    var input = item.querySelector('input[type="hidden"][name^="order["]');
+                    if (input) input.value = i++;
+                });
+            }
+
+            function handleDragStart(e){
+                draggingEl = this;
+                this.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+                try { e.dataTransfer.setData('text/plain', this.getAttribute('data-key') || ''); } catch(err) {}
+            }
+            function handleDragEnd(){
+                if (draggingEl) draggingEl.classList.remove('dragging');
+                draggingEl = null;
+            }
+            function getDragAfterElement(container, y){
+                var draggableElements = [].slice.call(container.querySelectorAll('.column-item:not(.dragging)'));
+                return draggableElements.reduce(function(closest, child){
+                    var box = child.getBoundingClientRect();
+                    var offset = y - box.top - box.height / 2;
+                    if (offset < 0 && offset > closest.offset) {
+                        return { offset: offset, element: child };
+                    } else {
+                        return closest;
+                    }
+                }, { offset: Number.NEGATIVE_INFINITY }).element;
+            }
+            function handleDragOver(e){
+                e.preventDefault();
+                var afterElement = getDragAfterElement(list, e.clientY);
+                if (!draggingEl) return;
+                if (afterElement == null) {
+                    list.appendChild(draggingEl);
+                } else {
+                    list.insertBefore(draggingEl, afterElement);
+                }
+            }
+            function handleDrop(e){
+                e.preventDefault();
+                updateOrderInputs();
+            }
+
+            // Attach events
+            list.addEventListener('dragover', handleDragOver);
+            list.addEventListener('drop', handleDrop);
+            [].slice.call(list.querySelectorAll('.column-item')).forEach(function(item){
+                item.addEventListener('dragstart', handleDragStart);
+                item.addEventListener('dragend', handleDragEnd);
+            });
+
+            // Keep order inputs in sync on checkbox change or init
+            updateOrderInputs();
+
+            // Update order just before submit in case of last-moment changes
+            var form = list.closest('form');
+            if (form) {
+                form.addEventListener('submit', function(){ updateOrderInputs(); });
+            }
+        })();
+
         // Load sections on class change
         $('#class_id').change(function() {
             var classId = $(this).val();
