@@ -267,7 +267,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate_report'])) {
             /* Do not pad bottom; rely on @page margin for footer space */
             .content-wrapper { margin-left:0 !important; }
             .card, .card-body { box-shadow:none !important; }
-            .table { font-size: 12px; }
+            .table { font-size: 14px; }
             .table th, .table td { padding: 6px !important; }
             .table thead th { background:#e5e7eb !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             table { page-break-inside: auto; }
