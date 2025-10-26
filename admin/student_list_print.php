@@ -269,7 +269,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate_report'])) {
             .card, .card-body { box-shadow:none !important; }
             .table { font-size: 14px; }
             .table th, .table td { padding: 6px !important; }
-            .table thead th { background:#e5e7eb !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            /* Force ONLY table text to solid black for crisp printing */
+            .table, .table th, .table td { color:#000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .table thead th { background:#e5e7eb !important; }
             table { page-break-inside: auto; }
             tr { page-break-inside: avoid; page-break-after: auto; }
             /* Default print margins: 0.5in all around; no fixed paper size so A4/Legal/etc. work */
