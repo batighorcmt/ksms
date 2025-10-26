@@ -56,6 +56,55 @@ try {
     error_log("Error fetching SMS templates: " . $e->getMessage());
 }
 
+// --- SMS logging helpers (dynamic, compatible with existing sms_logs schema) ---
+if (!function_exists('attendance_sms_log_available_columns')) {
+    function attendance_sms_log_available_columns(PDO $pdo) {
+        static $cols = null;
+        if ($cols !== null) return $cols;
+        $cols = [];
+        try {
+            $st = $pdo->query("SHOW COLUMNS FROM sms_logs");
+            foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $c) {
+                if (!empty($c['Field'])) $cols[$c['Field']] = true;
+            }
+        } catch (Exception $e) {
+            $cols = [];
+        }
+        return $cols;
+    }
+}
+
+if (!function_exists('attendance_insert_sms_log')) {
+    function attendance_insert_sms_log(PDO $pdo, array $data) {
+        $avail = attendance_sms_log_available_columns($pdo);
+        $base = [
+            'sent_by_user_id' => $data['sent_by_user_id'] ?? null,
+            'recipient_type' => $data['recipient_type'] ?? null,
+            'recipient_number' => $data['recipient_number'] ?? null,
+            'message' => $data['message'] ?? null,
+            'status' => $data['status'] ?? 'success',
+        ];
+        $extra = [
+            'recipient_category' => $data['recipient_category'] ?? null,
+            'recipient_id' => $data['recipient_id'] ?? null,
+            'recipient_name' => $data['recipient_name'] ?? null,
+            'recipient_role' => $data['recipient_role'] ?? null,
+            'roll_number' => $data['roll_number'] ?? null,
+            'class_name' => $data['class_name'] ?? null,
+            'section_name' => $data['section_name'] ?? null,
+        ];
+        $fields = [];
+        $values = [];
+        $params = [];
+        foreach ($base as $k=>$v) { if (isset($avail[$k])) { $fields[]=$k; $values[]='?'; $params[]=$v; } }
+        foreach ($extra as $k=>$v) { if (isset($avail[$k])) { $fields[]=$k; $values[]='?'; $params[]=$v; } }
+        $created = isset($avail['created_at']);
+        $sql = 'INSERT INTO sms_logs (' . implode(',', $fields) . ($created? ',created_at':'') . ') VALUES (' . implode(',', $values) . ($created? ',NOW()':'') . ')';
+        $st = $pdo->prepare($sql);
+        $st->execute($params);
+    }
+}
+
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_attendance'])) {
     $class_id = intval(isset($_POST['class_id']) ? $_POST['class_id'] : 0);
@@ -255,10 +304,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_attendance'])) {
                     // Skip duplicate sends to same number in this run
                     if (isset($sent_to_numbers[$mobile])) { continue; }
                     if ($template && $mobile !== '') {
+                        $student_name = trim((isset($r['first_name']) ? $r['first_name'] : '') . ' ' . (isset($r['last_name']) ? $r['last_name'] : ''));
                         $msg = str_replace(
                             ['{student_name}', '{roll}', '{date}', '{status}', '{class}', '{section}'],
                             [
-                                trim((isset($r['first_name']) ? $r['first_name'] : '') . ' ' . (isset($r['last_name']) ? $r['last_name'] : '')),
+                                $student_name,
                                 (isset($r['roll_number']) ? $r['roll_number'] : ''),
                                 $date,
                                 $status,
@@ -273,14 +323,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_attendance'])) {
                             usleep(300000); // 0.3s
                             $ok = send_sms($mobile, $msg);
                         }
-                        // Log regardless of success/failure; 'status' column stores attendance status here
-                        $log_stmt = $pdo->prepare("INSERT INTO sms_logs (student_id, mobile, message, status, sent_by) VALUES (?, ?, ?, ?, ?)");
-                        $log_stmt->execute([
-                            $r['student_id'],
-                            $mobile,
-                            $msg,
-                            $status,
-                            (isset($_SESSION['user_id']) ? $_SESSION['user_id'] : null)
+                        // Unified logging: recipient_type captures attendance status; status captures delivery result
+                        attendance_insert_sms_log($pdo, [
+                            'sent_by_user_id' => (isset($_SESSION['user_id']) ? $_SESSION['user_id'] : null),
+                            'recipient_type' => 'attendance_' . $status,
+                            'recipient_number' => $mobile,
+                            'message' => $msg,
+                            'status' => $ok ? 'success' : 'failed',
+                            'recipient_category' => 'student',
+                            'recipient_id' => (isset($r['student_id']) ? $r['student_id'] : null),
+                            'recipient_name' => $student_name,
+                            'recipient_role' => 'student',
+                            'roll_number' => (isset($r['roll_number']) ? $r['roll_number'] : null),
+                            'class_name' => $class_name,
+                            'section_name' => $section_name,
                         ]);
                         if ($ok) { $sent_count++; }
                         $sent_to_numbers[$mobile] = true;

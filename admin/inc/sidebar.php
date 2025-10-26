@@ -65,7 +65,8 @@
         $attendanceOpen = $isActive(['admin/attendance_overview.php','admin/attendance.php','admin/attendance_report.php','admin/monthly_attendance.php','admin/teacher_attendance_report.php','admin/teacher_attendance_monthly.php']);
         $examOpen = $isActive(['exam/exam_list.php','exam/create_exam.php']);
         $certOpen = $isActive(['admin/certificates/five_pass_certificate_genarate.php','admin/certificates/five_pass_certificate_list.php','admin/certificates/print_certificate_options.php','admin/certificates/issued_certificates.php']);
-        $reportsOpen = $isActive(['admin/reports.php','admin/monthly_attendance.php']);
+    $reportsOpen = $isActive(['admin/reports.php','admin/monthly_attendance.php']);
+    $smsOpen = $isActive(['admin/sms_panel.php','admin/sms_logs.php']);
         $teachersActive = $isActive(['admin/teachers.php','admin/teacher_details.php']);
         $feesActive = $isActive(['admin/fees.php']);
         $homeworkActive = $isActive(['admin/homework.php']);
@@ -338,6 +339,28 @@
                         <i class="nav-icon fas fa-book-open"></i>
                         <p>হোমওয়ার্ক</p>
                     </a>
+                </li>
+
+                <!-- SMS -->
+                <li class="nav-item <?php echo $smsOpen ? 'menu-open' : ''; ?>">
+                    <a href="#" class="nav-link <?php echo $smsOpen ? 'active' : ''; ?>">
+                        <i class="nav-icon fas fa-sms"></i>
+                        <p>এসএমএস<i class="right fas fa-angle-left"></i></p>
+                    </a>
+                    <ul class="nav nav-treeview">
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/sms_panel.php" class="nav-link <?php echo $isActive('admin/sms_panel.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>এসএমএস পাঠান</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/sms_logs.php" class="nav-link <?php echo $isActive('admin/sms_logs.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>এসএমএস লগ</p>
+                            </a>
+                        </li>
+                    </ul>
                 </li>
 
                 <!-- Lesson Evaluation -->
