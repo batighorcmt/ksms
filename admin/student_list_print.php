@@ -206,7 +206,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate_report'])) {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>শিক্ষার্থী তালিকা - কিন্ডার গার্ডেন</title>
+    <title>শিক্ষার্থী তালিকা</title>
 
     <!-- Google Font: Source Sans Pro -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback">
@@ -272,8 +272,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate_report'])) {
             .table thead th { background:#e5e7eb !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             table { page-break-inside: auto; }
             tr { page-break-inside: avoid; page-break-after: auto; }
-            /* Default print orientation & margins: 0.5in all around */
-            @page { size: A4 portrait; margin: 0.5in; }
+            /* Default print margins: 0.5in all around; no fixed paper size so A4/Legal/etc. work */
+            @page { margin: 0.5in; }
         }
 
         /* Drag & drop column ordering */
@@ -725,7 +725,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate_report'])) {
     function printWithOrientation(orientation) {
         try {
             // Only override size; keep global margins as defined in CSS
-            var css = '@media print{ @page { size: A4 ' + (orientation === 'landscape' ? 'landscape' : 'portrait') + '; } }';
+            var css = '@media print{ @page { size: ' + (orientation === 'landscape' ? 'landscape' : 'portrait') + '; } }';
             var style = document.createElement('style');
             style.setAttribute('id', 'print-orientation-style');
             style.type = 'text/css';

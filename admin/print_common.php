@@ -53,8 +53,8 @@ if (!function_exists('print_footer')) {
         // Inline CSS: hide footer on screen, show only when printing
         // Ensure enough bottom padding so content never overlaps the fixed footer
             $styleBlock = '<style>
-                /* Standardize print margins globally: 0.5 inch on all sides */
-                @page { size: A4; margin: 0.5in; }
+                /* Standardize print margins globally: 0.5 inch on all sides; no fixed size to allow A4/Legal/etc. */
+                @page { margin: 0.5in; }
                 .print-footer{ display:none; }
                 @media print{
                     /* No body padding; space reserved by @page bottom margin */
