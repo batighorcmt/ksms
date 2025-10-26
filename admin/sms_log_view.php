@@ -1,5 +1,6 @@
 <?php
 require_once '../config.php';
+require_once __DIR__ . '/print_common.php';
 
 if (!isAuthenticated() || !hasRole(['super_admin'])) {
     redirect('../login.php');
@@ -20,6 +21,27 @@ if (!$row) {
 }
 
 function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
+
+// Try to load institute name and address from settings table (best-effort)
+$inst_name = '';
+$inst_address = '';
+try {
+    $keys = [
+        'school_name','institute_name','institute','school_title','site_name',
+        'school_address','institute_address','address'
+    ];
+    $in = implode(',', array_fill(0, count($keys), '?'));
+    $st = $pdo->prepare("SELECT `key`, `value` FROM settings WHERE `key` IN ($in)");
+    $st->execute($keys);
+    $kv = [];
+    foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) { $kv[$r['key']] = $r['value']; }
+    foreach (['school_name','institute_name','institute','school_title','site_name'] as $k) {
+        if (!empty($kv[$k])) { $inst_name = trim((string)$kv[$k]); break; }
+    }
+    foreach (['school_address','institute_address','address'] as $k) {
+        if (!empty($kv[$k])) { $inst_address = trim((string)$kv[$k]); break; }
+    }
+} catch (Exception $e) { /* ignore */ }
 ?>
 <!DOCTYPE html>
 <html lang="bn">
@@ -30,26 +52,26 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
 <link href="https://fonts.maateen.me/solaiman-lipi/font.css" rel="stylesheet">
 <style>
-  body { font-family: 'SolaimanLipi','Source Sans Pro',sans-serif; }
-  .container-box { max-width: 900px; margin: 20px auto; }
-  .print-header { text-align:center; margin-bottom: 10px; }
+  body { font-family: 'SolaimanLipi','Source Sans Pro',sans-serif; font-size:16px; line-height:1.5; }
+  .container-box { max-width: 980px; margin: 22px auto; }
+  /* Header styling now comes from print_common.php */
   .print-actions { text-align:right; margin-bottom: 10px; }
-  .detail-grid { display: grid; grid-template-columns: 1fr 2fr; grid-row-gap: 8px; grid-column-gap: 12px; }
+  .detail-grid { display: grid; grid-template-columns: 1fr 2fr; grid-row-gap: 8px; grid-column-gap: 14px; }
   .label { color:#666; }
-  .value { font-weight: 600; }
-  .msg-box { border:1px solid #ccc; border-radius:6px; padding:12px; white-space:pre-wrap; }
+  .value { font-weight: 600; color:#111; }
+  .card { box-shadow: 0 2px 6px rgba(0,0,0,0.05); border-radius:8px; }
+  .msg-box { border:1px solid #e0e0e0; border-radius:6px; padding:12px; white-space:pre-wrap; background:#fafafa; }
+  hr { border-top: 1px solid #e5e5e5; }
   @media print {
     .print-actions { display:none; }
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .card { box-shadow:none; border:1px solid #ddd; }
   }
 </style>
 </head>
 <body>
 <div class="container-box">
-  <div class="print-header">
-    <h3>এসএমএস লগ ভিউ</h3>
-    <small>ID: <?= (int)$row['id'] ?> • সময়: <?= h($row['created_at'] ?? '') ?></small>
-  </div>
+  <?php echo print_header($pdo, 'এসএমএস লগ ভিউ'); ?>
   <div class="print-actions">
     <a class="btn btn-sm btn-secondary" href="sms_logs.php">Back</a>
     <button class="btn btn-sm btn-primary" onclick="window.print()">Print</button>
@@ -57,6 +79,8 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
   <div class="card">
     <div class="card-body">
       <div class="detail-grid">
+        <div class="label">লগ আইডি</div><div class="value"><?= (int)$row['id'] ?></div>
+        <div class="label">সময়</div><div class="value"><?= h($row['created_at'] ?? '') ?></div>
         <div class="label">স্ট্যাটাস</div><div class="value"><?= h($row['status'] ?? '') ?></div>
         <div class="label">ধরন</div><div class="value"><?= h($row['recipient_type'] ?? '') ?></div>
         <div class="label">প্রাপক বিভাগ</div><div class="value"><?= h($row['recipient_category'] ?? '') ?></div>
