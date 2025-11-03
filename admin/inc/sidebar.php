@@ -59,7 +59,7 @@
 
         // Group open flags
         $dashboardActive = $isActive(['admin/dashboard.php']);
-        $studentsOpen = $isActive(['admin/students.php','admin/student_list_print.php','admin/promote_students.php']);
+    $studentsOpen = $isActive(['admin/students.php','admin/student_list_print.php','admin/promote_students.php','admin/student_info_collection_print.php']);
     $classesOpen = $isActive(['admin/classes.php','admin/routine_list.php']);
     $subjectsOpen = $isActive(['admin/school_subjects.php','admin/subjects.php','admin/add_subject.php','admin/subject_assign.php']);
         $attendanceOpen = $isActive(['admin/attendance_overview.php','admin/attendance.php','admin/attendance_report.php','admin/monthly_attendance.php','admin/teacher_attendance_report.php','admin/teacher_attendance_monthly.php']);
@@ -67,6 +67,7 @@
         $certOpen = $isActive(['admin/certificates/five_pass_certificate_genarate.php','admin/certificates/five_pass_certificate_list.php','admin/certificates/print_certificate_options.php','admin/certificates/issued_certificates.php']);
     $reportsOpen = $isActive(['admin/reports.php','admin/monthly_attendance.php']);
     $smsOpen = $isActive(['admin/sms_panel.php','admin/sms_logs.php']);
+    $accountsOpen = $isActive(['admin/accounts/index.php','admin/accounts/fees_settings.php','admin/accounts/simple_fee_settings.php','admin/accounts/student_waivers.php','admin/accounts/fee_billing.php','admin/accounts/fee_collect.php','admin/accounts/income_entry.php','admin/accounts/expense_entry.php','admin/accounts/salary_settings.php','admin/accounts/salary_pay.php','admin/accounts/reports/income_expense_report.php','admin/accounts/reports/dues_report.php','admin/accounts/reports/collection_report.php','admin/accounts/reports/student_ledger.php','admin/accounts/settings/sessions.php','admin/accounts/settings/categories.php','admin/accounts/events.php']);
         $teachersActive = $isActive(['admin/teachers.php','admin/teacher_details.php']);
         $feesActive = $isActive(['admin/fees.php']);
         $homeworkActive = $isActive(['admin/homework.php']);
@@ -126,6 +127,12 @@
                             <a href="<?php echo BASE_URL; ?>admin/students.php" class="nav-link <?php echo $isActive('admin/students.php') ? 'active' : ''; ?>">
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>শিক্ষার্থী তালিকা</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/student_info_collection_print.php" class="nav-link <?php echo $isActive('admin/student_info_collection_print.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>শিক্ষার্থী তথ্য সংগ্রহ ফরম</p>
                             </a>
                         </li>
                         <li class="nav-item">
@@ -362,6 +369,121 @@
                         </li>
                     </ul>
                 </li>
+
+                <!-- Accounts/Finance (super admin only) -->
+                <?php $roleKey = (!empty($currentUser['role'])) ? $currentUser['role'] : (!empty($_SESSION['role']) ? $_SESSION['role'] : ''); ?>
+                <?php if ($roleKey==='super_admin'): ?>
+                <li class="nav-item <?php echo $accountsOpen ? 'menu-open' : ''; ?>">
+                    <a href="#" class="nav-link <?php echo $accountsOpen ? 'active' : ''; ?>">
+                        <i class="nav-icon fas fa-coins"></i>
+                        <p>হিসাব ব্যবস্থাপনা<i class="right fas fa-angle-left"></i></p>
+                    </a>
+                    <ul class="nav nav-treeview">
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/accounts/index.php" class="nav-link <?php echo $isActive('admin/accounts/index.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>ড্যাশবোর্ড</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/accounts/fees_settings.php" class="nav-link <?php echo $isActive('admin/accounts/fees_settings.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>ফি সেটিংস</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/accounts/simple_fee_settings.php" class="nav-link <?php echo $isActive('admin/accounts/simple_fee_settings.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>সহজ ফিস সেটিংস</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/accounts/student_waivers.php" class="nav-link <?php echo $isActive('admin/accounts/student_waivers.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>শিক্ষার্থী ছাড়</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/accounts/fee_billing.php" class="nav-link <?php echo $isActive('admin/accounts/fee_billing.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>মাসিক বিল</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/accounts/fee_collect.php" class="nav-link <?php echo $isActive('admin/accounts/fee_collect.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>ফি সংগ্রহ</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/accounts/income_entry.php" class="nav-link <?php echo $isActive('admin/accounts/income_entry.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>আয় যুক্ত</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/accounts/expense_entry.php" class="nav-link <?php echo $isActive('admin/accounts/expense_entry.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>ব্যয় যুক্ত</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/accounts/salary_settings.php" class="nav-link <?php echo $isActive('admin/accounts/salary_settings.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>বেতন সেটিংস</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/accounts/salary_pay.php" class="nav-link <?php echo $isActive('admin/accounts/salary_pay.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>বেতন প্রদান</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/accounts/events.php" class="nav-link <?php echo $isActive('admin/accounts/events.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>ইভেন্ট ফিস</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/accounts/reports/income_expense_report.php" class="nav-link <?php echo $isActive('admin/accounts/reports/income_expense_report.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>আয়-ব্যয় রিপোর্ট</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/accounts/reports/dues_report.php" class="nav-link <?php echo $isActive('admin/accounts/reports/dues_report.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>বকেয়া রিপোর্ট</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/accounts/reports/collection_report.php" class="nav-link <?php echo $isActive('admin/accounts/reports/collection_report.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>কালেকশন রিপোর্ট</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/accounts/reports/student_ledger.php" class="nav-link <?php echo $isActive('admin/accounts/reports/student_ledger.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>শিক্ষার্থী লেজার</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/accounts/settings/sessions.php" class="nav-link <?php echo $isActive('admin/accounts/settings/sessions.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>শিক্ষাবর্ষ সেটিংস</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/accounts/settings/categories.php" class="nav-link <?php echo $isActive('admin/accounts/settings/categories.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>আয়/ব্যয় খাত</p>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+                <?php endif; ?>
 
                 <!-- Lesson Evaluation -->
                 <li class="nav-item">

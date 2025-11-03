@@ -31,11 +31,11 @@ if (!function_exists('print_header')) {
     ?>
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:8px;">
         <?php if($logo): ?>
-            <div style="width:90px;flex:0 0 90px;"><img src="<?php echo $logo; ?>" style="max-width:100%;max-height:90px;object-fit:contain"/></div>
+            <div style="width:90px;flex:0 0 90px; margin-left: 100px;"><img src="<?php echo $logo; ?>" style="max-width:100%;max-height:90px;object-fit:contain"/></div>
         <?php else: ?>
             <div style="width:90px;flex:0 0 90px;background:#f3f4f6;border-radius:6px;display:flex;align-items:center;justify-content:center">লোগো</div>
         <?php endif; ?>
-        <div style="flex:1;text-align:center;">
+        <div style="flex:1;text-align:center; margin-left: -100px;">
             <div style="font-weight:700;font-size:1.25rem"><?php echo $name; ?></div>
             <div style="color:#444;font-size:0.95rem"><?php echo $address; ?></div>
             <div style="color:#444;font-size:0.95rem"><?php echo $contact; ?></div>
