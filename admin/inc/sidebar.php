@@ -152,25 +152,19 @@
                         <p>শিক্ষার্থী ব্যবস্থাপনা<i class="right fas fa-angle-left"></i></p>
                     </a>
                     <ul class="nav nav-treeview">
+                       <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/add_student.php" class="nav-link <?php echo $isActive('admin/add_student.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>নতুন শিক্ষার্থী যুক্ত করুন</p>
+                            </a>
+                        </li>
                         <li class="nav-item">
                             <a href="<?php echo BASE_URL; ?>admin/students.php" class="nav-link <?php echo $isActive('admin/students.php') ? 'active' : ''; ?>">
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>শিক্ষার্থী তালিকা</p>
                             </a>
                         </li>
-                        <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admission/students_quick_list.php" class="nav-link <?php echo $isActive('admission/students_quick_list.php') ? 'active' : ''; ?>">
-                                <i class="far fa-circle nav-icon"></i>
-                                <p>সংক্ষিপ্ত শিক্ষার্থী তালিকা</p>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>admin/student_info_collection_print.php" class="nav-link <?php echo $isActive('admin/student_info_collection_print.php') ? 'active' : ''; ?>">
-                                <i class="far fa-circle nav-icon"></i>
-                                <p>শিক্ষার্থী তথ্য সংগ্রহ ফরম</p>
-                            </a>
-                        </li>
-                        <li class="nav-item">
+                       <li class="nav-item">
                             <a href="<?php echo BASE_URL; ?>admin/student_list_print.php" class="nav-link <?php echo $isActive('admin/student_list_print.php') ? 'active' : ''; ?>">
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>শিক্ষার্থী রিপোর্ট</p>
@@ -182,6 +176,11 @@
                                 <p>শিক্ষার্থী প্রমোশন</p>
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admin/student_info_collection_print.php" class="nav-link <?php echo $isActive('admin/student_info_collection_print.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>শিক্ষার্থী তথ্য সংগ্রহ ফরম</p>
+                            </a>
                     </ul>
                 </li>
 
