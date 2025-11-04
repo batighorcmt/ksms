@@ -57,8 +57,10 @@
             return false;
         };
 
-        // Group open flags
-        $dashboardActive = $isActive(['admin/dashboard.php']);
+    // Group open flags
+    $dashboardActive = $isActive(['admin/dashboard.php']);
+    // Admission group (new)
+    $admissionOpen = $isActive(['admission/index.php','admission/list.php','admission/list_print.php','admission/students_quick_list.php']);
     $studentsOpen = $isActive(['admin/students.php','admin/student_list_print.php','admin/promote_students.php','admin/student_info_collection_print.php']);
     $classesOpen = $isActive(['admin/classes.php','admin/routine_list.php']);
     $subjectsOpen = $isActive(['admin/school_subjects.php','admin/subjects.php','admin/add_subject.php','admin/subject_assign.php']);
@@ -116,6 +118,33 @@
                     </a>
                 </li>
 
+                <li class="nav-item <?php echo $admissionOpen ? 'menu-open' : ''; ?>">
+                    <a href="#" class="nav-link <?php echo $admissionOpen ? 'active' : ''; ?>">
+                        <i class="nav-icon fas fa-address-card"></i>
+                        <p>ভর্তি তথ্য সংগ্রহ <i class="right fas fa-angle-left"></i></p>
+                    </a>
+                    <ul class="nav nav-treeview">
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admission/index.php" class="nav-link <?php echo $isActive('admission/index.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>নতুন ভর্তি তথ্য</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admission/list.php" class="nav-link <?php echo $isActive('admission/list.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>সংগ্রহকৃত তালিকা</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admission/students_quick_list.php" class="nav-link <?php echo $isActive('admission/students_quick_list.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>সংক্ষিপ্ত শিক্ষার্থী তালিকা</p>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+
                 <!-- Students -->
                 <li class="nav-item <?php echo $studentsOpen ? 'menu-open' : ''; ?>">
                     <a href="#" class="nav-link <?php echo $studentsOpen ? 'active' : ''; ?>">
@@ -127,6 +156,12 @@
                             <a href="<?php echo BASE_URL; ?>admin/students.php" class="nav-link <?php echo $isActive('admin/students.php') ? 'active' : ''; ?>">
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>শিক্ষার্থী তালিকা</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admission/students_quick_list.php" class="nav-link <?php echo $isActive('admission/students_quick_list.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>সংক্ষিপ্ত শিক্ষার্থী তালিকা</p>
                             </a>
                         </li>
                         <li class="nav-item">
