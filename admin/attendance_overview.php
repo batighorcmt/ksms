@@ -132,17 +132,17 @@ if ($current_year_id && function_exists('enrollment_table_exists') && enrollment
 // Fetch absent students list (including those without attendance records) — year-aware
 if ($current_year_id && function_exists('enrollment_table_exists') && enrollment_table_exists($pdo)) {
     $absent_students_list = $pdo->prepare("
-        SELECT 
-            st.id, st.first_name, st.last_name, c.name AS class_name, s.name AS section_name,
-            se.roll_number, st.mobile_number, st.present_address AS village, st.father_name, st.mother_name, st.guardian_relation, st.photo,
-            CASE WHEN a.status IS NULL THEN 'রেকর্ড করা হয়নি' ELSE 'অনুপস্থিত' END AS status_type
-        FROM students_enrollment se
-        JOIN students st ON st.id = se.student_id
-        JOIN classes c ON se.class_id = c.id
-        LEFT JOIN sections s ON se.section_id = s.id
-        LEFT JOIN attendance a ON a.student_id = st.id AND a.date = ?
-        WHERE se.academic_year_id = ? AND (se.status = 'active' OR se.status IS NULL) AND (a.status = 'absent' OR a.status IS NULL)
-        ORDER BY c.numeric_value, s.name, se.roll_number
+                SELECT 
+                    st.id, st.first_name, st.last_name, c.name AS class_name, s.name AS section_name,
+                    se.roll_number, st.mobile_number, st.present_address AS village, st.father_name, st.mother_name, st.guardian_relation, st.photo,
+                    CASE WHEN a.status IS NULL THEN 'রেকর্ড করা হয়নি' ELSE 'অনুপস্থিত' END AS status_type
+                FROM students_enrollment se
+                JOIN students st ON st.id = se.student_id
+                JOIN classes c ON se.class_id = c.id
+                LEFT JOIN sections s ON se.section_id = s.id
+                LEFT JOIN attendance a ON a.student_id = st.id AND a.date = ?
+                WHERE se.academic_year_id = ? AND (se.status = 'active' OR se.status IS NULL) AND (a.status = 'absent' OR a.status IS NULL)
+                ORDER BY c.numeric_value ASC, s.id ASC, se.roll_number ASC
     ");
     $absent_students_list->execute([$selected_date, $current_year_id]);
     $absent_list = $absent_students_list->fetchAll();
@@ -156,7 +156,7 @@ if ($current_year_id && function_exists('enrollment_table_exists') && enrollment
         JOIN sections s ON st.section_id = s.id
         LEFT JOIN attendance a ON st.id = a.student_id AND a.date = ?
         WHERE st.status = 'active' AND (a.status = 'absent' OR a.status IS NULL)
-        ORDER BY c.numeric_value, s.name, st.roll_number
+                ORDER BY c.numeric_value ASC, s.id ASC, st.roll_number ASC
     ");
     $absent_students_list->execute([$selected_date]);
     $absent_list = $absent_students_list->fetchAll();
