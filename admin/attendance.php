@@ -9,6 +9,18 @@ if (!isAuthenticated() || !hasRole(['super_admin', 'teacher'])) {
     exit;
 }
 
+// Additional authorization check for teachers
+if ($_SESSION['role'] === 'teacher') {
+    $teacher_sections_check = $pdo->prepare("SELECT COUNT(*) as section_count FROM sections WHERE section_teacher_id = ? AND status = 'active'");
+    $teacher_sections_check->execute([$_SESSION['user_id']]);
+    $teacher_sections_result = $teacher_sections_check->fetch();
+    
+    if ($teacher_sections_result['section_count'] == 0) {
+        $_SESSION['error'] = "আপনি অনুমোদিত নন। উপস্থিতি গ্রহণ করতে আপনার কোনো শাখার দায়িত্ব থাকতে হবে।";
+        redirect('dashboard.php');
+    }
+}
+
 // Get today's date for default selection
 $current_date = date('Y-m-d');
 
