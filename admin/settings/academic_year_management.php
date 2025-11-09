@@ -21,8 +21,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$end_date) {
             $end_date = date('Y-m-d', strtotime($year.'-12-31'));
         }
-        $stmt = $pdo->prepare("INSERT INTO academic_years (year, is_current, start_date, end_date) VALUES (?, 0, ?, ?)");
-        $stmt->execute([$year, $start_date, $end_date]);
+    // Ensure 'status' is provided (table requires NOT NULL). Use 'active' for new years by default.
+    $stmt = $pdo->prepare("INSERT INTO academic_years (year, is_current, start_date, end_date, status) VALUES (?, 0, ?, ?, ?)");
+    $stmt->execute([$year, $start_date, $end_date, 'active']);
     }
     if (isset($_POST['update_year'])) {
         $id = intval($_POST['id']);
