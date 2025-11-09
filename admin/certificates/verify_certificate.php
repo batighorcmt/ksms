@@ -15,19 +15,22 @@ if ($student_id === '') {
 // We attempt to fetch the most recent enrollment (by academic_year_id DESC) for section & class context.
 // Fallback to legacy columns class_id / section_id if present.
 $stmt = $pdo->prepare("SELECT s.*, 
+     recent.class_id AS recent_class_id,
+     recent.section_id AS recent_section_id,
+     recent.roll_number AS recent_roll_number,
      c2.name AS class_name,
      sec2.name AS section_name
   FROM students s
   LEFT JOIN (
-                SELECT se.student_id, se.class_id, se.section_id
-                FROM students_enrollment se
-                WHERE se.student_id = (SELECT id FROM students WHERE student_id = ? LIMIT 1)
-                ORDER BY se.academic_year_id DESC, se.id DESC
-                LIMIT 1
-    ) recent ON recent.student_id = s.id
-    LEFT JOIN classes c2 ON c2.id = recent.class_id
-    LEFT JOIN sections sec2 ON sec2.id = recent.section_id
-    WHERE s.student_id = ? LIMIT 1");
+      SELECT se.student_id, se.class_id, se.section_id, se.roll_number
+      FROM students_enrollment se
+      WHERE se.student_id = (SELECT id FROM students WHERE student_id = ? LIMIT 1)
+      ORDER BY se.academic_year_id DESC, se.id DESC
+      LIMIT 1
+  ) recent ON recent.student_id = s.id
+  LEFT JOIN classes c2 ON c2.id = recent.class_id
+  LEFT JOIN sections sec2 ON sec2.id = recent.section_id
+  WHERE s.student_id = ? LIMIT 1");
 $stmt->execute([$student_id, $student_id]);
 $student = $stmt->fetch();
 
@@ -74,7 +77,13 @@ if (!$school_info) {
         <table class="info-table">
             <tr><td class="label">শিক্ষার্থীর নাম</td><td class="value"><?php echo htmlspecialchars($student['first_name'] . ' ' . $student['last_name']); ?></td></tr>
             <tr><td class="label">শ্রেণি ও শাখা</td><td class="value"><?php echo htmlspecialchars($student['class_name']); if (!empty($student['section_name'])) echo ' (' . htmlspecialchars($student['section_name']) . ')'; ?></td></tr>
-            <tr><td class="label">রোল নম্বর</td><td class="value"><?php echo htmlspecialchars($student['roll_number']); ?></td></tr>
+            <tr><td class="label">রোল নম্বর</td><td class="value">
+                <?php 
+                    // Prefer roll from latest enrollment; fallback to legacy students.roll_number; else placeholder.
+                    $roll = $student['recent_roll_number'] ?? ($student['roll_number'] ?? null);
+                    echo $roll !== null && $roll !== '' ? htmlspecialchars($roll) : 'উপলব্ধ নয়';
+                ?>
+            </td></tr>
             <tr><td class="label">স্টুডেন্ট আইডি</td><td class="value"><?php echo htmlspecialchars($student['student_id']); ?></td></tr>
             <tr><td class="label">জন্ম তারিখ</td><td class="value"><?php echo !empty($student['date_of_birth']) ? date('d/m/Y', strtotime($student['date_of_birth'])) : 'প্রদান করা হয়নি'; ?></td></tr>
         </table>
