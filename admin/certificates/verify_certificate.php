@@ -15,10 +15,9 @@ if ($student_id === '') {
 // We attempt to fetch the most recent enrollment (by academic_year_id DESC) for section & class context.
 // Fallback to legacy columns class_id / section_id if present.
 $stmt = $pdo->prepare("SELECT s.*, 
-     COALESCE(c2.name, c1.name) AS class_name,
+     c2.name AS class_name,
      sec2.name AS section_name
   FROM students s
-  LEFT JOIN classes c1 ON c1.id = s.class_id
   LEFT JOIN (
                 SELECT se.student_id, se.class_id, se.section_id
                 FROM students_enrollment se
