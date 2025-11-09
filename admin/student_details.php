@@ -252,7 +252,7 @@ $fee_payments_data = $fee_payments->fetchAll();
                                         <b>রোল নম্বর</b> <a class="float-right"><?php echo $student['roll_number'] ?? ''; ?></a>
                                     </li>
                                     <li class="list-group-item">
-                                        <b>শিক্ষার্থী আইডি</b> <a class="float-right"><?php echo $student['student_id'] ?? $student['id']; ?></a>
+                                        <b>শিক্ষার্থী আইডি</b> <a class="float-right"><?php echo $student['student_id']; ?></a>
                                     </li>
                                     <li class="list-group-item">
                                         <b>ভর্তির তারিখ</b> <a class="float-right"><?php echo !empty($student['admission_date']) ? date('d/m/Y', strtotime($student['admission_date'])) : '-'; ?></a>

@@ -132,17 +132,17 @@ if ($current_year_id && function_exists('enrollment_table_exists') && enrollment
 // Fetch absent students list (including those without attendance records) — year-aware
 if ($current_year_id && function_exists('enrollment_table_exists') && enrollment_table_exists($pdo)) {
     $absent_students_list = $pdo->prepare("
-        SELECT 
-            st.id, st.first_name, st.last_name, c.name AS class_name, s.name AS section_name,
-            se.roll_number, st.mobile_number, st.present_address AS village, st.father_name, st.mother_name, st.guardian_relation, st.photo,
-            CASE WHEN a.status IS NULL THEN 'রেকর্ড করা হয়নি' ELSE 'অনুপস্থিত' END AS status_type
-        FROM students_enrollment se
-        JOIN students st ON st.id = se.student_id
-        JOIN classes c ON se.class_id = c.id
-        LEFT JOIN sections s ON se.section_id = s.id
-        LEFT JOIN attendance a ON a.student_id = st.id AND a.date = ?
-        WHERE se.academic_year_id = ? AND (se.status = 'active' OR se.status IS NULL) AND (a.status = 'absent' OR a.status IS NULL)
-        ORDER BY c.numeric_value, s.name, se.roll_number
+                SELECT 
+                    st.id, st.first_name, st.last_name, c.name AS class_name, s.name AS section_name,
+                    se.roll_number, st.mobile_number, st.present_address AS village, st.father_name, st.mother_name, st.guardian_relation, st.photo,
+                    CASE WHEN a.status IS NULL THEN 'রেকর্ড করা হয়নি' ELSE 'অনুপস্থিত' END AS status_type
+                FROM students_enrollment se
+                JOIN students st ON st.id = se.student_id
+                JOIN classes c ON se.class_id = c.id
+                LEFT JOIN sections s ON se.section_id = s.id
+                LEFT JOIN attendance a ON a.student_id = st.id AND a.date = ?
+                WHERE se.academic_year_id = ? AND (se.status = 'active' OR se.status IS NULL) AND (a.status = 'absent' OR a.status IS NULL)
+                ORDER BY c.numeric_value ASC, s.id ASC, se.roll_number ASC
     ");
     $absent_students_list->execute([$selected_date, $current_year_id]);
     $absent_list = $absent_students_list->fetchAll();
@@ -156,7 +156,7 @@ if ($current_year_id && function_exists('enrollment_table_exists') && enrollment
         JOIN sections s ON st.section_id = s.id
         LEFT JOIN attendance a ON st.id = a.student_id AND a.date = ?
         WHERE st.status = 'active' AND (a.status = 'absent' OR a.status IS NULL)
-        ORDER BY c.numeric_value, s.name, st.roll_number
+                ORDER BY c.numeric_value ASC, s.id ASC, st.roll_number ASC
     ");
     $absent_students_list->execute([$selected_date]);
     $absent_list = $absent_students_list->fetchAll();
@@ -623,7 +623,7 @@ $remarks_stmt = $pdo->prepare("\n    SELECT remarks FROM attendance WHERE studen
                             <!-- /.card-header -->
                             <div class="card-body p-0">
                                 <div class="table-responsive">
-                                    <table class="table table-striped">
+                                    <table class="table table-striped" id="absentTable">
                                         <thead>
                                             <tr>
                                                 <th>ক্রমিক</th>
@@ -649,7 +649,7 @@ $remarks_stmt = $pdo->prepare("\n    SELECT remarks FROM attendance WHERE studen
                                                 $latest_remarks = $remarks && isset($remarks['remarks']) && $remarks['remarks'] !== '' ? $remarks['remarks'] : 'কোন মন্তব্য পাওয়া যায়নি';
                                             ?>
                                             <tr>
-                                                <td><?php echo $serial++; ?></td>
+                                                <td class="serial-cell">&nbsp;</td>
                                                 <td>
                                                     <span class="student-name-link" data-toggle="modal" data-target="#studentModal" 
                                                           data-student-id="<?php echo $student['id']; ?>"
@@ -671,7 +671,7 @@ $remarks_stmt = $pdo->prepare("\n    SELECT remarks FROM attendance WHERE studen
                                                 </td>
                                                 <td><?php echo $student['class_name']; ?></td>
                                                 <td><?php echo $student['section_name']; ?></td>
-                                                <td><?php echo $student['roll_number']; ?></td>
+                                                <td class="roll-cell"><?php echo (int)$student['roll_number']; ?></td>
                                                 <td class="consecutive-days-cell absent"><?php echo $consecutive_days; ?></td>
                                                 <td>
                                                     <span class="status-badge <?php echo $student['status_type'] == 'অনুপস্থিত' ? 'status-absent' : 'status-not-recorded'; ?>">
@@ -819,6 +819,39 @@ $remarks_stmt = $pdo->prepare("\n    SELECT remarks FROM attendance WHERE studen
 
 <script>
     $(document).ready(function() {
+        // Ensure absent table is sorted by Class, then Section, then Roll and re-number serial column
+        function sortAbsentTable(){
+            var $tbody = $('#absentTable tbody');
+            var rows = $tbody.find('tr').get();
+            rows.sort(function(a,b){
+                var tda = $(a).children('td');
+                var tdb = $(b).children('td');
+                var classA = (tda.eq(2).text()||'').trim();
+                var classB = (tdb.eq(2).text()||'').trim();
+                if (classA.localeCompare(classB, 'bn') !== 0) {
+                    return classA.localeCompare(classB, 'bn');
+                }
+                var secA = (tda.eq(3).text()||'').trim();
+                var secB = (tdb.eq(3).text()||'').trim();
+                if (secA.localeCompare(secB, 'bn') !== 0) {
+                    return secA.localeCompare(secB, 'bn');
+                }
+                var rollA = parseInt((tda.eq(4).text()||'').trim(), 10) || 0;
+                var rollB = parseInt((tdb.eq(4).text()||'').trim(), 10) || 0;
+                return rollA - rollB;
+            });
+            $.each(rows, function(idx, row){
+                $tbody.append(row);
+            });
+            // Renumber serial column after sorting
+            var serial = 1;
+            $tbody.find('tr').each(function(){
+                $(this).find('td.serial-cell').text(serial++);
+            });
+        }
+
+        sortAbsentTable();
+
         // Gender Chart
         var genderChartCanvas = document.getElementById('gender-chart').getContext('2d');
         var genderChart = new Chart(genderChartCanvas, {

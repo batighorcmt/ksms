@@ -66,6 +66,29 @@
                 </div>
         </div>
 
+        <?php
+        // Determine current relative path for active state in teacher sidebar
+        $reqPath = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : (isset($_SERVER['SCRIPT_NAME']) ? $_SERVER['SCRIPT_NAME'] : '');
+        $reqPath = strtok($reqPath, '?');
+        $reqPath = ltrim($reqPath, '/');
+        $baseUrlPath = parse_url(BASE_URL, PHP_URL_PATH);
+        if ($baseUrlPath) {
+            $trim = ltrim($baseUrlPath, '/');
+            if ($trim && strpos($reqPath, $trim) === 0) {
+                $reqPath = ltrim(substr($reqPath, strlen($trim)), '/');
+            }
+        }
+        $currentPath = $reqPath;
+        $isActive = function($targets) use ($currentPath) {
+            foreach ((array)$targets as $t) {
+                $t = ltrim($t, '/');
+                if ($currentPath === $t) return true;
+            }
+            return false;
+        };
+        $admissionOpenT = $isActive(['admission/index.php','admission/list.php','admission/students_quick_list.php']);
+        ?>
+
         <!-- Sidebar Menu -->
         <nav class="mt-2">
             <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
@@ -74,6 +97,33 @@
                         <i class="nav-icon fas fa-tachometer-alt"></i>
                         <p>ড্যাশবোর্ড</p>
                     </a>
+                </li>
+                <!-- Admission (teachers allowed) -->
+                <li class="nav-item <?php echo $admissionOpenT ? 'menu-open' : ''; ?>">
+                    <a href="#" class="nav-link <?php echo $admissionOpenT ? 'active' : ''; ?>">
+                        <i class="nav-icon fas fa-address-card"></i>
+                        <p>ভর্তি তথ্য সংগ্রহ <i class="right fas fa-angle-left"></i></p>
+                    </a>
+                    <ul class="nav nav-treeview">
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admission/index.php" class="nav-link <?php echo $isActive('admission/index.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>নতুন ভর্তি তথ্য</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admission/list.php" class="nav-link <?php echo $isActive('admission/list.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>সংগ্রহকৃত তালিকা</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admission/students_quick_list.php" class="nav-link <?php echo $isActive('admission/students_quick_list.php') ? 'active' : ''; ?>">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>সংক্ষিপ্ত শিক্ষার্থী তালিকা</p>
+                            </a>
+                        </li>
+                    </ul>
                 </li>
                 <li class="nav-item">
                     <a href="<?php echo BASE_URL; ?>teacher/teacher_attendance.php" class="nav-link">
@@ -109,6 +159,12 @@
                             <a href="<?php echo BASE_URL; ?>admin/students.php" class="nav-link">
                                 <i class="far fa-circle nav-icon"></i>
                                 <p>শিক্ষার্থী তালিকা</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>admission/students_quick_list.php" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>সংক্ষিপ্ত শিক্ষার্থী তালিকা</p>
                             </a>
                         </li>
                         <li class="nav-item">

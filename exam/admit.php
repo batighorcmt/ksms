@@ -44,6 +44,36 @@ $sched = $pdo->prepare($scheduleSql);
 $sched->execute([':eid' => $exam_id, ':cid' => $exam_class_id]);
 $schedule = $sched->fetchAll(PDO::FETCH_ASSOC);
 
+// Preload assigned subjects per student (year-aware if column exists) for filtering schedule per student
+$assigned_by_student = [];
+try {
+  $ss_has_year = false; $col = $pdo->query("SHOW COLUMNS FROM student_subjects LIKE 'academic_year_id'");
+  $ss_has_year = $col && $col->fetch() ? true : false;
+  if ($student_ids_param !== '' && !empty($students)) {
+    $ids = array_map(fn($r)=> (int)($r['id'] ?? 0), $students);
+    $ids = array_values(array_filter($ids));
+    if (!empty($ids)) {
+      $in = implode(',', array_fill(0, count($ids), '?'));
+      if ($ss_has_year && !empty($exam['academic_year_id'])) {
+        $sql = "SELECT student_id, subject_id FROM student_subjects WHERE academic_year_id = ? AND student_id IN ($in)";
+        $st = $pdo->prepare($sql);
+        $params = array_merge([ (int)$exam['academic_year_id'] ], $ids);
+        $st->execute($params);
+      } else {
+        $sql = "SELECT student_id, subject_id FROM student_subjects WHERE student_id IN ($in)";
+        $st = $pdo->prepare($sql);
+        $st->execute($ids);
+      }
+      $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+      foreach ($rows as $r) {
+        $sid = (int)$r['student_id']; $subId = (int)$r['subject_id'];
+        if (!isset($assigned_by_student[$sid])) $assigned_by_student[$sid] = [];
+        $assigned_by_student[$sid][$subId] = true;
+      }
+    }
+  }
+} catch (Exception $e) { /* ignore and fallback to full schedule */ }
+
 // Students list (year-aware via students_enrollment)
 $students = [];
 if ($student_ids_param !== '') {
@@ -224,9 +254,29 @@ function fmt_time($t) { return $t ? date('H:i', strtotime($t)) : '-'; }
             <table>
               <thead><tr><th>তারিখ</th><th>বার</th><th>বিষয়</th><th>সময়</th></tr></thead>
               <tbody>
-                <?php if (empty($schedule)): ?>
+                <?php
+                  // Determine schedule filtered by this student's assigned subjects (if available)
+                  $stuAssigned = [];
+                  if (!empty($assigned_by_student[(int)($stu['id'] ?? 0)])) {
+                    $stuAssigned = array_keys($assigned_by_student[(int)$stu['id']]);
+                  }
+                  $sched_for_student = [];
+                  if (!empty($schedule)) {
+                    if (!empty($stuAssigned)) {
+                      foreach ($schedule as $row) {
+                        if (isset($row['subject_id']) && in_array((int)$row['subject_id'], $stuAssigned, true)) {
+                          $sched_for_student[] = $row;
+                        }
+                      }
+                    } else {
+                      // No assignment found; show full schedule as fallback
+                      $sched_for_student = $schedule;
+                    }
+                  }
+                ?>
+                <?php if (empty($sched_for_student)): ?>
                   <tr><td colspan="4">কোনো সময়সূচী নির্ধারিত নেই</td></tr>
-                <?php else: foreach ($schedule as $row): ?>
+                <?php else: foreach ($sched_for_student as $row): ?>
                   <tr>
                     <td><?php
                       $d = $row['exam_date'] ?? null;

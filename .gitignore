@@ -1,1 +1,6 @@
 *.jpg
+*.sql
+/uploads
+*.sql
+testprintfile.html
+database/jorepuku_career (1).sql

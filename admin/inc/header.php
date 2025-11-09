@@ -15,6 +15,12 @@
 
     <!-- Right navbar links -->
     <ul class="navbar-nav ml-auto">
+        <!-- Quick Admission Button -->
+        <li class="nav-item d-inline-flex align-items-center mr-2">
+            <a class="btn btn-danger btn-sm" href="<?php echo BASE_URL; ?>admission/index.php" title="ভর্তি তথ্য সংগ্রহ">
+                <i class="fas fa-address-card mr-1"></i> ভর্তি তথ্য সংগ্রহ
+            </a>
+        </li>
         <!-- Notifications Dropdown Menu -->
         <li class="nav-item dropdown">
             <a class="nav-link" data-toggle="dropdown" href="#">

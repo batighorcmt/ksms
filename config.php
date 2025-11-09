@@ -4,12 +4,12 @@ session_start();
 // Database configuration - পোর্ট 3307 যোগ করুন
 define('DB_HOST', 'localhost');
 define('DB_PORT', '3306'); // আপনার MySQL পোর্ট
-define('DB_NAME', 'jorepuku_career');
+define('DB_NAME', 'jorepuku_sunrise');
 define('DB_USER', 'jorepuku_ksms');
 define('DB_PASS', 'Halim%%2025_123');
 
 // Base URL
-define('BASE_URL', 'http://localhost/ksms/');
+define('BASE_URL', 'https://sunrise.batighorbd.com/');
 define('ADMIN_URL', BASE_URL . 'admin/');
 
 // Enable error reporting

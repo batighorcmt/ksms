@@ -206,7 +206,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate_report'])) {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>শিক্ষার্থী তালিকা - কিন্ডার গার্ডেন</title>
+    <title>শিক্ষার্থী তালিকা</title>
 
     <!-- Google Font: Source Sans Pro -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback">
@@ -264,19 +264,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate_report'])) {
             .print-only { display: block !important; }
             body { background-color: #fff; }
             .main-header, .main-sidebar, .control-sidebar, .navbar, .sidebar, .breadcrumb, .main-footer { display:none !important; }
-            .content-wrapper { margin-left:0 !important; padding-bottom:0.65in !important; }
+            /* Do not pad bottom; rely on @page margin for footer space */
+            .content-wrapper { margin-left:0 !important; }
             .card, .card-body { box-shadow:none !important; }
-            .table { font-size: 12px; }
+            .table { font-size: 14px; }
             .table th, .table td { padding: 6px !important; }
-            .table thead th { background:#e5e7eb !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            /* Force ONLY table text to solid black for crisp printing */
+            .table, .table th, .table td { color:#000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .table thead th { background:#e5e7eb !important; }
             table { page-break-inside: auto; }
             tr { page-break-inside: avoid; page-break-after: auto; }
-        }
-
-        /* Default print orientation & margins for printing */
-        @media print {
-            /* Top/Left/Right: 0.3in, Bottom: 0.6in */
-            @page { size: A4 portrait; margin: 0.3in 0.3in 0.6in 0.3in; }
+            /* Default print margins: 0.5in all around; no fixed paper size so A4/Legal/etc. work */
+            @page { margin: 0.5in; }
         }
 
         /* Drag & drop column ordering */
@@ -728,7 +727,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate_report'])) {
     function printWithOrientation(orientation) {
         try {
             // Only override size; keep global margins as defined in CSS
-            var css = '@media print{ @page { size: A4 ' + (orientation === 'landscape' ? 'landscape' : 'portrait') + '; } }';
+            var css = '@media print{ @page { size: ' + (orientation === 'landscape' ? 'landscape' : 'portrait') + '; } }';
             var style = document.createElement('style');
             style.setAttribute('id', 'print-orientation-style');
             style.type = 'text/css';
@@ -747,7 +746,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate_report'])) {
         }
     }
 </script>
-<?php // Ensure print footer behaves exactly like other print pages
-echo print_footer(); ?>
+
 </body>
 </html>
